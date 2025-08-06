@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}iOS SCEP Simulator{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>iOS SCEP Client Simulator</h1>
+    <p>Simulate Apple device certificate enrollment via SCEP protocol</p>
+</div>
+
+<div class="card">
+    <h2>SCEP Server Configuration</h2>
+    <div class="form-group">
+        <label class="form-label" for="scepUrl">SCEP Server URL:</label>
+        <input type="text" id="scepUrl" class="form-control" value="" placeholder="Loading SCEP URL...">
+    </div>
+    <button class="btn" onclick="testSCEPConnection()">🔍 Test SCEP Connection</button>
+    <div id="connectionResult" style="margin-top: 1rem;"></div>
+</div>
+
+<div class="card">
+    <h2>Select Device Type</h2>
+    <p>Choose an Apple device to simulate for certificate enrollment:</p>
+    
+    <div class="device-grid">
+        {% for device_type, device in devices.items() %}
+        <a href="/simulator/device/{{ device_type }}" class="device-card">
+            <div class="device-icon">{{ device.icon }}</div>
+            <div class="device-name">{{ device.name }}</div>
+            <div class="device-details">
+                Model: {{ device.model }}<br>
+                OS: {{ device.os_version }}<br>
+                Serial: {{ device.serial }}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card">
+    <h2>About SCEP Protocol</h2>
+    <p>The Simple Certificate Enrollment Protocol (SCEP) is used by Apple devices to automatically request and receive digital certificates from a Certificate Authority.</p>
+    
+    <h3>SCEP Operations:</h3>
+    <ul style="margin-left: 2rem; margin-top: 1rem;">
+        <li><strong>GetCACert:</strong> Retrieve the CA certificate</li>
+        <li><strong>GetCACaps:</strong> Get CA capabilities and supported operations</li>
+        <li><strong>PKIOperation:</strong> Submit certificate signing request (CSR)</li>
+    </ul>
+    
+    <h3>Device Simulation:</h3>
+    <p>This simulator creates realistic device profiles with proper:</p>
+    <ul style="margin-left: 2rem; margin-top: 1rem;">
+        <li>Device model identifiers and serial numbers</li>
+        <li>Operating system versions</li>
+        <li>RSA key pair generation</li>
+        <li>Certificate Signing Request (CSR) creation</li>
+        <li>SCEP protocol interactions</li>
+    </ul>
+</div>
+
+<script>
+async function testSCEPConnection() {
+    const scepUrl = document.getElementById('scepUrl').value;
+    const resultDiv = document.getElementById('connectionResult');
+    
+    resultDiv.innerHTML = '<div class="alert alert-info">🔄 Testing SCEP connection...</div>';
+    
+    try {
+        // Test real SCEP endpoints directly (same as device.html)
+        const result = await testRealSCEPEndpoints(scepUrl);
+        
+        if (result.success) {
+            let html = '<div class="alert alert-success">✅ SCEP Connection Test Results</div>';
+            html += '<div style="margin-top: 1rem;">';
+            
+            // GetCACert results
+            html += '<h4>GetCACert Operation:</h4>';
+            if (result.tests.getcacert.success) {
+                html += `<p><span class="status-indicator status-success"></span>Success - CA Certificate received (${result.tests.getcacert.size} bytes)</p>`;
+                html += `<p><strong>Content Type:</strong> ${result.tests.getcacert.content_type}</p>`;
+            } else {
+                html += `<p><span class="status-indicator status-error"></span>Failed: ${result.tests.getcacert.error}</p>`;
+            }
+            
+            // GetCACaps results
+            html += '<h4>GetCACaps Operation:</h4>';
+            if (result.tests.getcacaps.success) {
+                html += `<p><span class="status-indicator status-success"></span>Success - Capabilities received</p>`;
+                html += `<p><strong>Capabilities:</strong> ${result.tests.getcacaps.capabilities.join(', ')}</p>`;
+            } else {
+                html += `<p><span class="status-indicator status-error"></span>Failed: ${result.tests.getcacaps.error}</p>`;
+            }
+            
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">❌ Connection test failed: ${result.error}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">❌ Connection test failed: ${error.message}</div>`;
+    }
+}
+
+async function testRealSCEPEndpoints(scepUrl) {
+    try {
+        const results = {
+            success: true,
+            tests: {
+                getcacert: { success: false },
+                getcacaps: { success: false }
+            }
+        };
+        
+        // Test GetCACert operation
+        try {
+            const getCACertResponse = await fetch(`${scepUrl}?operation=GetCACert`);
+            if (getCACertResponse.ok) {
+                results.tests.getcacert = {
+                    success: true,
+                    size: getCACertResponse.headers.get('content-length') || 'unknown',
+                    content_type: getCACertResponse.headers.get('content-type')
+                };
+            } else {
+                results.tests.getcacert = {
+                    success: false,
+                    error: `HTTP ${getCACertResponse.status}`
+                };
+            }
+        } catch (error) {
+            results.tests.getcacert = {
+                success: false,
+                error: error.message
+            };
+        }
+        
+        // Test GetCACaps operation
+        try {
+            const getCACapsResponse = await fetch(`${scepUrl}?operation=GetCACaps`);
+            if (getCACapsResponse.ok) {
+                const capabilities = await getCACapsResponse.text();
+                results.tests.getcacaps = {
+                    success: true,
+                    capabilities: capabilities.trim().split('\n'),
+                    raw_response: capabilities
+                };
+            } else {
+                results.tests.getcacaps = {
+                    success: false,
+                    error: `HTTP ${getCACapsResponse.status}`
+                };
+            }
+        } catch (error) {
+            results.tests.getcacaps = {
+                success: false,
+                error: error.message
+            };
+        }
+        
+        return results;
+    } catch (error) {
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
+// Load SCEP URL from CA Manager and auto-test connection
+window.addEventListener('load', async function() {
+    try {
+        // Get the correct SCEP URL from CA Manager
+        const response = await fetch('{{ scep_server_url }}/api/scep/url/public');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'success' && data.scep_url) {
+                document.getElementById('scepUrl').value = data.scep_url;
+                document.getElementById('scepUrl').placeholder = data.scep_url;
+                setTimeout(testSCEPConnection, 1000);
+                return;
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to get SCEP URL from CA Manager:', error);
+    }
+    
+    // Fallback to default URL pattern
+    const baseUrl = '{{ scep_server_url }}';
+    const hostname = new URL(baseUrl).hostname;
+    const subdomain = hostname.split('.')[0];
+    let identifier = 'pkiclient';
+    
+    if (subdomain !== 'localhost' && subdomain !== '127') {
+        identifier = `pki-${subdomain}`;
+    }
+    
+    const fallbackUrl = `${baseUrl}/scep/${identifier}`;
+    document.getElementById('scepUrl').value = fallbackUrl;
+    document.getElementById('scepUrl').placeholder = fallbackUrl;
+    setTimeout(testSCEPConnection, 1000);
+});
+</script>
+{% endblock %}

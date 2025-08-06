@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device.name }} - iOS SCEP Simulator{% endblock %}
+
+{% block content %}
+<a href="/simulator" class="back-link">← Back to Device Selection</a>
+
+<div class="header">
+    <h1>{{ device.icon }} {{ device.name }}</h1>
+    <p>Simulate SCEP certificate enrollment for this device</p>
+</div>
+
+<div class="card">
+    <h2>Device Information</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        <div>
+            <strong>Device Name:</strong><br>
+            {{ device.name }}
+        </div>
+        <div>
+            <strong>Model Identifier:</strong><br>
+            {{ device.model }}
+        </div>
+        <div>
+            <strong>OS Version:</strong><br>
+            {{ device.os_version }}
+        </div>
+        <div>
+            <strong>Serial Number:</strong><br>
+            {{ device.serial }}
+        </div>
+        <div>
+            <strong>UDID:</strong><br>
+            <code style="font-size: 0.8rem;">{{ device.udid }}</code>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>SCEP Enrollment Configuration</h2>
+    
+    <div class="form-group">
+        <label class="form-label" for="scepUrl">SCEP Server URL:</label>
+        <input type="text" id="scepUrl" class="form-control" value="" placeholder="Loading SCEP URL...">
+        <small style="color: #666; font-size: 0.9rem;">The SCEP endpoint URL where this device will request certificates</small>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label" for="challengePassword">Challenge Password (Optional):</label>
+        <input type="password" id="challengePassword" class="form-control" placeholder="Enter SCEP challenge password if required">
+        <small style="color: #666; font-size: 0.9rem;">Some SCEP servers require a challenge password for enrollment</small>
+    </div>
+    
+    <div style="margin-top: 2rem;">
+        <button class="btn btn-success" onclick="startEnrollment()">🚀 Start Certificate Enrollment</button>
+        <button class="btn btn-secondary" onclick="testConnection()" style="margin-left: 1rem;">🔍 Test Connection</button>
+    </div>
+</div>
+
+<div id="enrollmentResults" style="margin-top: 2rem;"></div>
+
+<script>
+const DEVICE_TYPE = '{{ device_type }}';
+const DEVICE_INFO = {{ device|tojson }};
+
+async function testConnection() {
+    const scepUrl = document.getElementById('scepUrl').value;
+    const resultsDiv = document.getElementById('enrollmentResults');
+    
+    resultsDiv.innerHTML = '<div class="card"><div class="alert alert-info">🔄 Testing SCEP server connection...</div></div>';
+    
+    try {
+        let html = '<div class="card">';
+        html += '<h3>✅ Connection Test Results</h3>';
+        
+        // Test GetCACert operation (real SCEP endpoint)
+        html += '<h4>GetCACert Operation:</h4>';
+        try {
+            const getCACertResponse = await fetch(`${scepUrl}?operation=GetCACert`);
+            if (getCACertResponse.ok) {
+                const contentType = getCACertResponse.headers.get('content-type');
+                const size = getCACertResponse.headers.get('content-length') || 'unknown';
+                html += `<p><span class="status-indicator status-success"></span>CA Certificate retrieved successfully</p>`;
+                html += `<p><strong>Size:</strong> ${size} bytes</p>`;
+                html += `<p><strong>Content Type:</strong> ${contentType}</p>`;
+            } else {
+                html += `<p><span class="status-indicator status-error"></span>Failed: HTTP ${getCACertResponse.status}</p>`;
+            }
+        } catch (error) {
+            html += `<p><span class="status-indicator status-error"></span>Failed: ${error.message}</p>`;
+        }
+        
+        // Test GetCACaps operation (real SCEP endpoint)
+        html += '<h4>GetCACaps Operation:</h4>';
+        try {
+            const getCACapsResponse = await fetch(`${scepUrl}?operation=GetCACaps`);
+            if (getCACapsResponse.ok) {
+                const capabilities = await getCACapsResponse.text();
+                const capsList = capabilities.trim().split('\n');
+                html += `<p><span class="status-indicator status-success"></span>CA Capabilities retrieved successfully</p>`;
+                html += `<p><strong>Capabilities:</strong> ${capsList.join(', ')}</p>`;
+                html += `<details><summary>Raw Response</summary><pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-top: 0.5rem;">${capabilities}</pre></details>`;
+            } else {
+                html += `<p><span class="status-indicator status-error"></span>Failed: HTTP ${getCACapsResponse.status}</p>`;
+            }
+        } catch (error) {
+            html += `<p><span class="status-indicator status-error"></span>Failed: ${error.message}</p>`;
+        }
+        
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+        
+    } catch (error) {
+        resultsDiv.innerHTML = `<div class="card"><div class="alert alert-danger">❌ Connection test failed: ${error.message}</div></div>`;
+    }
+}
+
+async function startEnrollment() {
+    // Certificate enrollment function - v1.1
+    const scepUrl = document.getElementById('scepUrl').value;
+    const challengePassword = document.getElementById('challengePassword').value;
+    const resultsDiv = document.getElementById('enrollmentResults');
+    
+    if (!scepUrl.trim()) {
+        showAlert('Please enter a SCEP server URL', 'danger');
+        return;
+    }
+    
+    resultsDiv.innerHTML = '<div class="card"><div class="alert alert-info">🔄 Starting certificate enrollment process...</div></div>';
+    
+    try {
+        const enrollmentData = {
+            device_type: DEVICE_TYPE,
+            scep_url: scepUrl,
+            challenge_password: challengePassword
+        };
+        
+        // Call the real SCEP enrollment simulation (server-side generates CSR and calls real SCEP)
+        const result = await apiCall('/simulator/api/scep/enroll', 'POST', enrollmentData);
+        
+        if (result.success) {
+            displayEnrollmentResults(result);
+        } else {
+            resultsDiv.innerHTML = `<div class="card"><div class="alert alert-danger">❌ Enrollment failed: ${result.error}</div></div>`;
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `<div class="card"><div class="alert alert-danger">❌ Enrollment failed: ${error.message}</div></div>`;
+    }
+}
+
+function displayEnrollmentResults(result) {
+    const resultsDiv = document.getElementById('enrollmentResults');
+    
+    let html = '<div class="card">';
+    html += '<h3>📋 Certificate Enrollment Results</h3>';
+    
+    // Device Information
+    html += '<h4>Device Profile:</h4>';
+    html += `<p><strong>Device:</strong> ${result.device_profile.name}</p>`;
+    html += `<p><strong>Model:</strong> ${result.device_profile.model}</p>`;
+    html += `<p><strong>Serial:</strong> ${result.device_profile.serial}</p>`;
+    html += `<p><strong>OS Version:</strong> ${result.device_profile.os_version}</p>`;
+    
+    // Enrollment Steps
+    html += '<h4>Enrollment Process:</h4>';
+    
+    const steps = result.enrollment_steps;
+    
+    // Key Generation
+    html += '<h5>1. Key Generation:</h5>';
+    if (steps.key_generation.success) {
+        html += `<p><span class="status-indicator status-success"></span>RSA key pair generated successfully</p>`;
+        html += `<p><strong>Algorithm:</strong> ${steps.key_generation.algorithm}</p>`;
+        html += `<p><strong>Key Size:</strong> ${steps.key_generation.key_size} bits</p>`;
+    } else {
+        html += `<p><span class="status-indicator status-error"></span>Key generation failed</p>`;
+    }
+    
+    // CSR Creation
+    html += '<h5>2. Certificate Signing Request (CSR):</h5>';
+    if (steps.csr_creation.success) {
+        html += `<p><span class="status-indicator status-success"></span>CSR created successfully</p>`;
+        html += `<p><strong>Subject:</strong> ${steps.csr_creation.subject}</p>`;
+        html += `<details><summary>View CSR (PEM Format)</summary><pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-top: 0.5rem; overflow-x: auto;">${steps.csr_creation.csr_pem}</pre></details>`;
+    } else {
+        html += `<p><span class="status-indicator status-error"></span>CSR creation failed</p>`;
+    }
+    
+    // CA Certificate
+    html += '<h5>3. CA Certificate Retrieval:</h5>';
+    if (steps.ca_certificate.success) {
+        html += `<p><span class="status-indicator status-success"></span>CA certificate retrieved</p>`;
+        html += `<p><strong>Size:</strong> ${steps.ca_certificate.size} bytes</p>`;
+        html += `<p><strong>Content Type:</strong> ${steps.ca_certificate.content_type}</p>`;
+    } else {
+        html += `<p><span class="status-indicator status-error"></span>Failed: ${steps.ca_certificate.error}</p>`;
+    }
+    
+    // CA Capabilities
+    html += '<h5>4. CA Capabilities:</h5>';
+    if (steps.ca_capabilities.success) {
+        html += `<p><span class="status-indicator status-success"></span>CA capabilities retrieved</p>`;
+        html += `<p><strong>Capabilities:</strong> ${steps.ca_capabilities.capabilities.join(', ')}</p>`;
+    } else {
+        html += `<p><span class="status-indicator status-error"></span>Failed: ${steps.ca_capabilities.error}</p>`;
+    }
+    
+    // Certificate Enrollment
+    html += '<h5>5. Certificate Enrollment:</h5>';
+    if (steps.enrollment.success) {
+        html += `<p><span class="status-indicator status-success"></span>Certificate enrolled successfully!</p>`;
+        html += `<p><strong>Certificate Size:</strong> ${steps.enrollment.size} bytes</p>`;
+        html += `<p><strong>Content Type:</strong> ${steps.enrollment.content_type}</p>`;
+        html += `<details><summary>View Certificate (Base64)</summary><pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-top: 0.5rem; overflow-x: auto; word-break: break-all;">${steps.enrollment.certificate}</pre></details>`;
+    } else {
+        html += `<p><span class="status-indicator status-error"></span>Failed: ${steps.enrollment.error}</p>`;
+    }
+    
+    html += `<hr><p><small><strong>Timestamp:</strong> ${new Date(result.timestamp).toLocaleString()}</small></p>`;
+    html += '</div>';
+    
+    // Add action buttons
+    html += '<div class="card">';
+    html += '<h4>Actions:</h4>';
+    html += '<button class="btn" onclick="startEnrollment()">🔄 Retry Enrollment</button>';
+    html += '<button class="btn btn-secondary" onclick="downloadResults()" style="margin-left: 1rem;">💾 Download Results</button>';
+    html += '</div>';
+    
+    resultsDiv.innerHTML = html;
+    
+    // Store results for download
+    window.lastEnrollmentResults = result;
+}
+
+function downloadResults() {
+    if (!window.lastEnrollmentResults) {
+        showAlert('No enrollment results to download', 'warning');
+        return;
+    }
+    
+    const results = window.lastEnrollmentResults;
+    const filename = `scep-enrollment-${DEVICE_TYPE}-${Date.now()}.json`;
+    
+    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showAlert(`Results downloaded as ${filename}`, 'success');
+}
+
+// Load SCEP URL from CA Manager and auto-test connection
+window.addEventListener('load', async function() {
+    try {
+        // Get the correct SCEP URL from CA Manager
+        const response = await fetch('{{ scep_server_url }}/api/scep/url/public');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'success' && data.scep_url) {
+                document.getElementById('scepUrl').value = data.scep_url;
+                document.getElementById('scepUrl').placeholder = data.scep_url;
+                setTimeout(testConnection, 1000);
+                return;
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to get SCEP URL from CA Manager:', error);
+    }
+    
+    // Fallback to default URL pattern
+    const baseUrl = '{{ scep_server_url }}';
+    const hostname = new URL(baseUrl).hostname;
+    const subdomain = hostname.split('.')[0];
+    let identifier = 'pkiclient';
+    
+    if (subdomain !== 'localhost' && subdomain !== '127') {
+        identifier = `pki-${subdomain}`;
+    }
+    
+    const fallbackUrl = `${baseUrl}/scep/${identifier}`;
+    document.getElementById('scepUrl').value = fallbackUrl;
+    document.getElementById('scepUrl').placeholder = fallbackUrl;
+    setTimeout(testConnection, 1000);
+});
+</script>
+{% endblock %}

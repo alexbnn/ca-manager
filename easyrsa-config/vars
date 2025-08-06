@@ -1,0 +1,31 @@
+# vars - EasyRSA configuration file
+# This file contains variable definitions that customize EasyRSA behavior
+# Place this file in: easyrsa-config/vars
+
+# Certificate Validity Periods
+set_var EASYRSA_CA_EXPIRE	3650    # CA certificate valid for 10 years
+set_var EASYRSA_CERT_EXPIRE	365     # Client/server certificates valid for 1 year
+set_var EASYRSA_CRL_DAYS	30      # Certificate Revocation List valid for 30 days
+
+# Cryptographic Settings
+set_var EASYRSA_ALGO		rsa              # Use RSA algorithm
+set_var EASYRSA_KEY_SIZE	2048            # RSA key size (2048 or 4096)
+set_var EASYRSA_DIGEST		"sha256"        # Digest algorithm
+
+# Certificate Authority Settings
+set_var EASYRSA_REQ_COUNTRY	"US"                    # Country code
+set_var EASYRSA_REQ_PROVINCE	"California"           # State or province
+set_var EASYRSA_REQ_CITY	"San Francisco"         # City
+set_var EASYRSA_REQ_ORG		"My Organization"       # Organization name
+set_var EASYRSA_REQ_EMAIL	"admin@myorg.com"      # Email address
+set_var EASYRSA_REQ_OU		"IT Department"         # Organizational Unit
+
+# Default Certificate Fields
+set_var EASYRSA_REQ_CN		"My Organization CA"    # Common Name for CA
+
+# Batch Mode Settings
+set_var EASYRSA_BATCH		1                       # Enable batch mode (no prompts)
+
+# Disable password protection for private keys (useful for automation)
+# WARNING: Only use this in secure environments
+set_var EASYRSA_NO_PASS		1

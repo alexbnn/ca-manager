@@ -1,0 +1,369 @@
+# CA Manager v4.0.0 - With OCSP Support and Enhanced Certificate Status Validation
+services:
+  web-interface:
+    build: .
+    # ports:
+    #   - "5050:5000"  # Port exposure handled by Traefik
+    environment:
+      # EasyRSA Container Connection
+      - TERMINAL_CONTAINER_URL=http://easyrsa-container:8080
+      - TERMINAL_ENDPOINT=/execute
+      - REQUEST_TIMEOUT=300
+      
+      # Security Settings
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - AUTHENTICATION_ENABLED=true
+      - MULTI_USER_MODE=true
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD_HASH=admin
+      
+      # Flask Settings
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+      
+      # Rate Limiting (requires Redis)
+      - RATELIMIT_STORAGE_URL=redis://redis:6379
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Database Settings
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-pkiuser}:${POSTGRES_PASSWORD:-pkipass}@postgres:5432/${POSTGRES_DB:-pkiauth}
+      
+      # SCEP Server URL for external clients (uses actual tenant domain)
+      - SCEP_SERVER_URL=${SCEP_SERVER_URL:-https://${DOMAIN:-localhost}}
+      
+      # Tenant ID for proper internal SCEP health checks
+      - TENANT_ID=${TENANT_ID}
+      
+    depends_on:
+      easyrsa-container:
+        condition: service_started
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    volumes:
+      # Persist logs
+      - pki-logs:/app/logs
+      # Optional: Mount SSL certificates for HTTPS
+      - ./ssl:/app/ssl:ro
+      # Mount source files for live updates
+      - ./app.py:/app/app.py:ro
+      - ./templates:/app/templates:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`ca.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.web.tls=true"
+      - "traefik.http.routers.web.priority=100"
+      - "traefik.http.services.web.loadbalancer.server.port=5000"
+  easyrsa-container:
+    build: ./terminal-program
+    # ports:
+    #   - "8080:8080"  # Port exposure handled by Traefik if needed
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    volumes:
+      # Persist PKI data so certificates aren't lost on container restart
+      - easyrsa-pki:/app
+      # Persist logs
+      - easyrsa-logs:/app/logs
+      # Optional: Mount configuration files
+      - ./easyrsa-config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    environment:
+      # EasyRSA environment variables
+      - EASYRSA_PKI=/app
+      - EASYRSA_BATCH=1
+      
+      # Default certificate values (can be overridden via API)
+      - EASYRSA_REQ_COUNTRY=${EASYRSA_REQ_COUNTRY:-US}
+      - EASYRSA_REQ_PROVINCE=${EASYRSA_REQ_PROVINCE:-California}
+      - EASYRSA_REQ_CITY=${EASYRSA_REQ_CITY:-San Francisco}
+      - EASYRSA_REQ_ORG=${EASYRSA_REQ_ORG:-My Organization}
+      - EASYRSA_REQ_EMAIL=${EASYRSA_REQ_EMAIL:-admin@myorg.com}
+      - EASYRSA_REQ_OU=${EASYRSA_REQ_OU:-IT Department}
+      
+      # Certificate validity periods
+      - EASYRSA_CA_EXPIRE=${EASYRSA_CA_EXPIRE:-3650}
+      - EASYRSA_CERT_EXPIRE=${EASYRSA_CERT_EXPIRE:-365}
+      
+      # Cryptographic settings
+      - EASYRSA_KEY_SIZE=${EASYRSA_KEY_SIZE:-2048}
+      - EASYRSA_DIGEST=${EASYRSA_DIGEST:-sha256}
+      
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Redis for rate limiting and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"  # Expose for monitoring if needed
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+
+  # SCEP Server for device certificate enrollment
+  scep-server:
+    build:
+      context: ./scep-server
+      dockerfile: Dockerfile.simple
+    hostname: scep-server  # Required for internal health checks
+    ports:
+      - "8090:8090"  # SCEP server port
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    depends_on:
+      easyrsa-container:
+        condition: service_started
+    environment:
+      # EasyRSA Container Connection
+      - EASYRSA_CONTAINER_URL=http://easyrsa-container:8080
+      # SCEP Configuration
+      - SCEP_CA_IDENTIFIER=${SCEP_CA_IDENTIFIER:-pkiclient}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      # SCEP Password Protection
+      - SCEP_PASSWORD=${SCEP_PASSWORD:-MySecretSCEPPassword123}
+      # Flask Settings
+      - FLASK_ENV=production
+      - FLASK_APP=scep_server.py
+    volumes:
+      # Persist logs
+      - scep-logs:/app/logs
+      # Mount source files for live updates
+      - ./scep-server/scep_server.py:/app/scep_server.py:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.scep.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/scep`)"
+      - "traefik.http.routers.scep.tls=true"
+      - "traefik.http.services.scep.loadbalancer.server.port=8090"
+  # iOS SCEP Client Simulator
+  ios-scep-simulator:
+    build:
+      context: ./ios-scep-simulator
+      dockerfile: Dockerfile
+    environment:
+      - SCEP_SERVER_URL=https://ca.${DOMAIN:-localhost}
+      - CA_MANAGER_BASE_URL=https://ca.${DOMAIN:-localhost}
+      - FLASK_ENV=production
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - traefik
+    volumes:
+      - ./ios-scep-simulator/logs:/app/logs
+      # Mount source files for live updates
+      - ./ios-scep-simulator/app.py:/app/app.py:ro
+      - ./ios-scep-simulator/templates:/app/templates:ro
+    restart: unless-stopped
+    networks:
+      - easyrsa-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.simulator.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/simulator`)"
+      - "traefik.http.routers.simulator.tls=true"
+      - "traefik.http.routers.simulator.priority=200"
+      - "traefik.http.services.simulator.loadbalancer.server.port=3000"
+
+  # OCSP Client Simulator
+  ocsp-simulator:
+    build:
+      context: ./ocsp-simulator
+      dockerfile: Dockerfile
+    environment:
+      - OCSP_RESPONDER_URL=http://ocsp-responder:8091
+      - CA_MANAGER_BASE_URL=https://ca.${DOMAIN:-localhost}
+      - FLASK_ENV=production
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - traefik
+      - ocsp-responder
+    volumes:
+      # Mount source files for live updates
+      - ./ocsp-simulator/app.py:/app/app.py:ro
+      - ./ocsp-simulator/templates:/app/templates:ro
+    restart: unless-stopped
+    networks:
+      - easyrsa-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ocsp-simulator.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/ocsp-simulator`)"
+      - "traefik.http.routers.ocsp-simulator.tls=true"
+      - "traefik.http.routers.ocsp-simulator.priority=500"
+      - "traefik.http.services.ocsp-simulator.loadbalancer.server.port=4000"
+
+  # OCSP Responder - Online Certificate Status Protocol
+  ocsp-responder:
+    build:
+      context: ./ocsp-responder
+      dockerfile: Dockerfile
+    environment:
+      - CA_MANAGER_URL=http://web-interface:5000
+      - EASYRSA_CONTAINER_URL=http://easyrsa-container:8080
+      - DEBUG_MODE=true
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./ocsp-responder/logs:/app/logs
+      # Mount source files for live updates
+      - ./ocsp-responder/ocsp_responder.py:/app/ocsp_responder.py:ro
+    restart: unless-stopped
+    networks:
+      - easyrsa-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ocsp.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/ocsp`)"
+      - "traefik.http.routers.ocsp.tls=true"
+      - "traefik.http.routers.ocsp.priority=300"
+      - "traefik.http.services.ocsp.loadbalancer.server.port=8091"
+
+  # Traefik reverse proxy with automatic SSL and service discovery
+  traefik:
+    image: traefik:v3.0
+    ports:
+      - "80:80"     # HTTP
+      - "443:443"   # HTTPS
+      - "8081:8080" # Traefik Dashboard
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik-dynamic.yml:/etc/traefik/traefik-dynamic.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-logs:/var/log/traefik
+      - letsencrypt-data:/letsencrypt
+      - ./ssl:/ssl:ro  # For custom SSL certificates if needed
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  # PostgreSQL database for user authentication and permissions
+  postgres:
+    build: ./database
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-pkiauth}
+      - POSTGRES_USER=${POSTGRES_USER:-pkiuser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pkipass}
+    ports:
+      - "5432:5432"  # Expose for external access if needed
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Database initialization handled by web application
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pkiuser} -d ${POSTGRES_DB:-pkiauth}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+volumes:
+  # PKI and data volumes
+  easyrsa-pki:
+    driver: local
+  
+  # Database volumes
+  postgres-data:
+    driver: local
+  
+  # Redis data volume
+  redis-data:
+    driver: local
+  
+  # Log volumes
+  pki-logs:
+    driver: local
+  easyrsa-logs:
+    driver: local
+  scep-logs:
+    driver: local
+  ocsp-logs:
+    driver: local
+  traefik-logs:
+    driver: local
+  
+  # Traefik data volumes
+  letsencrypt-data:
+    driver: local
+
+networks:
+  easyrsa-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.200.0.0/16

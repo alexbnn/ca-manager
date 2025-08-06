@@ -1,0 +1,164 @@
+# CA Manager .gitignore
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+setup_complete.flag
+deploy_ready.flag
+cleanup_instructions.json
+
+# Logs
+*.log
+logs/
+*.log.*
+setup-wizard/logs/
+ios-scep-simulator/logs/
+ocsp-simulator/logs/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# PKI Data (sensitive)
+easyrsa-pki/
+pki/
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+ca.crt
+ca.key
+index.txt*
+serial*
+crlnumber*
+
+# SSL Certificates
+ssl/
+certs/
+traefik-certs/
+letsencrypt/
+acme.json
+
+# Database
+postgres-data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+venv/
+env/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node.js (if any frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# Configuration backups
+config.backup
+traefik.yml.backup
+docker-compose.yml.backup
+
+# Test data
+test-certificates/
+test-data/
+mock-data/
+
+# Production secrets
+secrets/
+private/
+confidential/
+
+# Redis
+dump.rdb
+
+# Monitoring
+prometheus-data/
+grafana-data/
+
+# Backup files
+*.backup
+*.bak
+backups/
+
+# Local development
+local/
+dev/
+development/
+
+# Generated documentation
+docs/_build/
+site/
+
+# Archive files
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Setup wizard output
+setup_complete.json
+docker_labels.json
