@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  ios-scep-simulator:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - SCEP_SERVER_URL=https://${DOMAIN:-localhost}
+      - CA_MANAGER_BASE_URL=https://${DOMAIN:-localhost}
+      - FLASK_ENV=production
+    extra_hosts:
+      - "${DOMAIN:-localhost}:172.100.0.5"
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - camanager-v312_easyrsa-network
+
+networks:
+  camanager-v312_easyrsa-network:
+    external: true

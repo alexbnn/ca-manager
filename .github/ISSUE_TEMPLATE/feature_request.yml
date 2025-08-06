@@ -1,0 +1,195 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for CA Manager
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please verify you have completed these steps
+      options:
+        - label: I have searched existing issues and discussions for similar requests
+          required: true
+        - label: I have reviewed the roadmap to see if this is already planned
+          required: true
+        - label: This feature aligns with the project's goals and scope
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What type of feature is this?
+      options:
+        - "Web Interface Enhancement"
+        - "PKI/Certificate Management"
+        - "SCEP Protocol Enhancement"
+        - "OCSP Protocol Enhancement"
+        - "Security & Authentication"
+        - "API & Integration"
+        - "Deployment & Operations"
+        - "Monitoring & Logging"
+        - "Testing & Development"
+        - "Documentation"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Feature Priority
+      description: How important is this feature to you?
+      options:
+        - "Nice to have"
+        - "Would be helpful"
+        - "Important for my use case"
+        - "Critical for adoption"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the current limitation?
+      placeholder: |
+        Currently, users cannot...
+        This makes it difficult to...
+        The workaround is cumbersome because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution in detail
+      placeholder: |
+        I would like to see...
+        This could work by...
+        The user interface could...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: What alternative solutions have you considered?
+      placeholder: |
+        I also considered...
+        Another approach could be...
+        However, this wouldn't work because...
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case Details
+      description: Describe your specific use case and how this feature would help
+      placeholder: |
+        In my organization, we...
+        This feature would allow us to...
+        The expected workflow would be...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: users
+    attributes:
+      label: Who would benefit?
+      description: Who do you think would benefit from this feature?
+      options:
+        - "Just me"
+        - "Small deployments (1-10 users)"
+        - "Medium deployments (10-100 users)"
+        - "Large deployments (100+ users)"
+        - "Enterprise deployments"
+        - "All users"
+        - "Developers/Integrators"
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What would success look like? How would you test this feature?
+      placeholder: |
+        This feature would be complete when:
+        - [ ] Users can...
+        - [ ] The system allows...
+        - [ ] Configuration includes...
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated Complexity
+      description: How complex do you think this feature would be to implement?
+      options:
+        - "I'm not sure"
+        - "Simple (UI change, configuration option)"
+        - "Medium (new API endpoint, database changes)"
+        - "Complex (new service, protocol implementation)"
+        - "Very Complex (major architecture changes)"
+
+  - type: textarea
+    id: technical-details
+    attributes:
+      label: Technical Details
+      description: Any technical implementation details, APIs, or protocols involved?
+      placeholder: |
+        This might involve...
+        Could use existing libraries like...
+        Would need to integrate with...
+
+  - type: textarea
+    id: ui-mockup
+    attributes:
+      label: UI/UX Mockup
+      description: If this involves UI changes, describe or sketch the interface
+      placeholder: |
+        The new button would be located...
+        The configuration page would have...
+        The workflow would be...
+
+  - type: checkboxes
+    id: related-features
+    attributes:
+      label: Related Features
+      description: Are there related features or dependencies?
+      options:
+        - label: This depends on other planned features
+        - label: This would enable other future features
+        - label: This is part of a larger feature set
+        - label: This requires external service integration
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, examples, or references?
+      placeholder: |
+        Similar implementations:
+        - Project X does this by...
+        - Standard Y defines...
+        
+        References:
+        - RFC XXXX: https://...
+        - Documentation: https://...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution Interest
+      description: How would you like to be involved?
+      options:
+        - label: I would like to contribute code for this feature
+        - label: I can help with testing and feedback
+        - label: I can help with documentation
+        - label: I can provide use case expertise
+        - label: I can help with funding/sponsorship

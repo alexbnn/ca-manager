@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab('manual-check')">Manual Check</button>
+        <button class="nav-tab" onclick="switchTab('test-scenarios')">Test Scenarios</button>
+        <button class="nav-tab" onclick="switchTab('configuration')">Configuration</button>
+    </div>
+    
+    <!-- Manual Certificate Check Tab -->
+    <div id="manual-check" class="tab-content active">
+        <h2>Check Certificate Status</h2>
+        <p>Enter a certificate or serial number to check its OCSP status.</p>
+        
+        <form id="ocsp-form">
+            <div class="form-group">
+                <label for="input-type">Input Type:</label>
+                <select id="input-type" onchange="toggleInputType()">
+                    <option value="serial">Serial Number</option>
+                    <option value="certificate">PEM Certificate</option>
+                </select>
+            </div>
+            
+            <div id="serial-input" class="form-group">
+                <label for="serial-number">Certificate Serial Number:</label>
+                <input type="text" id="serial-number" placeholder="Enter serial number (decimal or hex)">
+                <small>Example: 123456789 or ABCDEF123456</small>
+            </div>
+            
+            <div id="cert-input" class="form-group" style="display: none;">
+                <label for="certificate">Certificate (PEM format):</label>
+                <textarea id="certificate" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
+            </div>
+            
+            <button type="submit" class="btn">Check OCSP Status</button>
+        </form>
+        
+        <div id="manual-result"></div>
+    </div>
+    
+    <!-- Test Scenarios Tab -->
+    <div id="test-scenarios" class="tab-content">
+        <h2>Automated Test Scenarios</h2>
+        <p>Run predefined test cases to verify OCSP responder functionality.</p>
+        
+        <div class="form-group">
+            <button onclick="runTestScenario('valid_cert')" class="btn btn-success">Test Valid Certificate</button>
+            <button onclick="runTestScenario('revoked_cert')" class="btn btn-danger">Test Revoked Certificate</button>
+            <button onclick="runTestScenario('unknown_cert')" class="btn btn-secondary">Test Unknown Certificate</button>
+        </div>
+        
+        <div id="scenario-result"></div>
+    </div>
+    
+    <!-- Configuration Tab -->
+    <div id="configuration" class="tab-content">
+        <h2>OCSP Configuration</h2>
+        <p>Current OCSP responder configuration:</p>
+        
+        <div class="form-group">
+            <label>OCSP Responder URL:</label>
+            <input type="text" value="{{ ocsp_responder_url }}" readonly>
+        </div>
+        
+        <div class="form-group">
+            <label>CA Manager URL:</label>
+            <input type="text" value="{{ ca_manager_url }}" readonly>
+        </div>
+        
+        <button onclick="testConnectivity()" class="btn">Test Connectivity</button>
+        
+        <div id="connectivity-result"></div>
+    </div>
+</div>
+
+<script>
+function toggleInputType() {
+    const inputType = document.getElementById('input-type').value;
+    const serialInput = document.getElementById('serial-input');
+    const certInput = document.getElementById('cert-input');
+    
+    if (inputType === 'serial') {
+        serialInput.style.display = 'block';
+        certInput.style.display = 'none';
+    } else {
+        serialInput.style.display = 'none';
+        certInput.style.display = 'block';
+    }
+}
+
+document.getElementById('ocsp-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    showLoading('manual-result');
+    
+    const inputType = document.getElementById('input-type').value;
+    const formData = new FormData();
+    
+    if (inputType === 'serial') {
+        const serialNumber = document.getElementById('serial-number').value.trim();
+        if (!serialNumber) {
+            showResult('manual-result', 'Please enter a serial number', true);
+            return;
+        }
+        formData.append('serial_number', serialNumber);
+    } else {
+        const certificate = document.getElementById('certificate').value.trim();
+        if (!certificate) {
+            showResult('manual-result', 'Please enter a certificate', true);
+            return;
+        }
+        formData.append('certificate', certificate);
+    }
+    
+    try {
+        const response = await fetch('/ocsp-simulator/check', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showResult('manual-result', data);
+        } else {
+            showResult('manual-result', data.error || 'Unknown error occurred', true);
+        }
+    } catch (error) {
+        showResult('manual-result', `Network error: ${error.message}`, true);
+    }
+});
+
+async function runTestScenario(scenario) {
+    showLoading('scenario-result');
+    
+    try {
+        const response = await fetch(`/ocsp-simulator/test/${scenario}`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showResult('scenario-result', data);
+        } else {
+            showResult('scenario-result', data.error || 'Test failed', true);
+        }
+    } catch (error) {
+        showResult('scenario-result', `Network error: ${error.message}`, true);
+    }
+}
+
+async function testConnectivity() {
+    showLoading('connectivity-result');
+    
+    try {
+        const response = await fetch('/ocsp-simulator/health');
+        const data = await response.json();
+        
+        showResult('connectivity-result', {
+            simulator_status: data.status,
+            timestamp: data.timestamp,
+            ocsp_responder_url: data.ocsp_responder
+        });
+    } catch (error) {
+        showResult('connectivity-result', `Connectivity test failed: ${error.message}`, true);
+    }
+}
+
+// Initialize first tab
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelector('.nav-tab').click();
+});
+</script>
+{% endblock %}

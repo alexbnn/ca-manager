@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CA Manager Setup Wizard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            color: var(--gray-900);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .wizard-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .wizard-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 3rem 2rem 2rem;
+            text-align: center;
+        }
+
+        .wizard-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .wizard-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .wizard-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+        }
+
+        .wizard-body {
+            padding: 3rem 2rem;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 3rem;
+        }
+
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .step.completed {
+            background: var(--success);
+            color: white;
+        }
+
+        .step-line {
+            width: 60px;
+            height: 2px;
+            background: var(--gray-200);
+            margin-top: 19px;
+            transition: all 0.3s ease;
+        }
+
+        .step-line.completed {
+            background: var(--success);
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+
+        .section-subtitle {
+            color: var(--gray-600);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        .required {
+            color: var(--error);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .ssl-option {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .ssl-option:hover {
+            border-color: var(--primary);
+            background: var(--gray-50);
+        }
+
+        .ssl-option input[type="radio"] {
+            margin-right: 1rem;
+            width: 20px;
+            height: 20px;
+        }
+
+        .ssl-option.selected {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .ssl-option-content h4 {
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.25rem;
+        }
+
+        .ssl-option-content p {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .ssl-icon {
+            margin-right: 1rem;
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .wizard-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-300);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        .alert.success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            color: var(--gray-600);
+        }
+
+        .feature-list li i {
+            color: var(--success);
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .wizard-header h1 {
+                font-size: 2rem;
+            }
+
+            .wizard-body {
+                padding: 2rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="wizard-card">
+            <div class="wizard-header">
+                <div class="wizard-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h1>CA Manager Setup</h1>
+                <p>Configure your PKI Certificate Authority in just a few steps</p>
+            </div>
+
+            <div class="wizard-body">
+                <div class="step-indicator">
+                    <div class="step active" id="step-1">1</div>
+                    <div class="step-line" id="line-1"></div>
+                    <div class="step" id="step-2">2</div>
+                    <div class="step-line" id="line-2"></div>
+                    <div class="step" id="step-3">3</div>
+                    <div class="step-line" id="line-3"></div>
+                    <div class="step" id="step-4">4</div>
+                </div>
+
+                <div class="alert error" id="error-alert"></div>
+                <div class="alert success" id="success-alert"></div>
+
+                <form id="setup-form">
+                    <!-- Step 1: Domain Configuration -->
+                    <div class="form-section active" id="section-1">
+                        <h2 class="section-title">Domain Configuration</h2>
+                        <p class="section-subtitle">Configure the domain where your CA Manager will be accessible</p>
+
+                        <div class="form-group">
+                            <label for="domain">Domain Name <span class="required">*</span></label>
+                            <input type="text" id="domain" name="domain" placeholder="ca.example.com" required>
+                            <small style="color: var(--gray-500); margin-top: 0.5rem; display: block;">
+                                Use 'localhost' for local testing or your actual domain for production
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: SSL Configuration -->
+                    <div class="form-section" id="section-2">
+                        <h2 class="section-title">SSL Certificate Configuration</h2>
+                        <p class="section-subtitle">Choose how you want to handle SSL certificates</p>
+
+                        <div class="form-group">
+                            <div class="ssl-option" data-option="letsencrypt">
+                                <i class="fas fa-certificate ssl-icon"></i>
+                                <input type="radio" name="ssl_type" value="letsencrypt" id="ssl-letsencrypt">
+                                <div class="ssl-option-content">
+                                    <h4>Let's Encrypt (Automatic)</h4>
+                                    <p>Free SSL certificates with automatic renewal. Requires a valid domain.</p>
+                                </div>
+                            </div>
+
+                            <div class="ssl-option" data-option="selfsigned">
+                                <i class="fas fa-key ssl-icon"></i>
+                                <input type="radio" name="ssl_type" value="selfsigned" id="ssl-selfsigned" checked>
+                                <div class="ssl-option-content">
+                                    <h4>Self-Signed Certificate</h4>
+                                    <p>Use the included self-signed certificate. Perfect for testing and internal use.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="email-group" style="display: none;">
+                            <label for="email">Email Address <span class="required">*</span></label>
+                            <input type="email" id="email" name="email" placeholder="admin@example.com">
+                            <small style="color: var(--gray-500); margin-top: 0.5rem; display: block;">
+                                Required for Let's Encrypt certificate registration and notifications
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Organization Details -->
+                    <div class="form-section" id="section-3">
+                        <h2 class="section-title">Organization Details</h2>
+                        <p class="section-subtitle">This information will be used in your PKI certificates</p>
+
+                        <div class="form-group">
+                            <label for="organization">Organization Name <span class="required">*</span></label>
+                            <input type="text" id="organization" name="organization" placeholder="Acme Corporation" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="country">Country Code <span class="required">*</span></label>
+                                <select id="country" name="country" required>
+                                    <option value="US">United States</option>
+                                    <option value="CA">Canada</option>
+                                    <option value="GB">United Kingdom</option>
+                                    <option value="DE">Germany</option>
+                                    <option value="FR">France</option>
+                                    <option value="JP">Japan</option>
+                                    <option value="AU">Australia</option>
+                                    <option value="NL">Netherlands</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="state">State/Province</label>
+                                <input type="text" id="state" name="state" placeholder="California">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="city">City</label>
+                                <input type="text" id="city" name="city" placeholder="San Francisco">
+                            </div>
+                            <div class="form-group">
+                                <label for="organizational_unit">Department</label>
+                                <input type="text" id="organizational_unit" name="organizational_unit" placeholder="IT Department">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Security Settings -->
+                    <div class="form-section" id="section-4">
+                        <h2 class="section-title">Security & Access</h2>
+                        <p class="section-subtitle">Default administrator credentials and security information</p>
+
+                        <div style="margin-bottom: 2rem; padding: 1.5rem; background: rgba(99, 102, 241, 0.1); border: 2px solid var(--primary); border-radius: 12px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                                <div style="width: 48px; height: 48px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                                    <i class="fas fa-key" style="color: white; font-size: 1.2rem;"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; color: var(--primary);">Default Administrator Credentials</h4>
+                                    <p style="margin: 0; color: var(--gray-600); font-size: 0.9rem;">Use these to access your CA Manager</p>
+                                </div>
+                            </div>
+                            
+                            <div style="background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                    <div>
+                                        <strong style="color: var(--gray-700);">Username:</strong>
+                                        <div style="font-family: 'Courier New', monospace; background: var(--gray-100); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">admin</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: var(--gray-700);">Password:</strong>
+                                        <div style="font-family: 'Courier New', monospace; background: var(--gray-100); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">admin</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px;">
+                                <i class="fas fa-exclamation-triangle" style="color: #d97706; margin-right: 0.5rem;"></i>
+                                <span style="color: #d97706; font-size: 0.9rem; font-weight: 500;">
+                                    <strong>Important:</strong> Change these credentials immediately after first login for security.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--gray-50); border-radius: 8px;">
+                            <h4 style="margin-bottom: 1rem; color: var(--gray-800);">What's included:</h4>
+                            <ul class="feature-list">
+                                <li><i class="fas fa-check"></i> PKI Certificate Authority</li>
+                                <li><i class="fas fa-check"></i> SCEP Server for device enrollment</li>
+                                <li><i class="fas fa-check"></i> OCSP Responder for certificate status checking</li>
+                                <li><i class="fas fa-check"></i> Web-based certificate management</li>
+                                <li><i class="fas fa-check"></i> Certificate expiry monitoring</li>
+                                <li><i class="fas fa-check"></i> Multi-user authentication</li>
+                                <li><i class="fas fa-check"></i> Audit logging</li>
+                            </ul>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating your configuration...</p>
+                </div>
+
+                <div class="wizard-actions">
+                    <button type="button" class="btn btn-secondary" id="prev-btn" onclick="previousStep()" style="display: none;">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+                    <div></div>
+                    <button type="button" class="btn btn-primary" id="next-btn" onclick="nextStep()">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 4;
+
+        // SSL option selection
+        document.querySelectorAll('.ssl-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const radio = this.querySelector('input[type="radio"]');
+                radio.checked = true;
+                
+                document.querySelectorAll('.ssl-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                const emailGroup = document.getElementById('email-group');
+                if (radio.value === 'letsencrypt') {
+                    emailGroup.style.display = 'block';
+                    document.getElementById('email').required = true;
+                } else {
+                    emailGroup.style.display = 'none';
+                    document.getElementById('email').required = false;
+                }
+            });
+        });
+
+        // Domain validation
+        document.getElementById('domain').addEventListener('input', function() {
+            const domain = this.value.toLowerCase();
+            const sslOptions = document.querySelectorAll('input[name="ssl_type"]');
+            const emailGroup = document.getElementById('email-group');
+            
+            if (domain === 'localhost') {
+                // Force self-signed for localhost
+                document.getElementById('ssl-selfsigned').checked = true;
+                document.getElementById('ssl-letsencrypt').disabled = true;
+                document.querySelector('[data-option="letsencrypt"]').style.opacity = '0.5';
+                emailGroup.style.display = 'none';
+                document.getElementById('email').required = false;
+            } else {
+                document.getElementById('ssl-letsencrypt').disabled = false;
+                document.querySelector('[data-option="letsencrypt"]').style.opacity = '1';
+            }
+        });
+
+        function updateStepIndicator() {
+            for (let i = 1; i <= totalSteps; i++) {
+                const step = document.getElementById(`step-${i}`);
+                const line = document.getElementById(`line-${i}`);
+                
+                if (i < currentStep) {
+                    step.classList.add('completed');
+                    step.classList.remove('active');
+                    if (line) line.classList.add('completed');
+                } else if (i === currentStep) {
+                    step.classList.add('active');
+                    step.classList.remove('completed');
+                } else {
+                    step.classList.remove('active', 'completed');
+                    if (line) line.classList.remove('completed');
+                }
+            }
+        }
+
+        function showSection(stepNumber) {
+            document.querySelectorAll('.form-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(`section-${stepNumber}`).classList.add('active');
+        }
+
+        function validateCurrentStep() {
+            const currentSection = document.getElementById(`section-${currentStep}`);
+            const requiredFields = currentSection.querySelectorAll('[required]');
+            
+            for (let field of requiredFields) {
+                if (!field.value.trim()) {
+                    showAlert('Please fill in all required fields', 'error');
+                    field.focus();
+                    return false;
+                }
+            }
+            
+            // Step 4 has no required fields now, so always valid
+            if (currentStep === 4) {
+                return true;
+            }
+            
+            // Special validation for email if Let's Encrypt is selected
+            if (currentStep === 2) {
+                const sslType = document.querySelector('input[name="ssl_type"]:checked').value;
+                const domain = document.getElementById('domain').value.toLowerCase();
+                const email = document.getElementById('email').value;
+                
+                if (sslType === 'letsencrypt' && domain !== 'localhost' && !email) {
+                    showAlert('Email is required for Let\'s Encrypt certificates', 'error');
+                    document.getElementById('email').focus();
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        function nextStep() {
+            if (!validateCurrentStep()) {
+                return;
+            }
+            
+            if (currentStep < totalSteps) {
+                currentStep++;
+                showSection(currentStep);
+                updateStepIndicator();
+                updateButtons();
+            } else {
+                // Final step - submit the form
+                submitSetup();
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                showSection(currentStep);
+                updateStepIndicator();
+                updateButtons();
+            }
+        }
+
+        function updateButtons() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            if (currentStep === 1) {
+                prevBtn.style.display = 'none';
+            } else {
+                prevBtn.style.display = 'inline-flex';
+            }
+            
+            if (currentStep === totalSteps) {
+                nextBtn.innerHTML = '<i class="fas fa-rocket"></i> Deploy CA Manager';
+                nextBtn.classList.add('btn-success');
+            } else {
+                nextBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+                nextBtn.classList.remove('btn-success');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alert = document.getElementById(`${type}-alert`);
+            alert.textContent = message;
+            alert.style.display = 'block';
+            
+            // Hide other alert types
+            const otherType = type === 'error' ? 'success' : 'error';
+            document.getElementById(`${otherType}-alert`).style.display = 'none';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        async function submitSetup() {
+            console.log('Submitting setup...'); // Debug log
+            
+            const formData = new FormData(document.getElementById('setup-form'));
+            const data = Object.fromEntries(formData.entries());
+            console.log('Form data:', data); // Debug log
+            
+            // Show loading
+            document.querySelector('.wizard-body').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            try {
+                console.log('Making request to /api/setup'); // Debug log
+                
+                const response = await fetch('/api/setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('Setup response status:', response.status); // Debug log
+                
+                const result = await response.json();
+                console.log('Setup result:', result); // Debug log
+                
+                if (result.success) {
+                    console.log('Setup successful, showing completion screen'); // Debug log
+                    // Show success and provide download/next steps
+                    document.getElementById('loading').style.display = 'none';
+                    showSetupComplete(result);
+                } else {
+                    throw new Error(result.error || 'Setup failed');
+                }
+            } catch (error) {
+                console.error('Setup error:', error); // Debug log
+                document.getElementById('loading').style.display = 'none';
+                document.querySelector('.wizard-body').style.display = 'block';
+                showAlert(error.message, 'error');
+            }
+        }
+
+        function showSetupComplete(result) {
+            console.log('Showing setup complete screen with result:', result); // Debug log
+            
+            const wizardBody = document.querySelector('.wizard-body');
+            console.log('Wizard body element:', wizardBody); // Debug log
+            
+            // Make sure the wizard body is visible
+            wizardBody.style.display = 'block';
+            console.log('Made wizard body visible'); // Debug log
+            
+            wizardBody.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <div style="width: 80px; height: 80px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; color: white; font-size: 2rem;">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h2 style="color: var(--success); margin-bottom: 1rem;">Setup Complete!</h2>
+                    <p style="color: var(--gray-600); margin-bottom: 2rem;">Your CA Manager configuration has been generated successfully.</p>
+                    
+                    <div style="background: var(--gray-50); border-radius: 8px; padding: 2rem; margin: 2rem 0; text-align: left;">
+                        <h3 style="margin-bottom: 1rem;">Next Steps:</h3>
+                        <ol style="list-style: none; counter-reset: step-counter;">
+                            ${result.next_steps.map(step => `
+                                <li style="counter-increment: step-counter; margin-bottom: 0.5rem; padding-left: 2rem; position: relative;">
+                                    <span style="position: absolute; left: 0; top: 0; width: 1.5rem; height: 1.5rem; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">
+                                        <counter style="content: counter(step-counter);"></counter>
+                                    </span>
+                                    ${step}
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                    
+                    <div style="background: rgba(99, 102, 241, 0.1); border: 2px solid var(--primary); border-radius: 12px; padding: 1.5rem; margin: 2rem 0;">
+                        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                            <div style="width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                                <i class="fas fa-key" style="color: white;"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0; color: var(--primary);">Ready to Login</h4>
+                                <p style="margin: 0; color: var(--gray-600); font-size: 0.9rem;">Use these credentials after deployment</p>
+                            </div>
+                        </div>
+                        <div style="background: white; border-radius: 8px; padding: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <strong style="color: var(--gray-700);">Username:</strong>
+                                <div style="font-family: 'Courier New', monospace; background: var(--gray-100); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">admin</div>
+                            </div>
+                            <div>
+                                <strong style="color: var(--gray-700);">Password:</strong>
+                                <div style="font-family: 'Courier New', monospace; background: var(--gray-100); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">admin</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+                        <button class="btn btn-primary" onclick="deployApplication()" id="deploy-btn">
+                            <i class="fas fa-rocket"></i> Deploy CA Manager Now
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadConfig()">
+                            <i class="fas fa-download"></i> Download Config
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Store config for download
+            window.setupConfig = result.config;
+        }
+
+        function downloadConfig() {
+            const config = window.setupConfig;
+            const blob = new Blob([JSON.stringify(config, null, 2)], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ca-manager-config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function deployApplication() {
+            console.log('Deploy button clicked!'); // Debug log
+            
+            const deployBtn = document.getElementById('deploy-btn');
+            if (!deployBtn) {
+                console.error('Deploy button not found!');
+                return;
+            }
+            
+            deployBtn.disabled = true;
+            deployBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deploying...';
+            
+            try {
+                console.log('Making request to /api/deploy'); // Debug log
+                
+                const response = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Response received:', response.status); // Debug log
+                
+                const result = await response.json();
+                console.log('Response data:', result); // Debug log
+                
+                if (result.success) {
+                    deployBtn.innerHTML = '<i class="fas fa-check"></i> Deployed Successfully!';
+                    deployBtn.classList.remove('btn-primary');
+                    deployBtn.classList.add('btn-success');
+                    
+                    // Show success message
+                    setTimeout(() => {
+                        alert('✅ CA Manager has been deployed successfully!\\n\\nThe setup wizard will now shut down and the main application will start.\\n\\nYou can access your CA Manager at the domain you configured.');
+                        
+                        // Optional: Redirect to main app after a delay
+                        setTimeout(() => {
+                            const domain = window.setupConfig?.domain || 'localhost';
+                            window.location.href = `https://${domain}/`;
+                        }, 3000);
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || 'Deployment failed');
+                }
+            } catch (error) {
+                console.error('Deployment error:', error); // Debug log
+                deployBtn.disabled = false;
+                deployBtn.innerHTML = '<i class="fas fa-rocket"></i> Deploy CA Manager Now';
+                alert(`❌ Deployment failed: ${error.message}`);
+            }
+        }
+
+        // Check deployment status on load
+        async function checkDeploymentStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                if (status.warnings && status.warnings.length > 0) {
+                    const warningHtml = status.warnings.map(warning => `
+                        <div class="alert" style="display: block; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #d97706;">
+                            <i class="fas fa-exclamation-triangle"></i> ${warning.message}
+                        </div>
+                    `).join('');
+                    
+                    document.querySelector('.wizard-body').insertAdjacentHTML('afterbegin', warningHtml);
+                }
+            } catch (error) {
+                console.warn('Could not check deployment status:', error);
+            }
+        }
+
+        // Initialize
+        updateStepIndicator();
+        updateButtons();
+        checkDeploymentStatus();
+        
+        // Set default self-signed as selected
+        document.querySelector('[data-option="selfsigned"]').classList.add('selected');
+    </script>
+</body>
+</html>

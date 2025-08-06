@@ -1,0 +1,20 @@
+# CA Manager Setup Wizard - First-time deployment configuration
+# Run this before the main application to configure your deployment
+
+services:
+  setup-wizard:
+    build: ./setup-wizard
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app/output:rw  # Mount current directory to save generated configs
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=setup_wizard.py
+    restart: "no"  # Only run when explicitly started
+    networks:
+      - setup-network
+
+networks:
+  setup-network:
+    driver: bridge

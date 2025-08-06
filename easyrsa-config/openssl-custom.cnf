@@ -1,0 +1,151 @@
+# openssl-custom.cnf - Custom OpenSSL configuration for EasyRSA
+# Place this file in: easyrsa-config/openssl-custom.cnf
+
+# This is a custom OpenSSL configuration that extends the default EasyRSA settings
+# You can reference this in your vars file with:
+# set_var EASYRSA_SSL_CONF "/app/config/openssl-custom.cnf"
+
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = $ENV::EASYRSA_PKI
+certs             = $dir/issued
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/issued
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+private_key       = $dir/private/ca.key
+certificate       = $dir/ca.crt
+
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl.pem
+crl_extensions    = crl_ext
+
+default_crl_days  = 30
+default_md        = sha256
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 365
+preserve          = no
+policy            = policy_anything
+
+[ policy_anything ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+default_bits        = 2048
+default_keyfile     = privkey.pem
+distinguished_name  = req_distinguished_name
+attributes          = req_attributes
+x509_extensions     = v3_ca
+string_mask         = utf8only
+utf8                = yes
+
+[ req_distinguished_name ]
+countryName                = Country Name (2 letter code)
+countryName_default        = US
+countryName_min            = 2
+countryName_max            = 2
+
+stateOrProvinceName        = State or Province Name (full name)
+stateOrProvinceName_default = California
+
+localityName               = Locality Name (eg, city)
+localityName_default       = San Francisco
+
+0.organizationName         = Organization Name (eg, company)
+0.organizationName_default = My Organization
+
+organizationalUnitName     = Organizational Unit Name (eg, section)
+organizationalUnitName_default = IT Department
+
+commonName                 = Common Name (eg, your name or server hostname)
+commonName_max             = 64
+
+emailAddress               = Email Address
+emailAddress_default       = admin@myorg.com
+emailAddress_max           = 64
+
+[ req_attributes ]
+challengePassword          = A challenge password
+challengePassword_min      = 4
+challengePassword_max      = 20
+unstructuredName           = An optional company name
+
+[ v3_ca ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = critical, CA:true
+keyUsage              = critical, digitalSignature, cRLSign, keyCertSign
+
+[ v3_intermediate_ca ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = critical, CA:true, pathlen:0
+keyUsage              = critical, digitalSignature, cRLSign, keyCertSign
+
+[ server_cert ]
+basicConstraints       = CA:FALSE
+nsCertType            = server
+nsComment             = "EasyRSA Generated Server Certificate"
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage              = critical, digitalSignature, keyEncipherment
+extendedKeyUsage      = serverAuth
+
+[ client_cert ]
+basicConstraints       = CA:FALSE
+nsCertType            = client, email
+nsComment             = "EasyRSA Generated Client Certificate"
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage              = critical, nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage      = clientAuth, emailProtection
+
+[ crl_ext ]
+authorityKeyIdentifier = keyid:always
+
+[ ocsp ]
+basicConstraints       = CA:FALSE
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage              = critical, digitalSignature
+extendedKeyUsage      = critical, OCSPSigning
+
+# Custom extensions for specific use cases
+[ vpn_server ]
+basicConstraints       = CA:FALSE
+nsCertType            = server
+nsComment             = "EasyRSA Generated VPN Server Certificate"
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage              = critical, digitalSignature, keyEncipherment
+extendedKeyUsage      = serverAuth
+# Add Subject Alternative Names for VPN servers
+# subjectAltName        = @alt_names
+
+[ vpn_client ]
+basicConstraints       = CA:FALSE
+nsCertType            = client
+nsComment             = "EasyRSA Generated VPN Client Certificate"
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage              = critical, nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage      = clientAuth
+
+# Subject Alternative Names section (uncomment and modify as needed)
+# [ alt_names ]
+# DNS.1 = vpn.example.com
+# DNS.2 = *.vpn.example.com
+# IP.1  = 192.168.1.1
+# IP.2  = 10.0.0.1

@@ -1,0 +1,315 @@
+{
+  "name": "CA Manager",
+  "ports": [
+    80,
+    443,
+    8081,
+    8090
+  ],
+  "author": "Alex Bonner",
+  "version": "4.0.0",
+  "volumes": {
+    "pki-logs": {
+      "driver": "local"
+    },
+    "scep-logs": {
+      "driver": "local"
+    },
+    "traefik-logs": {
+      "driver": "local"
+    },
+    "letsencrypt-data": {
+      "driver": "local"
+    },
+    "redis-data": {
+      "driver": "local"
+    },
+    "easyrsa-pki": {
+      "driver": "local"
+    },
+    "easyrsa-logs": {
+      "driver": "local"
+    },
+    "postgres-data": {
+      "driver": "local"
+    }
+  },
+  "category": "security",
+  "networks": {
+    "easyrsa-network": {
+      "ipam": {
+        "config": [
+          {
+            "subnet": "172.20.0.0/16"
+          }
+        ]
+      },
+      "driver": "bridge"
+    }
+  },
+  "services": {
+    "traefik": {
+      "image": "traefik:v3.0",
+      "ports": [
+        "80:80",
+        "443:443",
+        "8081:8080"
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        "./traefik.yml:/etc/traefik/traefik.yml:ro",
+        "./traefik-dynamic.yml:/etc/traefik/traefik-dynamic.yml:ro",
+        "/var/run/docker.sock:/var/run/docker.sock:ro",
+        "traefik-logs:/var/log/traefik",
+        "letsencrypt-data:/letsencrypt",
+        "./ssl:/ssl:ro"
+      ],
+      "networks": [
+        "easyrsa-network"
+      ],
+      "labels": [
+        "traefik.enable=true",
+        "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)",
+        "traefik.http.routers.traefik.tls=true",
+        "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      ]
+    },
+    "redis": {
+      "image": "redis:7-alpine",
+      "ports": [
+        "6379:6379"
+      ],
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": "0.1",
+            "memory": "128M"
+          }
+        }
+      },
+      "command": "redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru",
+      "restart": "unless-stopped",
+      "volumes": [
+        "redis-data:/data"
+      ],
+      "networks": [
+        "easyrsa-network"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ],
+        "retries": 5,
+        "timeout": "5s",
+        "interval": "10s"
+      }
+    },
+    "postgres": {
+      "image": "app-registry:5000/ca-manager-223-postgres:latest",
+      "ports": [
+        "5432:5432"
+      ],
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": "0.5",
+            "memory": "512M"
+          },
+          "reservations": {
+            "cpus": "0.25",
+            "memory": "256M"
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        "postgres-data:/var/lib/postgresql/data"
+      ],
+      "networks": [
+        "easyrsa-network"
+      ],
+      "environment": [
+        "POSTGRES_DB=${POSTGRES_DB:-pkiauth}",
+        "POSTGRES_USER=${POSTGRES_USER:-pkiuser}",
+        "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pkipass}"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-pkiuser} -d ${POSTGRES_DB:-pkiauth}"
+        ],
+        "retries": 5,
+        "timeout": "5s",
+        "interval": "10s",
+        "start_period": "30s"
+      }
+    },
+    "scep-server": {
+      "image": "app-registry:5000/ca-manager-223-scep-server:latest",
+      "ports": [
+        "8090:8090"
+      ],
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": "0.25",
+            "memory": "256M"
+          },
+          "reservations": {
+            "cpus": "0.1",
+            "memory": "128M"
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        "scep-logs:/app/logs"
+      ],
+      "hostname": "scep-server",
+      "networks": [
+        "easyrsa-network"
+      ],
+      "depends_on": {
+        "easyrsa-container": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": [
+        "EASYRSA_CONTAINER_URL=http://easyrsa-container:8080",
+        "SCEP_CA_IDENTIFIER=${SCEP_CA_IDENTIFIER:-pkiclient}",
+        "DEBUG_MODE=${DEBUG_MODE:-false}",
+        "FLASK_ENV=production",
+        "FLASK_APP=scep_server.py",
+        "LOG_LEVEL=${LOG_LEVEL:-INFO}"
+      ]
+    },
+    "web-interface": {
+      "image": "app-registry:5000/ca-manager-223-web-interface:latest",
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": "0.5",
+            "memory": "512M"
+          },
+          "reservations": {
+            "cpus": "0.25",
+            "memory": "256M"
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        "pki-logs:/app/logs",
+        "./ssl:/app/ssl:ro"
+      ],
+      "networks": [
+        "easyrsa-network"
+      ],
+      "depends_on": {
+        "redis": {
+          "condition": "service_started"
+        },
+        "postgres": {
+          "condition": "service_healthy"
+        },
+        "easyrsa-container": {
+          "condition": "service_started"
+        }
+      },
+      "environment": [
+        "TERMINAL_CONTAINER_URL=http://easyrsa-container:8080",
+        "TERMINAL_ENDPOINT=/execute",
+        "REQUEST_TIMEOUT=300",
+        "SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}",
+        "AUTHENTICATION_ENABLED=true",
+        "MULTI_USER_MODE=true",
+        "ADMIN_USERNAME=${ADMIN_USERNAME:-admin}",
+        "ADMIN_PASSWORD_HASH=admin",
+        "FLASK_ENV=production",
+        "FLASK_APP=app.py",
+        "RATELIMIT_STORAGE_URL=redis://redis:6379",
+        "LOG_LEVEL=${LOG_LEVEL:-INFO}",
+        "DATABASE_URL=postgresql://${POSTGRES_USER:-pkiuser}:${POSTGRES_PASSWORD:-pkipass}@postgres:5432/${POSTGRES_DB:-pkiauth}",
+        "SCEP_SERVER_URL=${SCEP_SERVER_URL:-https://localhost/scep}",
+        "TENANT_ID=${TENANT_ID}"
+      ]
+    },
+    "easyrsa-container": {
+      "image": "app-registry:5000/ca-manager-223-easyrsa-container:latest",
+      "ports": [
+        "8080:8080"
+      ],
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": "0.25",
+            "memory": "256M"
+          },
+          "reservations": {
+            "cpus": "0.1",
+            "memory": "128M"
+          }
+        }
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        "easyrsa-pki:/app",
+        "easyrsa-logs:/app/logs",
+        "./easyrsa-config:/app/config:ro"
+      ],
+      "networks": [
+        "easyrsa-network"
+      ],
+      "environment": [
+        "EASYRSA_PKI=/app",
+        "EASYRSA_BATCH=1",
+        "EASYRSA_REQ_COUNTRY=${EASYRSA_REQ_COUNTRY:-US}",
+        "EASYRSA_REQ_PROVINCE=${EASYRSA_REQ_PROVINCE:-California}",
+        "EASYRSA_REQ_CITY=${EASYRSA_REQ_CITY:-San Francisco}",
+        "EASYRSA_REQ_ORG=${EASYRSA_REQ_ORG:-My Organization}",
+        "EASYRSA_REQ_EMAIL=${EASYRSA_REQ_EMAIL:-admin@myorg.com}",
+        "EASYRSA_REQ_OU=${EASYRSA_REQ_OU:-IT Department}",
+        "EASYRSA_CA_EXPIRE=${EASYRSA_CA_EXPIRE:-3650}",
+        "EASYRSA_CERT_EXPIRE=${EASYRSA_CERT_EXPIRE:-365}",
+        "EASYRSA_KEY_SIZE=${EASYRSA_KEY_SIZE:-2048}",
+        "EASYRSA_DIGEST=${EASYRSA_DIGEST:-sha256}"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health"
+        ],
+        "retries": 5,
+        "timeout": "5s",
+        "interval": "10s",
+        "start_period": "20s"
+      }
+    }
+  },
+  "description": "PKI Certificate Authority Management System with SCEP support, Traefik reverse proxy, Certificate Expiry Dashboard, Interactive Guided Tour, Pop-up Modal Information Display, Certificate Request Auto-Cleanup, and advanced monitoring features",
+  "redis_required": true,
+  "traefik_routing": {
+    "main_service": "web-interface",
+    "additional_routes": [
+      {
+        "path": "/scep",
+        "service": "scep-server"
+      }
+    ]
+  },
+  "database_required": true,
+  "environment_variables": [
+    "TERMINAL_CONTAINER_URL",
+    "SCEP_SERVER_URL",
+    "SECRET_KEY",
+    "DATABASE_URL",
+    "RATELIMIT_STORAGE_URL",
+    "TENANT_ID"
+  ]
+}

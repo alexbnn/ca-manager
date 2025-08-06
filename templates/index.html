@@ -1,0 +1,4287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKI PoC Tool - Extreme Networks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Shepherd.js Guided Tour -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/js/shepherd.min.js"></script>
+    
+    <style>
+        :root {
+            /* Extreme Networks Color Palette */
+            --primary-purple: #5B059C;
+            --dark-blue: #101B37;
+            --light-gray: #EAECF0;
+            --medium-gray: #98A2B3;
+            --text-dark: #101828;
+            --text-light: #FFFFFF;
+            --success-green: #12B76A;
+            --warning-orange: #F79009;
+            --error-red: #F04438;
+            --info-blue: #2E90FA;
+            
+            /* Typography */
+            --font-primary: 'DM Sans', sans-serif;
+            --font-secondary: 'Noto Sans', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-secondary);
+            background: linear-gradient(135deg, var(--dark-blue) 0%, #1a2951 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--text-light);
+            min-height: 100vh;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Header Styles */
+        .header {
+            background: var(--text-light);
+            border-bottom: 1px solid var(--light-gray);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            height: 40px;
+            width: auto;
+        }
+        
+        .header h1 {
+            font-family: var(--font-primary);
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .auth-status {
+            background: var(--success-green);
+            color: var(--text-light);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: inline-block;
+            margin-right: 1rem;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
+        }
+        
+        /* Dashboard Metrics */
+        .metrics-dashboard {
+            display: grid !important;
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+        
+        .metric-card {
+            background: var(--text-light);
+            border: 1px solid var(--light-gray);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+        
+        .metric-card:hover {
+            box-shadow: 0 4px 8px rgba(16, 24, 40, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .metric-card h3 {
+            font-family: var(--font-primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--medium-gray);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .metric-card .value {
+            font-family: var(--font-primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-card .label {
+            font-size: 0.875rem;
+            color: var(--medium-gray);
+            font-weight: 500;
+        }
+        
+        /* Section Styles */
+        .section {
+            background: var(--text-light);
+            border: 1px solid var(--light-gray);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        }
+        
+        .section h2 {
+            font-family: var(--font-primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .section-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--primary-purple);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+        
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-family: var(--font-primary);
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.875rem;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: var(--font-secondary);
+            background: var(--text-light);
+            color: var(--text-dark);
+            transition: all 0.2s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-purple);
+            box-shadow: 0 0 0 3px rgba(91, 5, 156, 0.1);
+        }
+        
+        /* Button Styles */
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 100px;
+            font-family: var(--font-primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: none;
+            letter-spacing: 0;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            white-space: nowrap;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .btn-primary {
+            background: var(--primary-purple);
+            color: var(--text-light);
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #4a0485;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(91, 5, 156, 0.2);
+        }
+        
+        .btn-secondary {
+            background: var(--text-light);
+            color: var(--text-dark);
+            border: 1px solid var(--light-gray);
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #f9fafb;
+            border-color: var(--medium-gray);
+            transform: translateY(-1px);
+        }
+        
+        .btn-info {
+            background: var(--info-blue);
+            color: var(--text-light);
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        }
+        
+        .btn-info:hover:not(:disabled) {
+            background: #1570ef;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(46, 144, 250, 0.2);
+        }
+        
+        .btn-danger {
+            background: var(--error-red);
+            color: var(--text-light);
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #d92d20;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(240, 68, 56, 0.2);
+        }
+        
+        .btn-success {
+            background: var(--success-green);
+            color: var(--text-light);
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #0ba02c;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(18, 183, 106, 0.2);
+        }
+        
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+        }
+        
+        /* Status Messages */
+        .status {
+            margin-top: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            display: none;
+            border-left: 4px solid;
+        }
+        
+        .status.show {
+            display: block;
+        }
+        
+        .success {
+            background: #f6fef9;
+            color: #027a48;
+            border-left-color: var(--success-green);
+        }
+        
+        .error {
+            background: #fef3f2;
+            color: #b42318;
+            border-left-color: var(--error-red);
+        }
+        
+        .loading {
+            background: #f0f9ff;
+            color: #026aa2;
+            border-left-color: var(--info-blue);
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(2, 106, 162, 0.3);
+            border-radius: 50%;
+            border-top-color: #026aa2;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Output */
+        .output {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: #f9fafb;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .output.show {
+            display: block;
+        }
+        
+        /* Certificates List */
+        .certificates-list {
+            margin-top: 1.5rem;
+            display: none;
+        }
+        
+        .certificates-list.show {
+            display: block;
+        }
+        
+        /* Certificate Expiry Dashboard Styles */
+        .expiry-dashboard {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--light-gray);
+        }
+        
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .dashboard-stats .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid;
+            transition: transform 0.2s;
+        }
+        
+        .dashboard-stats .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card.expired {
+            border-color: var(--error-red);
+            background: #fee;
+        }
+        
+        .stat-card.critical {
+            border-color: #ff6b6b;
+            background: #ffe0e0;
+        }
+        
+        .stat-card.warning {
+            border-color: var(--warning-orange);
+            background: #fff3cd;
+        }
+        
+        .stat-card.normal {
+            border-color: #20c997;
+            background: #e3f9f0;
+        }
+        
+        .stat-card.healthy {
+            border-color: var(--success-green);
+            background: #d4edda;
+        }
+        
+        .stat-card .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+        
+        .dashboard-recommendations {
+            margin-bottom: 1.5rem;
+        }
+        
+        .recommendation-item {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .recommendation-item.critical {
+            background: #fee;
+            border-left: 4px solid var(--error-red);
+        }
+        
+        .recommendation-item.high {
+            background: #ffe0e0;
+            border-left: 4px solid #ff6b6b;
+        }
+        
+        .recommendation-item.medium {
+            background: #fff3cd;
+            border-left: 4px solid var(--warning-orange);
+        }
+        
+        /* Guided Tour Styles */
+        .shepherd-theme-arrows .shepherd-element {
+            max-width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .shepherd-theme-arrows .shepherd-header {
+            background: var(--primary-purple);
+            color: white;
+            border-radius: 8px 8px 0 0;
+            padding: 1rem;
+        }
+        
+        .shepherd-theme-arrows .shepherd-text {
+            padding: 1.5rem;
+            font-family: var(--font-secondary);
+        }
+        
+        .shepherd-theme-arrows .shepherd-footer {
+            padding: 1rem 1.5rem;
+            background: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .shepherd-theme-arrows .shepherd-button {
+            background: var(--primary-purple);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            margin: 0 0.25rem;
+            cursor: pointer;
+        }
+        
+        .shepherd-theme-arrows .shepherd-button.shepherd-button-secondary {
+            background: var(--medium-gray);
+        }
+        
+        .shepherd-theme-arrows .shepherd-button:hover {
+            background: var(--dark-blue);
+        }
+        
+        .tour-trigger-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--primary-purple);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(91, 5, 156, 0.3);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        
+        .tour-trigger-btn:hover {
+            background: var(--dark-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(91, 5, 156, 0.4);
+        }
+        
+        .tour-highlight {
+            position: relative;
+            z-index: 10000;
+        }
+        
+        /* Fix Shepherd.js highlighting to match button border radius */
+        .shepherd-modal-overlay-container .shepherd-modal-is-target,
+        .shepherd-modal-is-target,
+        .shepherd-enabled .shepherd-target,
+        .shepherd-element-attached-top .shepherd-target,
+        .shepherd-element-attached-bottom .shepherd-target,
+        .shepherd-element-attached-left .shepherd-target,
+        .shepherd-element-attached-right .shepherd-target {
+            border-radius: 8px !important;
+            -webkit-border-radius: 8px !important;
+            -moz-border-radius: 8px !important;
+        }
+        
+        /* For buttons specifically, match their border radius */
+        button.shepherd-modal-is-target,
+        button.shepherd-target {
+            border-radius: 8px !important;
+            -webkit-border-radius: 8px !important;
+            -moz-border-radius: 8px !important;
+        }
+        
+        /* Override any Shepherd.js default styles */
+        [data-shepherd-step-id] .shepherd-modal-is-target {
+            border-radius: 8px !important;
+        }
+        
+        .shepherd-element .tour-progress {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .cert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            margin: 0.75rem 0;
+            background: var(--text-light);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .cert-item:hover {
+            border-color: var(--medium-gray);
+            box-shadow: 0 2px 4px rgba(16, 24, 40, 0.06);
+        }
+        
+        .cert-info {
+            flex-grow: 1;
+        }
+        
+        .cert-name {
+            font-family: var(--font-primary);
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .cert-details {
+            color: var(--medium-gray);
+            font-size: 0.875rem;
+        }
+        
+        .cert-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        
+        .cert-type {
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .cert-type.issued {
+            background: #f6fef9;
+            color: #027a48;
+        }
+        
+        .cert-type.request {
+            background: #fffcf5;
+            color: #b54708;
+        }
+        
+        .cert-type.revoked {
+            background: #fef3f2;
+            color: #b42318;
+        }
+        
+        /* Search Controls */
+        .search-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .search-controls input,
+        .search-controls select {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(16, 24, 40, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            background: var(--text-light);
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--light-gray);
+        }
+        
+        .modal-header h2 {
+            font-family: var(--font-primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0;
+        }
+        
+        .close {
+            color: var(--medium-gray);
+            font-size: 1.5rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            line-height: 1;
+        }
+        
+        .close:hover {
+            color: var(--text-dark);
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--light-gray);
+        }
+        
+        .form-help {
+            display: block;
+            color: var(--medium-gray);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            line-height: 1.3;
+        }
+        
+        /* Utilities */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .header {
+                padding: 1rem;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .button-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-dashboard {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .search-controls {
+                flex-direction: column;
+            }
+            
+            .search-controls input,
+            .search-controls select {
+                min-width: auto;
+            }
+            
+            .cert-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .cert-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .metrics-dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .logo-section {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .section {
+                padding: 1.5rem;
+            }
+        }
+        
+        /* Special styling for SCEP section */
+        .scep-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .scep-section .section-icon {
+            background: linear-gradient(135deg, var(--primary-purple) 0%, #7c3aed 100%);
+        }
+        
+        .scep-url-field {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace !important;
+            font-size: 0.875rem !important;
+            cursor: text !important;
+        }
+        
+        .scep-url-field:focus {
+            background: var(--text-light) !important;
+        }
+        
+        /* User Management Styles */
+        .users-table {
+            overflow-x: auto;
+            margin-top: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--light-gray);
+        }
+        
+        .users-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        
+        .users-table th,
+        .users-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--light-gray);
+        }
+        
+        .users-table th {
+            background: var(--light-gray);
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        
+        .users-table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
+        }
+        
+        /* Profile Modal Styles */
+        #profileModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .profile-modal-content {
+            background-color: var(--text-light);
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .profile-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .profile-modal-header h2 {
+            margin: 0;
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .close-profile {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--medium-gray);
+            line-height: 1;
+        }
+        
+        .close-profile:hover {
+            color: var(--text-dark);
+        }
+        
+        .profile-section {
+            margin-bottom: 2rem;
+        }
+        
+        .profile-section h3 {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-bottom: 2px solid var(--light-gray);
+            padding-bottom: 0.5rem;
+        }
+        
+        .profile-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .profile-label {
+            font-weight: 600;
+            color: var(--medium-gray);
+        }
+        
+        .profile-value {
+            color: var(--text-dark);
+        }
+        
+        .password-change-form {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .password-change-form .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .password-change-form label {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.875rem;
+        }
+        
+        .password-change-form input {
+            padding: 0.75rem;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+        
+        .password-change-form input:focus {
+            outline: none;
+            border-color: var(--primary-purple);
+            box-shadow: 0 0 0 3px rgba(91, 5, 156, 0.1);
+        }
+        
+        .password-change-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+        
+        /* Information Modal Styles */
+        #infoModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        #infoModal .modal-content {
+            background-color: var(--text-light);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #infoModal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--light-gray);
+            border-radius: 12px 12px 0 0;
+        }
+        
+        #infoModal .modal-header h2 {
+            margin: 0;
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        #infoModal .modal-header .close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--medium-gray);
+            line-height: 1;
+        }
+        
+        #infoModal .modal-header .close:hover {
+            color: var(--text-dark);
+        }
+        
+        #infoModal .modal-body {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+        }
+        
+        #infoModal .info-content {
+            background: #f8f9fa;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        #infoModal .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1.5rem 2rem;
+            border-top: 1px solid var(--light-gray);
+            border-radius: 0 0 12px 12px;
+        }
+        
+        /* Hide old output div since we're using modals now */
+        #output {
+            display: none !important;
+        }
+        
+        /* Progress Modal Styles */
+        .progress-content {
+            padding: 1rem 0;
+        }
+        
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .progress-step .loading-spinner {
+            flex-shrink: 0;
+        }
+        
+        .progress-details {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid var(--info-blue);
+        }
+        
+        .progress-details h4 {
+            margin: 0 0 0.75rem 0;
+            color: var(--text-dark);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .progress-info {
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+        
+        .progress-output {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid var(--success-green);
+        }
+        
+        .progress-output h4 {
+            margin: 0 0 0.75rem 0;
+            color: var(--text-dark);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .progress-output pre {
+            background: #f1f5f9;
+            border: 1px solid var(--light-gray);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 0;
+        }
+        
+        .progress-step.completed .loading-spinner {
+            display: none;
+        }
+        
+        .progress-step.completed::before {
+            content: '✅';
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        .progress-step.error .loading-spinner {
+            display: none;
+        }
+        
+        .progress-step.error::before {
+            content: '❌';
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>PKI PoC Tool</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status" id="authStatus">
+                        <span id="authText">Authenticated</span>
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="openProfile()">
+                        Profile
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="logout()">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <main class="main-content">
+            <!-- Dashboard Metrics -->
+            <div class="metrics-dashboard hidden" id="dashboardMetrics">
+                <div class="metric-card" id="totalCertsCard" title="Total number of certificates issued by your PKI">
+                    <h3>Total Certificates</h3>
+                    <div class="value" id="totalCerts">0</div>
+                    <div class="label">Issued</div>
+                </div>
+                <div class="metric-card" id="expiringSoonCard" title="Certificates expiring within the next 30 days">
+                    <h3>Expiring Soon</h3>
+                    <div class="value" id="expiringSoon">0</div>
+                    <div class="label">Within 30 days</div>
+                </div>
+                <div class="metric-card" id="pendingRequestsCard" title="Certificate requests waiting to be signed">
+                    <h3>Pending Requests</h3>
+                    <div class="value" id="pendingRequests">0</div>
+                    <div class="label">Awaiting signature</div>
+                </div>
+                <div class="metric-card" id="systemHealthCard" title="Overall health of your PKI system">
+                    <h3>System Health</h3>
+                    <div class="value" id="systemHealth">✅</div>
+                    <div class="label" id="systemHealthLabel">PKI Backend</div>
+                </div>
+                <div class="metric-card" id="scepHealthCard" title="Status of SCEP server for automatic device enrollment">
+                    <h3>SCEP Server</h3>
+                    <div class="value" id="scepHealth">📡</div>
+                    <div class="label">Device Enrollment</div>
+                </div>
+            </div>
+            
+            <!-- PKI Initialization Section (Admin Only) -->
+            {% if user.is_admin %}
+            <div class="section">
+                <h2><span class="section-icon">1</span>PKI Initialization</h2>
+                <div class="button-grid">
+                    <button class="btn btn-primary" id="initPKI">Initialize PKI</button>
+                    <button class="btn btn-info" id="checkStatus">Check PKI Status</button>
+                    <button class="btn btn-secondary" id="loadDashboard">Load Dashboard</button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Certificate Authority Section (Admin & Operator) -->
+            {% if 'admin' in user.roles or 'operator' in user.roles %}
+            <div class="section">
+                <h2><span class="section-icon">2</span>Certificate Authority</h2>
+                <div class="button-grid">
+                    <button class="btn btn-primary" id="buildCA">Build CA</button>
+                    <button class="btn btn-info" id="generateCRL">Generate CRL</button>
+                    <button class="btn btn-secondary" id="showCA">Show CA Details</button>
+                </div>
+            </div>
+            
+            <!-- Certificate Management Section (Admin & Operator) -->
+            <div class="section">
+                <h2><span class="section-icon">3</span>Certificate Management</h2>
+                <div class="form-group">
+                    <label for="certName">Certificate Name:</label>
+                    <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
+                </div>
+                <div class="form-group">
+                    <label for="certType">Certificate Type:</label>
+                    <select id="certType">
+                        <option value="client">Client Certificate</option>
+                        <option value="server">Server Certificate</option>
+                    </select>
+                </div>
+                <div class="button-grid">
+                    <button class="btn btn-primary" id="createFullCert">Create Full Certificate</button>
+                    <button class="btn btn-secondary" id="generateRequest">Generate Request Only</button>
+                    <button class="btn btn-secondary" id="signRequest">Sign Existing Request</button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Certificate Operations Section -->
+            <div class="section">
+                <h2><span class="section-icon">4</span>Certificate Operations</h2>
+                <div class="form-group">
+                    <label for="operationCertName">Certificate Name:</label>
+                    <input type="text" id="operationCertName" placeholder="Enter certificate name">
+                </div>
+                <div class="button-grid">
+                    <button class="btn btn-info" id="showCert">Show Certificate Details</button>
+                    {% if 'admin' in user.roles or 'operator' in user.roles %}
+                    <button class="btn btn-info" id="validateCert">Validate Certificate</button>
+                    {% endif %}
+                    <button class="btn btn-secondary" id="downloadCert">Download Certificate</button>
+                    {% if 'admin' in user.roles or 'operator' in user.roles %}
+                    <button class="btn btn-danger" id="revokeCert">Revoke Certificate</button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- SCEP Server Section (Admin & Operator) -->
+            {% if 'admin' in user.roles or 'operator' in user.roles %}
+            <div class="section scep-section">
+                <h2><span class="section-icon">5</span>SCEP Device Enrollment</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    SCEP (Simple Certificate Enrollment Protocol) enables automatic certificate enrollment for network devices.
+                    Configure your devices to use these endpoints for automated certificate management.
+                </p>
+                <div class="form-group">
+                    <label for="scepUrl">SCEP Server URL:</label>
+                    <input type="text" id="scepUrl" value="Loading..." readonly 
+                           class="scep-url-field" onclick="this.select()">
+                </div>
+                
+                {% if 'admin' in user.roles %}
+                <!-- SCEP Password Management (Admin Only) -->
+                <div class="form-group" style="margin-top: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, rgba(91, 5, 156, 0.08) 0%, rgba(91, 5, 156, 0.12) 100%); border-radius: 12px; border: 2px solid rgba(91, 5, 156, 0.3); box-shadow: 0 4px 12px rgba(91, 5, 156, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                        <div style="background: var(--primary-purple); color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">🔐</div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--primary-purple);">SCEP Challenge Password</h3>
+                            <p style="margin: 0; font-size: 0.8rem; color: var(--medium-gray);">Required for all device certificate enrollments</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem;">
+                        <input type="password" id="scepPasswordInput" placeholder="Enter new SCEP password (min 8 characters)" 
+                               style="flex: 1; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9rem; background: white;">
+                        <button class="btn btn-primary" id="updateSCEPPassword" style="white-space: nowrap; padding: 0.75rem 1.5rem; font-weight: 600;">
+                            Update Password
+                        </button>
+                    </div>
+                    <div id="scepPasswordStatus" style="padding: 0.5rem 0.75rem; background: rgba(255, 255, 255, 0.7); border-radius: 6px; font-size: 0.8rem; color: var(--medium-gray); border: 1px solid rgba(0, 0, 0, 0.1);">
+                        Loading current password status...
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="button-grid">
+                    <button class="btn btn-info" id="showSCEPInfo">Show SCEP Details</button>
+                    <button class="btn btn-secondary" id="testSCEPHealth">Test SCEP Health</button>
+                    <button class="btn btn-secondary" id="testGetCACaps">Test GetCACaps</button>
+                    <button class="btn btn-secondary" id="downloadCASCEP">Download CA via SCEP</button>
+                    <button class="btn btn-primary" id="openIOSSimulator">iOS Simulator</button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- OCSP Section (Admin & Operator) -->
+            {% if 'admin' in user.roles or 'operator' in user.roles %}
+            <div class="section ocsp-section">
+                <h2><span class="section-icon">6</span>OCSP (Online Certificate Status Protocol)</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    OCSP allows real-time certificate status validation. Use this endpoint to check if certificates are valid, revoked, or unknown.
+                    The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
+                </p>
+                <div class="form-group">
+                    <label for="ocspUrl">OCSP Responder URL:</label>
+                    <input type="text" id="ocspUrl" value="Loading..." readonly 
+                           class="scep-url-field" onclick="this.select()">
+                </div>
+                
+                <div class="button-grid">
+                    <button class="btn btn-info" id="showOCSPInfo">Show OCSP Details</button>
+                    <button class="btn btn-secondary" id="testOCSPHealth">Test OCSP Health</button>
+                    <button class="btn btn-primary" id="openOCSPSimulator">🔍 OCSP Simulator</button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Certificate Tracking Section -->
+            <div class="section">
+                <h2><span class="section-icon">7</span>Certificate Tracking</h2>
+                
+                <!-- Search and Filter Controls -->
+                <div class="search-controls">
+                    <input type="text" id="searchCerts" placeholder="Search certificates...">
+                    <select id="filterType">
+                        <option value="">All Types</option>
+                        <option value="issued">Issued</option>
+                        <option value="request">Pending</option>
+                        <option value="revoked">Revoked</option>
+                    </select>
+                    <select id="filterExpiry">
+                        <option value="">All Certificates</option>
+                        <option value="7">Expiring in 7 days</option>
+                        <option value="30">Expiring in 30 days</option>
+                        <option value="90">Expiring in 90 days</option>
+                    </select>
+                </div>
+                
+                <div class="button-grid">
+                    <button class="btn btn-info" id="listCertificates">List All Certificates</button>
+                    {% if 'admin' in user.roles or 'operator' in user.roles %}
+                    <button class="btn btn-warning" id="showExpiryDashboard">📊 Expiry Dashboard</button>
+                    <button class="btn btn-secondary" id="checkExpiring">Check Expiring Certs</button>
+                    <button class="btn btn-secondary" id="checkConnection">Check Connection</button>
+                    <button class="btn btn-secondary" id="createBackup">Create Backup</button>
+                    {% endif %}
+                </div>
+                <div id="certificatesList" class="certificates-list"></div>
+                
+                <!-- Certificate Expiry Dashboard -->
+                <div id="expiryDashboard" class="expiry-dashboard" style="display: none; margin-top: 2rem;">
+                    <h3 style="margin-bottom: 1rem;">🔒 Certificate Expiry Dashboard</h3>
+                    <div class="dashboard-stats">
+                        <div class="stat-card expired">
+                            <div class="stat-number" id="expiredCount">0</div>
+                            <div class="stat-label">Expired</div>
+                        </div>
+                        <div class="stat-card critical">
+                            <div class="stat-number" id="criticalCount">0</div>
+                            <div class="stat-label">Critical (≤7 days)</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-number" id="warningCount">0</div>
+                            <div class="stat-label">Warning (≤30 days)</div>
+                        </div>
+                        <div class="stat-card normal">
+                            <div class="stat-number" id="normalCount">0</div>
+                            <div class="stat-label">Normal (≤90 days)</div>
+                        </div>
+                        <div class="stat-card healthy">
+                            <div class="stat-number" id="healthyCount">0</div>
+                            <div class="stat-label">Healthy (>90 days)</div>
+                        </div>
+                    </div>
+                    <div id="dashboardRecommendations" class="dashboard-recommendations"></div>
+                    <div id="dashboardDetails" class="dashboard-details"></div>
+                </div>
+            </div>
+            
+            <!-- User Management Section (Admin Only) -->
+            {% if user.is_admin %}
+            <div class="section" id="userManagementSection">
+                <h2><span class="section-icon">8</span>User Management</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Manage user accounts and permissions for the PKI system.
+                </p>
+                
+                <div class="button-grid">
+                    <button class="btn btn-primary" id="showUsers">List Users</button>
+                    <button class="btn btn-success" id="addUser">Add New User</button>
+                </div>
+                
+                <div id="usersList" class="users-list" style="display: none; margin-top: 1.5rem;">
+                    <!-- Users will be populated here -->
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Status and Output -->
+            <div id="status" class="status"></div>
+            <div id="output" class="output"></div>
+        </main>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal">
+        <div class="profile-modal-content">
+            <div class="profile-modal-header">
+                <h2>User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()">&times;</button>
+            </div>
+            
+            <div class="profile-section">
+                <h3>Profile Information</h3>
+                <div class="profile-info">
+                    <div class="profile-label">Username:</div>
+                    <div class="profile-value" id="profileUsername">-</div>
+                    <div class="profile-label">Email:</div>
+                    <div class="profile-value" id="profileEmail">-</div>
+                    <div class="profile-label">Full Name:</div>
+                    <div class="profile-value" id="profileFullName">-</div>
+                    <div class="profile-label">Role:</div>
+                    <div class="profile-value" id="profileRole">-</div>
+                    <div class="profile-label">Last Login:</div>
+                    <div class="profile-value" id="profileLastLogin">-</div>
+                </div>
+            </div>
+            
+            <div class="profile-section">
+                <h3>Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                    </div>
+                    <div class="password-change-actions">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- CA Configuration Modal -->
+    <div id="caModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Certificate Authority Configuration</h2>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            
+            <form id="caForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="caCommonName">Common Name (CA Name):</label>
+                        <input type="text" id="caCommonName" value="My Organization CA" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caCountry">Country (2 letter code):</label>
+                        <input type="text" id="caCountry" value="US" maxlength="2" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caState">State/Province:</label>
+                        <input type="text" id="caState" value="California" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caCity">City:</label>
+                        <input type="text" id="caCity" value="San Francisco" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caOrganization">Organization:</label>
+                        <input type="text" id="caOrganization" value="My Organization" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caOrgUnit">Organizational Unit:</label>
+                        <input type="text" id="caOrgUnit" value="IT Department" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caEmail">Email Address:</label>
+                        <input type="email" id="caEmail" value="admin@myorg.com" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caValidityDays">CA Validity (days):</label>
+                        <input type="number" id="caValidityDays" value="3650" min="365" max="36500" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="certValidityDays">Certificate Validity (days):</label>
+                        <input type="number" id="certValidityDays" value="365" min="30" max="3650" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="keySize">Key Size:</label>
+                        <select id="keySize" required>
+                            <option value="2048">2048 bits</option>
+                            <option value="4096">4096 bits</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="digestAlgorithm">Digest Algorithm:</label>
+                        <select id="digestAlgorithm" required>
+                            <option value="sha256">SHA-256</option>
+                            <option value="sha384">SHA-384</option>
+                            <option value="sha512">SHA-512</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelCA">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitCA">Build Certificate Authority</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Creation Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New User</h2>
+                <span class="close" id="closeUserModal">&times;</span>
+            </div>
+            
+            <form id="userForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="newUsername">Username:</label>
+                        <input type="text" id="newUsername" required minlength="3" maxlength="50" placeholder="Enter username">
+                        <small class="form-help">3-50 characters, alphanumeric and underscore only</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newEmail">Email:</label>
+                        <input type="email" id="newEmail" required maxlength="100" placeholder="user@example.com">
+                        <small class="form-help">Valid email address</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPassword">Password:</label>
+                        <input type="password" id="newPassword" required minlength="6" maxlength="128" placeholder="Enter password">
+                        <small class="form-help">Minimum 6 characters</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newFullName">Full Name:</label>
+                        <input type="text" id="newFullName" required maxlength="100" placeholder="Enter full name">
+                        <small class="form-help">User's display name</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newRole">Role:</label>
+                        <select id="newRole" required>
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin - Full system access</option>
+                            <option value="operator">Operator - PKI operations (no initialization)</option>
+                            <option value="viewer">Viewer - Read-only access</option>
+                        </select>
+                        <small class="form-help">Determines user permissions</small>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelUser">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitUser">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div id="progressModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="progressTitle">Processing Operation</h2>
+            </div>
+            
+            <div class="progress-content">
+                <div class="progress-step" id="progressStep">
+                    <span class="loading-spinner"></span>
+                    <span id="progressMessage">Starting operation...</span>
+                </div>
+                
+                <div class="progress-details" id="progressDetails" style="display: none;">
+                    <h4>Operation Details:</h4>
+                    <div class="progress-info">
+                        <strong>Certificate Name:</strong> <span id="progressCertName">-</span><br>
+                        <strong>Type:</strong> <span id="progressCertType">-</span><br>
+                        <strong>Started:</strong> <span id="progressStartTime">-</span>
+                    </div>
+                </div>
+                
+                <div class="progress-output" id="progressOutput" style="display: none;">
+                    <h4>Output:</h4>
+                    <pre id="progressOutputText"></pre>
+                </div>
+            </div>
+            
+            <div class="modal-buttons" id="progressButtons" style="display: none;">
+                <button type="button" class="btn btn-primary" id="closeProgress">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="infoModalTitle">Information</h2>
+                <span class="close" onclick="closeInfoModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <pre id="infoModalContent" class="info-content"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeInfoModal()">Close</button>
+                <button type="button" class="btn btn-primary" onclick="copyInfoToClipboard()">📋 Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoading = false;
+        let authenticationEnabled = false;
+        let currentCertificates = [];
+        
+        // Current user information
+        let currentUser = {
+            username: '{{ user.username if user else "" }}',
+            roles: {{ user.roles | tojson if user and user.roles else [] }},
+            is_admin: {{ user.is_admin | tojson if user else false }}
+        };
+        
+        // Helper function to check user permissions
+        function hasPermission(requiredRole) {
+            if (requiredRole === 'admin') {
+                return currentUser.is_admin || currentUser.roles.includes('admin');
+            }
+            if (requiredRole === 'operator') {
+                return currentUser.roles.includes('admin') || currentUser.roles.includes('operator');
+            }
+            if (requiredRole === 'viewer') {
+                return currentUser.roles.includes('admin') || currentUser.roles.includes('operator') || currentUser.roles.includes('viewer');
+            }
+            return false;
+        }
+        
+        // Helper function to check permissions and show error if denied
+        function checkPermissionAndExecute(requiredRole, callback, errorMessage) {
+            if (hasPermission(requiredRole)) {
+                callback();
+            } else {
+                showStatus(errorMessage || 'You do not have permission to perform this action', 'error');
+            }
+        }
+
+        function setLoading(loading) {
+            isLoading = loading;
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => btn.disabled = loading);
+        }
+
+        function showStatus(message, type = 'loading') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type} show`;
+            
+            if (type === 'loading') {
+                statusDiv.innerHTML = `<span class="loading-spinner"></span>${message}`;
+            } else {
+                statusDiv.textContent = message;
+            }
+        }
+
+        function showOutput(content, title = 'Information') {
+            // Set modal content
+            document.getElementById('infoModalTitle').textContent = title;
+            document.getElementById('infoModalContent').textContent = content;
+            
+            // Show modal
+            document.getElementById('infoModal').style.display = 'block';
+        }
+        
+        function closeInfoModal() {
+            document.getElementById('infoModal').style.display = 'none';
+        }
+        
+        function copyInfoToClipboard() {
+            const content = document.getElementById('infoModalContent').textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(content).then(() => {
+                    showStatus('📋 Content copied to clipboard', 'success');
+                }).catch(err => {
+                    console.error('Failed to copy to clipboard:', err);
+                    fallbackCopyToClipboard(content);
+                });
+            } else {
+                fallbackCopyToClipboard(content);
+            }
+        }
+        
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showStatus('📋 Content copied to clipboard', 'success');
+            } catch (err) {
+                console.error('Fallback: Unable to copy to clipboard', err);
+                showStatus('❌ Failed to copy to clipboard', 'error');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function hideOutput() {
+            document.getElementById('output').classList.remove('show');
+            document.getElementById('certificatesList').classList.remove('show');
+        }
+
+        // API Helper Functions
+        async function apiRequest(endpoint, method = 'GET', data = null) {
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            
+            if (data && method !== 'GET') {
+                options.body = JSON.stringify(data);
+            }
+            
+            const response = await fetch(endpoint, options);
+            
+            if (response.status === 401) {
+                showStatus('Authentication required', 'error');
+                return null;
+            }
+            
+            return await response.json();
+        }
+
+        // Dashboard and Metrics
+        async function loadDashboard() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            showStatus('Loading dashboard metrics...', 'loading');
+
+            try {
+                // Load PKI metrics
+                const result = await apiRequest('/api/metrics');
+                
+                if (result && result.status === 'success') {
+                    const metrics = result.metrics;
+                    
+                    document.getElementById('totalCerts').textContent = metrics.total_certificates || 0;
+                    document.getElementById('expiringSoon').textContent = metrics.expiring_soon || 0;
+                    document.getElementById('pendingRequests').textContent = metrics.pending_requests || 0;
+                    
+                    // Enhanced system health with tooltips
+                    const systemHealthElement = document.getElementById('systemHealth');
+                    const systemHealthCard = document.getElementById('systemHealthCard');
+                    const systemHealthLabel = document.getElementById('systemHealthLabel');
+                    
+                    if (metrics.health_status === 'healthy') {
+                        systemHealthElement.textContent = '✅';
+                        systemHealthLabel.textContent = 'PKI Backend';
+                        systemHealthCard.title = 'Your PKI system is healthy and ready';
+                    } else {
+                        systemHealthElement.textContent = '⚠️';
+                        systemHealthLabel.textContent = 'Needs Setup';
+                        systemHealthCard.title = 'PKI needs initialization. Click "Initialize PKI" and then "Build CA" to complete setup';
+                        systemHealthCard.style.cursor = 'help';
+                    }
+                    
+                    // Enhanced tooltips based on PKI state
+                    if (!metrics.pki_initialized) {
+                        document.getElementById('totalCertsCard').title = 'No certificates yet - Initialize PKI first';
+                        document.getElementById('expiringSoonCard').title = 'Certificate monitoring unavailable - PKI not initialized';
+                        document.getElementById('pendingRequestsCard').title = 'Certificate requests unavailable - Initialize PKI first';
+                    }
+                    
+                    document.getElementById('dashboardMetrics').classList.remove('hidden');
+                    showStatus('Dashboard loaded successfully', 'success');
+                } else {
+                    // Show dashboard with warning state
+                    document.getElementById('totalCerts').textContent = '0';
+                    document.getElementById('expiringSoon').textContent = '0';
+                    document.getElementById('pendingRequests').textContent = '0';
+                    document.getElementById('systemHealth').textContent = '⚠️';
+                    
+                    const systemHealthCard = document.getElementById('systemHealthCard');
+                    const systemHealthLabel = document.getElementById('systemHealthLabel');
+                    systemHealthLabel.textContent = 'Setup Required';
+                    systemHealthCard.title = 'PKI system needs setup. Complete the initialization and CA building process';
+                    systemHealthCard.style.cursor = 'help';
+                    
+                    document.getElementById('dashboardMetrics').classList.remove('hidden');
+                    showStatus('Dashboard loaded with warnings - PKI setup may be incomplete', 'warning');
+                }
+                
+                // Load SCEP server status
+                await updateSCEPStatus();
+                
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // SCEP Server Status
+        async function updateSCEPStatus() {
+            try {
+                const result = await apiRequest('/api/scep/health');
+                const scepElement = document.getElementById('scepHealth');
+                
+                if (result && result.status === 'success' && result.scep_health) {
+                    const scepHealth = result.scep_health;
+                    
+                    if (scepHealth.status === 'healthy') {
+                        scepElement.textContent = '✅';
+                        scepElement.title = 'SCEP Server: Online and healthy';
+                    } else if (scepHealth.status === 'degraded') {
+                        scepElement.textContent = '⚠️';
+                        scepElement.title = 'SCEP Server: Online but degraded';
+                    } else {
+                        scepElement.textContent = '❌';
+                        scepElement.title = 'SCEP Server: Unhealthy';
+                    }
+                } else {
+                    document.getElementById('scepHealth').textContent = '❌';
+                    document.getElementById('scepHealth').title = 'SCEP Server: Connection failed';
+                }
+            } catch (error) {
+                document.getElementById('scepHealth').textContent = '❌';
+                document.getElementById('scepHealth').title = 'SCEP Server: Connection error';
+            }
+        }
+
+        // Modal Functions
+        function showCAModal() {
+            document.getElementById('caModal').style.display = 'block';
+        }
+
+        function hideCAModal() {
+            document.getElementById('caModal').style.display = 'none';
+        }
+
+        // PKI Operations
+        async function initializePKI() {
+            if (isLoading) return;
+            
+            // First check if PKI is already initialized
+            try {
+                const statusResult = await apiRequest('/api/pki/status');
+                if (statusResult && statusResult.status === 'success' && statusResult.pki_status && statusResult.pki_status.pki_initialized) {
+                    // PKI is already initialized - show warning
+                    const confirmReset = confirm(
+                        '⚠️ WARNING: PKI is already initialized!\n\n' +
+                        'Reinitializing will:\n' +
+                        '• Reset the entire Certificate Authority\n' +
+                        '• Delete all existing certificates\n' +
+                        '• Return the system to default state\n' +
+                        '• This action cannot be undone\n\n' +
+                        'Are you sure you want to proceed?'
+                    );
+                    
+                    if (!confirmReset) {
+                        return; // User cancelled
+                    }
+                }
+            } catch (error) {
+                console.log('Could not check PKI status before initialization:', error.message);
+            }
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Initializing PKI...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/pki/init', 'POST');
+                if (result) {
+                    handleOperationResult(result, 'PKI initialized successfully');
+                    
+                    if (result.status === 'success') {
+                        setTimeout(updateCAButton, 1000);
+                        setTimeout(updatePKIButton, 1000);
+                        // Reload dashboard to reflect PKI initialization
+                        setTimeout(loadDashboard, 2000);
+                    }
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function checkPKIStatus() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Checking PKI status...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/pki/status');
+                
+                if (result && result.status === 'success') {
+                    showStatus('PKI status retrieved successfully', 'success');
+                    if (result.pki_status) {
+                        displayPKIStatus(result.pki_status);
+                        updateCAButtonFromStatus(result.pki_status);
+                    }
+                    if (result.stdout) {
+                        showOutput(result.stdout, 'PKI Status Details');
+                    }
+                } else if (result) {
+                    showStatus('Error: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function updateCAButtonFromStatus(pkiStatus) {
+            const button = document.getElementById('buildCA');
+            
+            if (pkiStatus.ca_exists) {
+                button.textContent = '📥 Download CA';
+                button.className = 'btn btn-secondary';
+                button.title = 'Download the Certificate Authority certificate';
+            } else {
+                button.textContent = 'Build CA';
+                button.className = 'btn btn-primary';
+                button.title = 'Create a new Certificate Authority';
+            }
+        }
+
+        // Certificate Authority Operations
+        async function buildOrDownloadCA() {
+            if (isLoading) return;
+            
+            const button = document.getElementById('buildCA');
+            const buttonText = button.textContent.trim().toLowerCase();
+            
+            if (buttonText.includes('download')) {
+                await downloadCA();
+            } else {
+                showCAModal();
+            }
+        }
+
+        async function submitCAForm() {
+            if (isLoading) return;
+            
+            const formData = {
+                common_name: document.getElementById('caCommonName').value,
+                country: document.getElementById('caCountry').value,
+                state: document.getElementById('caState').value,
+                city: document.getElementById('caCity').value,
+                organization: document.getElementById('caOrganization').value,
+                organizational_unit: document.getElementById('caOrgUnit').value,
+                email: document.getElementById('caEmail').value,
+                ca_validity_days: parseInt(document.getElementById('caValidityDays').value),
+                cert_validity_days: parseInt(document.getElementById('certValidityDays').value),
+                key_size: parseInt(document.getElementById('keySize').value),
+                digest_algorithm: document.getElementById('digestAlgorithm').value
+            };
+            
+            hideCAModal();
+            setLoading(true);
+            hideOutput();
+            showStatus('Building Certificate Authority with custom configuration...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/ca/build', 'POST', formData);
+                if (result) {
+                    handleOperationResult(result, 'Certificate Authority built successfully');
+                    
+                    if (result.status === 'success') {
+                        setTimeout(updateCAButton, 1000);
+                        // Reload dashboard to reflect CA creation
+                        setTimeout(loadDashboard, 2000);
+                    }
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function downloadCA() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            showStatus('Downloading CA certificate...', 'loading');
+
+            try {
+                const response = await fetch('/api/ca/download');
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'ca.crt';
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showStatus('✅ CA certificate downloaded successfully', 'success');
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                showStatus('❌ Failed to download CA certificate: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function showCA() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Retrieving CA details...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/ca/show');
+                if (result) {
+                    handleOperationResult(result, 'CA details retrieved successfully');
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function updateCAButton() {
+            try {
+                const result = await apiRequest('/api/pki/status');
+                const button = document.getElementById('buildCA');
+                
+                if (result && result.status === 'success' && result.pki_status && result.pki_status.ca_exists) {
+                    button.textContent = '📥 Download CA';
+                    button.className = 'btn btn-secondary';
+                    button.title = 'Download the Certificate Authority certificate';
+                } else {
+                    button.textContent = 'Build CA';
+                    button.className = 'btn btn-primary';
+                    button.title = 'Create a new Certificate Authority';
+                }
+            } catch (error) {
+                console.log('Could not update CA button status:', error.message);
+            }
+        }
+
+        async function updatePKIButton() {
+            try {
+                const result = await apiRequest('/api/pki/status');
+                const button = document.getElementById('initPKI');
+                
+                if (result && result.status === 'success' && result.pki_status && result.pki_status.pki_initialized) {
+                    // PKI is already initialized - show green button with different text
+                    button.textContent = '✅ PKI Initialized (Reset)';
+                    button.className = 'btn btn-success';
+                    button.title = 'PKI is already initialized. Click to reset and reinitialize the entire system.';
+                } else {
+                    // PKI not initialized - show normal button
+                    button.textContent = 'Initialize PKI';
+                    button.className = 'btn btn-primary';
+                    button.title = 'Initialize the Public Key Infrastructure system';
+                }
+            } catch (error) {
+                console.log('Could not update PKI button status:', error.message);
+            }
+        }
+
+        async function generateCRL() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Generating Certificate Revocation List...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/crl/generate', 'POST');
+                if (result) {
+                    handleOperationResult(result, 'Certificate Revocation List generated successfully');
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Progress Modal Functions
+        function showProgressModal(title, certName, certType) {
+            document.getElementById('progressTitle').textContent = title;
+            document.getElementById('progressMessage').textContent = 'Initializing...';
+            document.getElementById('progressCertName').textContent = certName || '-';
+            document.getElementById('progressCertType').textContent = certType || '-';
+            document.getElementById('progressStartTime').textContent = new Date().toLocaleTimeString();
+            
+            // Reset modal state
+            const progressStep = document.getElementById('progressStep');
+            progressStep.className = 'progress-step';
+            progressStep.querySelector('.loading-spinner').style.display = 'inline-block';
+            
+            document.getElementById('progressDetails').style.display = 'block';
+            document.getElementById('progressOutput').style.display = 'none';
+            document.getElementById('progressButtons').style.display = 'none';
+            
+            document.getElementById('progressModal').style.display = 'block';
+        }
+        
+        function updateProgressModal(message, isComplete = false, isError = false, output = null) {
+            const progressStep = document.getElementById('progressStep');
+            const progressMessage = document.getElementById('progressMessage');
+            
+            progressMessage.textContent = message;
+            
+            if (isComplete) {
+                progressStep.className = 'progress-step completed';
+                document.getElementById('progressButtons').style.display = 'flex';
+                
+                if (output) {
+                    document.getElementById('progressOutputText').textContent = output;
+                    document.getElementById('progressOutput').style.display = 'block';
+                }
+            } else if (isError) {
+                progressStep.className = 'progress-step error';
+                document.getElementById('progressButtons').style.display = 'flex';
+                
+                if (output) {
+                    document.getElementById('progressOutputText').textContent = output;
+                    document.getElementById('progressOutput').style.display = 'block';
+                }
+            }
+        }
+        
+        function hideProgressModal() {
+            document.getElementById('progressModal').style.display = 'none';
+        }
+        
+        // Progress simulation function
+        async function simulateProgress(steps) {
+            for (const step of steps) {
+                updateProgressModal(step.message);
+                await new Promise(resolve => setTimeout(resolve, step.delay));
+            }
+        }
+
+        // Certificate Management Operations
+        async function createFullCert() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('certName').value.trim();
+            const type = document.getElementById('certType').value;
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            hideOutput();
+            
+            // Show progress modal immediately
+            showProgressModal(`Creating ${type.charAt(0).toUpperCase() + type.slice(1)} Certificate`, name, type);
+            
+            // Simulate progress steps
+            await simulateProgress([
+                { message: 'Validating certificate parameters...', delay: 500 },
+                { message: 'Generating private key...', delay: 800 },
+                { message: 'Creating certificate request...', delay: 600 },
+                { message: 'Signing certificate with CA...', delay: 1000 },
+                { message: 'Finalizing certificate...', delay: 400 }
+            ]);
+
+            try {
+                updateProgressModal('Processing certificate creation...');
+                const data = { name: name, type: type };
+                const result = await apiRequest('/api/certificates/create-full', 'POST', data);
+                
+                if (result) {
+                    if (result.status === 'success') {
+                        updateProgressModal(
+                            `Certificate for ${name} created successfully!`, 
+                            true, 
+                            false, 
+                            result.stdout || result.message
+                        );
+                        showStatus(`${type} certificate for ${name} created successfully`, 'success');
+                    } else {
+                        updateProgressModal(
+                            `Failed to create certificate: ${result.message}`, 
+                            false, 
+                            true, 
+                            result.stderr || result.message
+                        );
+                        showStatus('Error: ' + result.message, 'error');
+                    }
+                }
+            } catch (error) {
+                updateProgressModal(
+                    'Connection error occurred', 
+                    false, 
+                    true, 
+                    error.message
+                );
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function generateRequest() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('certName').value.trim();
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            hideOutput();
+            
+            // Show progress modal immediately
+            showProgressModal('Generating Certificate Request', name, 'request');
+            
+            // Simulate progress steps
+            await simulateProgress([
+                { message: 'Validating request parameters...', delay: 400 },
+                { message: 'Generating private key...', delay: 800 },
+                { message: 'Creating certificate signing request...', delay: 600 },
+                { message: 'Finalizing request...', delay: 300 }
+            ]);
+
+            try {
+                updateProgressModal('Processing request generation...');
+                const data = { name: name };
+                const result = await apiRequest('/api/certificates/generate-request', 'POST', data);
+                
+                if (result) {
+                    if (result.status === 'success') {
+                        updateProgressModal(
+                            `Certificate request for ${name} generated successfully!`, 
+                            true, 
+                            false, 
+                            result.stdout || result.message
+                        );
+                        showStatus(`Certificate request for ${name} generated successfully`, 'success');
+                    } else {
+                        updateProgressModal(
+                            `Failed to generate request: ${result.message}`, 
+                            false, 
+                            true, 
+                            result.stderr || result.message
+                        );
+                        showStatus('Error: ' + result.message, 'error');
+                    }
+                }
+            } catch (error) {
+                updateProgressModal(
+                    'Connection error occurred', 
+                    false, 
+                    true, 
+                    error.message
+                );
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function signRequest() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('certName').value.trim();
+            const type = document.getElementById('certType').value;
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            hideOutput();
+            
+            // Show progress modal immediately
+            showProgressModal('Signing Certificate Request', name, type);
+            
+            // Simulate progress steps
+            await simulateProgress([
+                { message: 'Locating certificate request...', delay: 300 },
+                { message: 'Validating request format...', delay: 500 },
+                { message: 'Verifying CA availability...', delay: 400 },
+                { message: 'Signing with CA private key...', delay: 900 },
+                { message: 'Generating signed certificate...', delay: 600 }
+            ]);
+
+            try {
+                updateProgressModal('Finalizing certificate signing...');
+                const data = { name: name, type: type };
+                const result = await apiRequest('/api/certificates/sign-request', 'POST', data);
+                
+                if (result) {
+                    if (result.status === 'success') {
+                        updateProgressModal(
+                            `Certificate request for ${name} signed successfully!`, 
+                            true, 
+                            false, 
+                            result.stdout || result.message
+                        );
+                        showStatus(`Certificate request for ${name} signed successfully`, 'success');
+                    } else {
+                        updateProgressModal(
+                            `Failed to sign request: ${result.message}`, 
+                            false, 
+                            true, 
+                            result.stderr || result.message
+                        );
+                        showStatus('Error: ' + result.message, 'error');
+                    }
+                }
+            } catch (error) {
+                updateProgressModal(
+                    'Connection error occurred', 
+                    false, 
+                    true, 
+                    error.message
+                );
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Certificate Operations
+        async function showCert() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('operationCertName').value.trim();
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            hideOutput();
+            showStatus(`Retrieving certificate details for ${name}...`, 'loading');
+
+            try {
+                const result = await apiRequest(`/api/certificates/show/${encodeURIComponent(name)}`);
+                if (result) {
+                    handleOperationResult(result, `Certificate details for ${name}`);
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function validateCert() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('operationCertName').value.trim();
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            hideOutput();
+            showStatus(`Validating certificate ${name}...`, 'loading');
+
+            try {
+                const result = await apiRequest(`/api/certificates/validate/${encodeURIComponent(name)}`);
+                if (result) {
+                    if (result.status === 'success' && result.validation) {
+                        const validation = result.validation;
+                        let output = `Certificate Validation for ${name}:\n\n`;
+                        output += `Valid: ${validation.valid ? 'Yes' : 'No'}\n`;
+                        output += `Expires in: ${validation.expires_in_days} days\n`;
+                        output += `Expiry Date: ${new Date(validation.expiry_date).toLocaleDateString()}\n`;
+                        output += `Issue Date: ${new Date(validation.issue_date).toLocaleDateString()}\n`;
+                        output += `Subject: ${validation.subject}\n`;
+                        output += `Serial Number: ${validation.serial_number}\n`;
+                        
+                        if (validation.expiring_soon) {
+                            output += `\n⚠️ WARNING: Certificate expires within 30 days!`;
+                        }
+                        
+                        showOutput(output, `Certificate Validation - ${name}`);
+                        showStatus(`Certificate ${name} validation completed`, 'success');
+                    } else {
+                        handleOperationResult(result, `Certificate validation for ${name}`);
+                    }
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function downloadCert() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('operationCertName').value.trim();
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            showStatus(`Downloading certificate bundle for ${name}...`, 'loading');
+
+            try {
+                const response = await fetch(`/api/certificates/download/${encodeURIComponent(name)}?format=zip&include_key=true`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${name}-bundle.zip`;
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showStatus(`✅ Certificate bundle for ${name} downloaded successfully`, 'success');
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                showStatus('❌ Failed to download certificate: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function revokeCert() {
+            if (isLoading) return;
+            
+            const name = document.getElementById('operationCertName').value.trim();
+            
+            if (!name) {
+                showStatus('Please enter a certificate name', 'error');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to revoke the certificate for "${name}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            setLoading(true);
+            hideOutput();
+            showStatus(`Revoking certificate for ${name}...`, 'loading');
+
+            try {
+                const data = { name: name };
+                const result = await apiRequest('/api/certificates/revoke', 'POST', data);
+                if (result) {
+                    handleOperationResult(result, `Certificate for ${name} revoked successfully`);
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Certificate Listing and Management
+        async function listCertificates() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Loading certificates...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/certificates/list');
+
+                if (result && result.status === 'success') {
+                    showStatus(`Found ${result.count || 0} certificates`, 'success');
+                    currentCertificates = result.certificates || [];
+                    displayCertificatesList(currentCertificates);
+                } else if (result) {
+                    showStatus('Error: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function checkExpiring() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Checking for expiring certificates...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/certificates/expiring?days=30');
+
+                if (result && result.status === 'success') {
+                    const expiring = result.expiring_certificates || [];
+                    showStatus(`Found ${expiring.length} certificates expiring within 30 days`, 
+                              expiring.length > 0 ? 'error' : 'success');
+                    
+                    if (expiring.length > 0) {
+                        let output = 'Certificates expiring within 30 days:\n\n';
+                        expiring.forEach(cert => {
+                            output += `${cert.name}: ${cert.expires_in_days} days (${new Date(cert.expiry_date).toLocaleDateString()})\n`;
+                        });
+                        showOutput(output, 'Expiring Certificates');
+                    }
+                } else if (result) {
+                    showStatus('Error: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        async function showExpiryDashboard() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Loading certificate expiry dashboard...', 'loading');
+            
+            // Hide certificates list and show dashboard
+            document.getElementById('certificatesList').classList.remove('show');
+            const dashboard = document.getElementById('expiryDashboard');
+            dashboard.style.display = 'block';
+
+            try {
+                const result = await apiRequest('/api/certificates/expiry-dashboard');
+
+                if (result && result.status === 'success' && result.dashboard) {
+                    const data = result.dashboard;
+                    
+                    // Update statistics
+                    document.getElementById('expiredCount').textContent = data.statistics.expired;
+                    document.getElementById('criticalCount').textContent = data.statistics.critical;
+                    document.getElementById('warningCount').textContent = data.statistics.warning;
+                    document.getElementById('normalCount').textContent = data.statistics.normal;
+                    document.getElementById('healthyCount').textContent = data.statistics.healthy;
+                    
+                    // Show recommendations
+                    const recommendationsDiv = document.getElementById('dashboardRecommendations');
+                    recommendationsDiv.innerHTML = '';
+                    
+                    if (data.recommendations && data.recommendations.length > 0) {
+                        recommendationsDiv.innerHTML = '<h4>📋 Recommendations</h4>';
+                        data.recommendations.forEach(rec => {
+                            const recDiv = document.createElement('div');
+                            recDiv.className = `recommendation-item ${rec.priority}`;
+                            recDiv.innerHTML = `<span>⚠️</span> ${rec.message}`;
+                            recommendationsDiv.appendChild(recDiv);
+                        });
+                    }
+                    
+                    // Show certificate details
+                    const detailsDiv = document.getElementById('dashboardDetails');
+                    detailsDiv.innerHTML = '';
+                    
+                    // Show expired certificates if any
+                    if (data.expired && data.expired.length > 0) {
+                        detailsDiv.innerHTML += '<h4>❌ Expired Certificates</h4>';
+                        const expiredList = document.createElement('div');
+                        data.expired.forEach(cert => {
+                            const certDiv = document.createElement('div');
+                            certDiv.className = 'cert-item expired';
+                            certDiv.innerHTML = `
+                                <span><strong>${cert.name}</strong> - Expired ${Math.abs(cert.days_until_expiry)} days ago</span>
+                                <button class="btn btn-danger btn-sm" onclick="renewCertificate('${cert.name}')">Renew</button>
+                            `;
+                            expiredList.appendChild(certDiv);
+                        });
+                        detailsDiv.appendChild(expiredList);
+                    }
+                    
+                    // Show critical certificates
+                    if (data.critical && data.critical.length > 0) {
+                        detailsDiv.innerHTML += '<h4 style="margin-top: 1.5rem;">🚨 Critical - Expiring in 7 days</h4>';
+                        const criticalList = document.createElement('div');
+                        data.critical.forEach(cert => {
+                            const certDiv = document.createElement('div');
+                            certDiv.className = 'cert-item critical';
+                            certDiv.innerHTML = `
+                                <span><strong>${cert.name}</strong> - ${cert.days_until_expiry} days remaining</span>
+                                <button class="btn btn-warning btn-sm" onclick="renewCertificate('${cert.name}')">Renew</button>
+                            `;
+                            criticalList.appendChild(certDiv);
+                        });
+                        detailsDiv.appendChild(criticalList);
+                    }
+                    
+                    showStatus('Certificate expiry dashboard loaded', 'success');
+                } else if (result) {
+                    showStatus('Error loading dashboard: ' + result.message, 'error');
+                    dashboard.style.display = 'none';
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+                dashboard.style.display = 'none';
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        function renewCertificate(certName) {
+            // Pre-fill the certificate name and switch to certificate creation section
+            document.getElementById('certCommonName').value = certName;
+            document.getElementById('certType').value = 'client';
+            
+            // Scroll to certificate creation section
+            document.querySelector('.section:nth-child(3)').scrollIntoView({ behavior: 'smooth' });
+            
+            showStatus(`Ready to renew certificate: ${certName}`, 'info');
+        }
+
+        async function createBackup() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            showStatus('Creating PKI backup...', 'loading');
+
+            try {
+                const response = await fetch('/api/backup/create', { method: 'POST' });
+                
+                if (!response.ok) {
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (jsonError) {
+                        // If response is not JSON (likely HTML error page), use the status text
+                        errorMessage = response.statusText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `pki-backup-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.tar.gz`;
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showStatus('✅ PKI backup created and downloaded successfully', 'success');
+                
+            } catch (error) {
+                console.error('Backup error:', error);
+                showStatus('❌ Failed to create backup: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Connection Check
+        async function checkConnection() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Checking connection to EasyRSA container...', 'loading');
+
+            try {
+                const result = await apiRequest('/status');
+
+                if (result && result.status === 'connected') {
+                    showStatus('✅ Connected to EasyRSA container', 'success');
+                } else if (result) {
+                    showStatus('❌ Cannot connect to EasyRSA container', 'error');
+                } else {
+                    showStatus('❌ Connection failed', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Connection failed: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // SCEP Functions
+        async function showSCEPInfo() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Retrieving SCEP server information...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/scep/info');
+                
+                if (result && result.status === 'success' && result.scep_info) {
+                    const scepInfo = result.scep_info;
+                    
+                    let output = 'SCEP Server Information:\n\n';
+                    output += `Server: ${scepInfo.scep_server}\n`;
+                    output += `Version: ${scepInfo.version}\n`;
+                    output += `CA Identifier: ${scepInfo.ca_identifier}\n\n`;
+                    
+                    output += 'Supported Operations:\n';
+                    for (const [op, desc] of Object.entries(scepInfo.supported_operations)) {
+                        output += `• ${op}: ${desc}\n`;
+                    }
+                    
+                    output += '\nEndpoints:\n';
+                    for (const [name, url] of Object.entries(scepInfo.endpoints)) {
+                        output += `• ${name}: ${url}\n`;
+                    }
+                    
+                    showOutput(output, 'SCEP Server Information');
+                    showStatus('SCEP server information retrieved successfully', 'success');
+                } else {
+                    showStatus('❌ Failed to retrieve SCEP information: ' + (result?.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function testSCEPHealth() {
+            if (isLoading) return;
+            
+            setLoading(true);
+            hideOutput();
+            showStatus('Testing SCEP server health...', 'loading');
+
+            try {
+                const result = await apiRequest('/api/scep/health');
+                
+                if (result && result.status === 'success' && result.scep_health) {
+                    const scepHealth = result.scep_health;
+                    
+                    let output = 'SCEP Server Health Check:\n\n';
+                    output += `Status: ${scepHealth.status}\n`;
+                    output += `SCEP Server: ${scepHealth.scep_server}\n`;
+                    output += `EasyRSA Connection: ${scepHealth.easyrsa_connection}\n`;
+                    output += `Timestamp: ${new Date(scepHealth.timestamp).toLocaleString()}\n`;
+                    
+                    showOutput(output, 'SCEP Health Check');
+                    
+                    if (scepHealth.status === 'healthy') {
+                        showStatus('✅ SCEP server is healthy', 'success');
+                    } else {
+                        showStatus('⚠️ SCEP server status: ' + scepHealth.status, 'error');
+                    }
+                } else {
+                    showStatus('❌ SCEP server health check failed: ' + (result?.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Load OCSP URL dynamically from configuration
+        async function loadOCSPUrl() {
+            try {
+                const domain = window.location.hostname.replace(/^[^.]*\./, ''); // Extract domain
+                const ocspUrl = `https://ca.${domain}/ocsp`;
+                document.getElementById('ocspUrl').value = ocspUrl;
+            } catch (error) {
+                console.error('Failed to load OCSP URL:', error);
+                document.getElementById('ocspUrl').value = 'Error loading OCSP URL';
+            }
+        }
+
+        // Load SCEP URL dynamically from tenant configuration
+        async function loadSCEPUrl() {
+            try {
+                const result = await apiRequest('/api/scep/url');
+                if (result && result.status === 'success') {
+                    // URL now comes with correct subdomain from backend
+                    document.getElementById('scepUrl').value = result.scep_url;
+                    
+                    // Store the base URL and identifier for test buttons
+                    window.scepBaseUrl = result.base_url;
+                    window.scepIdentifier = result.scep_identifier;
+                    
+                    // Update test button handlers with dynamic identifier
+                    setupSCEPTestButtons(result.base_url, result.scep_identifier);
+                } else {
+                    console.error('Failed to load SCEP URL:', result?.message || 'Unknown error');
+                    document.getElementById('scepUrl').value = 'Error loading SCEP URL';
+                }
+            } catch (error) {
+                console.error('Failed to load SCEP URL:', error);
+                document.getElementById('scepUrl').value = 'Error loading SCEP URL';
+            }
+        }
+
+        // Setup SCEP test button handlers with dynamic URLs
+        function setupSCEPTestButtons(baseUrl, scepIdentifier) {
+            // Test GetCACaps button
+            const testGetCACapsBtn = document.getElementById('testGetCACaps');
+            if (testGetCACapsBtn) {
+                testGetCACapsBtn.onclick = () => {
+                    window.open(`${baseUrl}/scep/${scepIdentifier}?operation=GetCACaps`, '_blank');
+                };
+            }
+            
+            // Download CA via SCEP button
+            const downloadCASCEPBtn = document.getElementById('downloadCASCEP');
+            if (downloadCASCEPBtn) {
+                downloadCASCEPBtn.onclick = () => {
+                    window.open(`${baseUrl}/scep/${scepIdentifier}?operation=GetCACert`, '_blank');
+                };
+            }
+        }
+
+        // iOS SCEP Simulator Function
+        function openIOSSimulator() {
+            // Open the iOS SCEP simulator in a new tab
+            const simulatorUrl = window.location.origin + '/simulator/';
+            window.open(simulatorUrl, '_blank');
+        }
+
+        // OCSP Functions
+        function showOCSPInfo() {
+            showStatus('Fetching OCSP responder information...', 'info');
+            
+            fetch('/api/ocsp/info')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const info = `
+OCSP Responder Information:
+==========================
+Status: Online
+URL: ${data.ocsp_url}
+Protocol: RFC 6960 (OCSP)
+Supported Methods: GET, POST
+Content Types: 
+  - Request: application/ocsp-request
+  - Response: application/ocsp-response
+
+Certificate Status Types:
+- Good (0): Certificate is valid and not revoked
+- Revoked (1): Certificate has been revoked
+- Unknown (2): Certificate status is unknown
+
+Example Usage:
+GET ${data.ocsp_url}?ocsp=[base64-encoded-request]
+POST ${data.ocsp_url}
+Content-Type: application/ocsp-request
+[binary-ocsp-request-data]
+                        `;
+                        showOutput(info);
+                        showStatus('OCSP information retrieved successfully', 'success');
+                    } else {
+                        showStatus('Failed to get OCSP information: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showStatus('Error getting OCSP information: ' + error.message, 'error');
+                });
+        }
+
+        function testOCSPHealth() {
+            showStatus('Testing OCSP responder health...', 'info');
+            
+            fetch('/api/ocsp/health')
+                .then(response => response.json())
+                .then(data => {
+                    const healthInfo = `
+OCSP Responder Health Check:
+===========================
+Status: ${data.status}
+Timestamp: ${data.timestamp}
+Response Time: ${data.response_time || 'N/A'}ms
+
+Dependencies:
+- CA Manager: ${data.ca_manager_connection || 'Unknown'}
+- EasyRSA: ${data.easyrsa_connection || 'Unknown'}
+- Certificate Database: ${data.certificate_db || 'Available'}
+                    `;
+                    showOutput(healthInfo);
+                    if (data.status === 'healthy') {
+                        showStatus('OCSP responder is healthy', 'success');
+                    } else {
+                        showStatus('OCSP responder health check failed', 'warning');
+                    }
+                })
+                .catch(error => {
+                    showStatus('Error testing OCSP health: ' + error.message, 'error');
+                });
+        }
+
+        function openOCSPSimulator() {
+            // Open the OCSP simulator in a new tab
+            const simulatorUrl = window.location.origin + '/ocsp-simulator/';
+            window.open(simulatorUrl, '_blank');
+        }
+
+        // SCEP Password Management Functions
+        async function loadSCEPPasswordStatus() {
+            try {
+                const result = await apiRequest('/api/scep/password');
+                const statusElement = document.getElementById('scepPasswordStatus');
+                
+                if (result && result.status === 'success') {
+                    // Create the password display element with hover functionality
+                    const passwordDisplay = result.actual_password 
+                        ? `<span id="passwordHover" style="cursor: help; text-decoration: underline dotted;" 
+                             title="Hover to view actual password">${result.masked_password}</span>`
+                        : result.masked_password;
+                    
+                    statusElement.innerHTML = `
+                        <span style="color: var(--success-green);">✅ Password configured</span>
+                        <span style="margin-left: 1rem; color: var(--medium-gray);">
+                            Length: ${result.password_length} characters | ${passwordDisplay}
+                        </span>
+                    `;
+                    
+                    // Add hover event listeners for admin users
+                    if (result.actual_password) {
+                        const hoverElement = document.getElementById('passwordHover');
+                        if (hoverElement) {
+                            hoverElement.addEventListener('mouseenter', function() {
+                                this.textContent = result.actual_password;
+                                this.style.fontFamily = 'monospace';
+                                this.style.backgroundColor = 'rgba(91, 5, 156, 0.1)';
+                                this.style.padding = '2px 4px';
+                                this.style.borderRadius = '3px';
+                            });
+                            
+                            hoverElement.addEventListener('mouseleave', function() {
+                                this.textContent = result.masked_password;
+                                this.style.fontFamily = '';
+                                this.style.backgroundColor = '';
+                                this.style.padding = '';
+                                this.style.borderRadius = '';
+                            });
+                        }
+                    }
+                } else {
+                    statusElement.innerHTML = '<span style="color: var(--error-red);">❌ No password configured</span>';
+                }
+            } catch (error) {
+                const statusElement = document.getElementById('scepPasswordStatus');
+                statusElement.innerHTML = '<span style="color: var(--error-red);">⚠️ Failed to load password status</span>';
+            }
+        }
+
+        async function updateSCEPPassword() {
+            if (isLoading) return;
+            
+            const passwordInput = document.getElementById('scepPasswordInput');
+            const newPassword = passwordInput.value.trim();
+            
+            if (!newPassword) {
+                showStatus('Please enter a new SCEP password', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                showStatus('SCEP password must be at least 8 characters long', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            showStatus('Updating SCEP password...', 'loading');
+            
+            try {
+                const result = await apiRequest('/api/scep/password', 'POST', {
+                    password: newPassword
+                });
+                
+                if (result && result.status === 'success') {
+                    passwordInput.value = '';
+                    
+                    // Add visual feedback with animated refresh of SCEP password section
+                    const statusElement = document.getElementById('scepPasswordStatus');
+                    if (statusElement) {
+                        statusElement.style.opacity = '0.5';
+                        statusElement.innerHTML = '<span style="color: var(--primary-purple);">🔄 Refreshing password status...</span>';
+                    }
+                    
+                    // Refresh the SCEP password status
+                    await loadSCEPPasswordStatus();
+                    
+                    // Animate the status section back to full opacity
+                    if (statusElement) {
+                        statusElement.style.transition = 'opacity 0.3s ease, background-color 0.3s ease';
+                        statusElement.style.opacity = '1';
+                        statusElement.style.backgroundColor = 'rgba(34, 197, 94, 0.1)'; // Green highlight
+                        
+                        // Remove highlight after 2 seconds
+                        setTimeout(() => {
+                            statusElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
+                    
+                    showStatus('✅ SCEP password updated successfully', 'success');
+                    
+                    // Show additional info note
+                    if (result.note) {
+                        setTimeout(() => {
+                            showStatus('💡 ' + result.note, 'info');
+                        }, 3000);
+                    }
+                } else {
+                    showStatus('❌ Failed to update SCEP password: ' + (result?.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Helper Functions
+        function handleOperationResult(result, successMessage) {
+            if (result.status === 'success') {
+                showStatus(result.message || successMessage, 'success');
+                
+                if (result.stdout || result.stderr) {
+                    let output = '';
+                    if (result.return_code !== undefined) {
+                        output += `Exit Code: ${result.return_code}\n\n`;
+                    }
+                    if (result.stdout) output += 'Output:\n' + result.stdout + '\n\n';
+                    if (result.stderr) output += 'Errors/Warnings:\n' + result.stderr;
+                    showOutput(output, 'Operation Details');
+                }
+            } else {
+                showStatus('Error: ' + result.message, 'error');
+                if (result.stderr) {
+                    showOutput(result.stderr, 'Error Details');
+                }
+            }
+        }
+
+        function displayCertificatesList(certificates) {
+            const listDiv = document.getElementById('certificatesList');
+            
+            if (certificates.length === 0) {
+                listDiv.innerHTML = '<p style="text-align: center; color: var(--medium-gray); padding: 2rem;">No certificates found</p>';
+            } else {
+                listDiv.innerHTML = certificates.map(cert => {
+                    let detailsText = '';
+                    if (cert.expires_in_days !== undefined) {
+                        detailsText = `Expires in ${cert.expires_in_days} days`;
+                        if (cert.expires_in_days <= 30 && cert.expires_in_days > 0) {
+                            detailsText += ' ⚠️';
+                        } else if (cert.expires_in_days <= 0) {
+                            detailsText += ' ❌ EXPIRED';
+                        }
+                    }
+                    
+                    const downloadBtn = cert.type === 'issued' ? 
+                        `<button class="btn btn-secondary btn-small" onclick="downloadCertificateFromList('${cert.name}')">📥 Download</button>` : '';
+                    
+                    const validateBtn = cert.type === 'issued' ? 
+                        `<button class="btn btn-info btn-small" onclick="validateCertificateFromList('${cert.name}')">✅ Validate</button>` : '';
+                    
+                    return `
+                        <div class="cert-item">
+                            <div class="cert-info">
+                                <div class="cert-name">${cert.name}</div>
+                                ${detailsText ? `<div class="cert-details">${detailsText}</div>` : ''}
+                            </div>
+                            <div class="cert-actions">
+                                <span class="cert-type ${cert.type}">${cert.type}</span>
+                                ${validateBtn}
+                                ${downloadBtn}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            listDiv.classList.add('show');
+        }
+
+        async function downloadCertificateFromList(name) {
+            document.getElementById('operationCertName').value = name;
+            await downloadCert();
+        }
+
+        async function validateCertificateFromList(name) {
+            document.getElementById('operationCertName').value = name;
+            await validateCert();
+        }
+
+        function displayPKIStatus(status) {
+            let output = 'PKI Status:\n\n';
+            output += `PKI Initialized: ${status.pki_initialized ? 'Yes' : 'No'}\n`;
+            output += `CA Exists: ${status.ca_exists ? 'Yes' : 'No'}\n`;
+            output += `Issued Certificates: ${status.issued_certificates || 0}\n`;
+            output += `Pending Requests: ${status.pending_requests || 0}\n`;
+            output += `Revoked Certificates: ${status.revoked_certificates || 0}\n`;
+            
+            if (status.ca_details) {
+                output += '\nCA Certificate Details:\n';
+                output += `Subject: ${status.ca_details.subject}\n`;
+                output += `Valid Until: ${new Date(status.ca_details.valid_until).toLocaleDateString()}\n`;
+                output += `Serial Number: ${status.ca_details.serial_number}\n`;
+                
+                if (status.ca_expires_in_days !== undefined) {
+                    output += `CA Expires in: ${status.ca_expires_in_days} days\n`;
+                    if (status.ca_expires_in_days <= 365) {
+                        output += '⚠️ CA certificate expires within a year!\n';
+                    }
+                }
+            }
+            
+            showOutput(output, 'PKI Status Summary');
+            updateCAButtonFromStatus(status);
+        }
+
+        // Search and Filter Functions
+        function filterCertificates() {
+            const searchTerm = document.getElementById('searchCerts').value.toLowerCase();
+            const typeFilter = document.getElementById('filterType').value;
+            const expiryFilter = document.getElementById('filterExpiry').value;
+            
+            let filtered = currentCertificates.filter(cert => {
+                // Text search
+                const matchesSearch = cert.name.toLowerCase().includes(searchTerm) ||
+                                    (cert.subject && cert.subject.toLowerCase().includes(searchTerm));
+                
+                // Type filter
+                const matchesType = !typeFilter || cert.type === typeFilter;
+                
+                // Expiry filter
+                let matchesExpiry = true;
+                if (expiryFilter && cert.expires_in_days !== undefined) {
+                    const days = parseInt(expiryFilter);
+                    matchesExpiry = cert.expires_in_days <= days && cert.expires_in_days >= 0;
+                }
+                
+                return matchesSearch && matchesType && matchesExpiry;
+            });
+            
+            displayCertificatesList(filtered);
+        }
+
+        // Profile Management Functions
+        async function openProfile() {
+            try {
+                showStatus('Loading profile...', 'loading');
+                
+                const result = await apiRequest('/api/profile');
+                if (result && result.status === 'success') {
+                    const user = result.user;
+                    
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent = 
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent = 
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+                    
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                    
+                    // Clear any previous status
+                    showStatus('', 'success');
+                } else {
+                    showStatus(result?.message || 'Failed to load profile', 'error');
+                }
+            } catch (error) {
+                showStatus('Error loading profile: ' + error.message, 'error');
+            }
+        }
+        
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+        
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+        
+        // Handle password change form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordForm = document.getElementById('passwordChangeForm');
+            if (passwordForm) {
+                passwordForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const currentPassword = document.getElementById('currentPassword').value;
+                    const newPassword = document.getElementById('newPassword').value;
+                    const confirmPassword = document.getElementById('confirmPassword').value;
+                    
+                    // Client-side validation
+                    if (newPassword !== confirmPassword) {
+                        showStatus('New password and confirmation do not match', 'error');
+                        return;
+                    }
+                    
+                    if (newPassword.length < 6) {
+                        showStatus('New password must be at least 6 characters long', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        setLoading(true);
+                        showStatus('Changing password...', 'loading');
+                        
+                        const result = await apiRequest('/api/profile/change-password', 'POST', {
+                            current_password: currentPassword,
+                            new_password: newPassword,
+                            confirm_password: confirmPassword
+                        });
+                        
+                        if (result && result.status === 'success') {
+                            showStatus('Password changed successfully', 'success');
+                            resetPasswordForm();
+                            
+                            // Close modal after a short delay
+                            setTimeout(() => {
+                                closeProfile();
+                            }, 2000);
+                        } else {
+                            showStatus(result?.message || 'Failed to change password', 'error');
+                        }
+                    } catch (error) {
+                        showStatus('Error changing password: ' + error.message, 'error');
+                    } finally {
+                        setLoading(false);
+                    }
+                });
+            }
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                const profileModal = document.getElementById('profileModal');
+                if (event.target === profileModal) {
+                    closeProfile();
+                }
+                
+                const infoModal = document.getElementById('infoModal');
+                if (event.target === infoModal) {
+                    closeInfoModal();
+                }
+            });
+            
+            // Close info modal with ESC key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    const infoModal = document.getElementById('infoModal');
+                    if (infoModal.style.display === 'block') {
+                        closeInfoModal();
+                    }
+                }
+            });
+        });
+
+        // User Management Functions
+        async function showUsers() {
+            try {
+                setLoading(true);
+                showStatus('Loading users...', 'loading');
+                
+                const result = await apiRequest('/api/users');
+                if (result && result.status === 'success') {
+                    displayUsers(result.users);
+                    showStatus(`Found ${result.users.length} users`, 'success');
+                } else {
+                    showStatus(result?.message || 'Failed to load users', 'error');
+                }
+            } catch (error) {
+                showStatus('Error loading users: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function displayUsers(users) {
+            const usersList = document.getElementById('usersList');
+            if (users.length === 0) {
+                usersList.innerHTML = '<p>No users found.</p>';
+                usersList.style.display = 'block';
+                return;
+            }
+
+            const usersHtml = `
+                <h3>Current Users</h3>
+                <div class="users-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Full Name</th>
+                                <th>Role</th>
+                                <th>Admin</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${users.map(user => `
+                                <tr>
+                                    <td>${user.username}</td>
+                                    <td>${user.email}</td>
+                                    <td>${user.full_name}</td>
+                                    <td>${user.roles ? user.roles.join(', ') : 'No roles'}</td>
+                                    <td>${user.is_admin ? 'Yes' : 'No'}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id}, '${user.username}')">Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            usersList.innerHTML = usersHtml;
+            usersList.style.display = 'block';
+        }
+
+        // User Modal Functions
+        function showUserModal() {
+            document.getElementById('userModal').style.display = 'block';
+        }
+
+        function hideUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('userForm').reset();
+        }
+
+        async function submitUserForm() {
+            const form = document.getElementById('userForm');
+            const formData = new FormData(form);
+            
+            // Get form values
+            const username = document.getElementById('newUsername').value.trim();
+            const email = document.getElementById('newEmail').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const fullName = document.getElementById('newFullName').value.trim();
+            const role = document.getElementById('newRole').value;
+            
+            // Client-side validation
+            if (!username || username.length < 3) {
+                showStatus('Username must be at least 3 characters long', 'error');
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                showStatus('Username can only contain letters, numbers, and underscores', 'error');
+                return;
+            }
+            
+            if (!email || !email.includes('@')) {
+                showStatus('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            if (!password || password.length < 6) {
+                showStatus('Password must be at least 6 characters long', 'error');
+                return;
+            }
+            
+            if (!fullName) {
+                showStatus('Full name is required', 'error');
+                return;
+            }
+            
+            if (!role || !['admin', 'operator', 'viewer'].includes(role)) {
+                showStatus('Please select a valid role', 'error');
+                return;
+            }
+            
+            try {
+                setLoading(true);
+                showStatus('Creating user...', 'loading');
+                
+                const result = await apiRequest('/api/users', 'POST', {
+                    username,
+                    email,
+                    password,
+                    full_name: fullName,
+                    role
+                });
+                
+                if (result && result.status === 'success') {
+                    showStatus(`User '${username}' created successfully`, 'success');
+                    hideUserModal();
+                    // Refresh the user list
+                    setTimeout(showUsers, 1000);
+                } else {
+                    showStatus(result?.message || 'Failed to create user', 'error');
+                }
+            } catch (error) {
+                showStatus('Error creating user: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Modal-based addUser function
+        function addUser() {
+            showUserModal();
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Are you sure you want to delete user '${username}'?`)) {
+                return;
+            }
+            
+            try {
+                setLoading(true);
+                showStatus(`Deleting user '${username}'...`, 'loading');
+                
+                const result = await apiRequest(`/api/users/${userId}`, 'DELETE');
+                if (result && result.status === 'success') {
+                    showStatus(`User '${username}' deleted successfully`, 'success');
+                    // Refresh the user list
+                    setTimeout(showUsers, 1000);
+                } else {
+                    showStatus(result?.message || 'Failed to delete user', 'error');
+                }
+            } catch (error) {
+                showStatus('Error deleting user: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check connection on page load
+            setTimeout(checkConnection, 1000);
+            
+            // Check PKI and CA status on page load
+            setTimeout(updatePKIButton, 1500);
+            setTimeout(updateCAButton, 2000);
+            
+            // Load dashboard initially
+            setTimeout(loadDashboard, 3000);
+            
+            // Load SCEP URL after dashboard loads
+            setTimeout(loadSCEPUrl, 4000);
+            
+            // Load OCSP URL after SCEP URL loads
+            setTimeout(loadOCSPUrl, 4500);
+            
+            // Load SCEP password status (Admin only)
+            setTimeout(() => {
+                if (document.getElementById('scepPasswordStatus')) {
+                    loadSCEPPasswordStatus();
+                }
+            }, 4500);
+            
+            // Update SCEP status periodically (every 30 seconds)
+            setInterval(updateSCEPStatus, 30000);
+            
+            // Bind event listeners to buttons (with permission checks)
+            // Helper function to safely bind events with permission checks
+            function bindButtonWithPermission(id, handler, requiredRole) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.onclick = () => checkPermissionAndExecute(requiredRole, handler);
+                }
+            }
+            
+            // Helper function to safely bind events without permission checks
+            function bindButton(id, handler) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.onclick = handler;
+                }
+            }
+            
+            // Admin only functions
+            bindButtonWithPermission('initPKI', initializePKI, 'admin');
+            bindButton('checkStatus', checkPKIStatus);
+            bindButton('loadDashboard', loadDashboard);
+            
+            // Admin & Operator functions
+            bindButtonWithPermission('buildCA', buildOrDownloadCA, 'operator');
+            bindButtonWithPermission('generateCRL', generateCRL, 'operator');
+            bindButtonWithPermission('showCA', showCA, 'operator');
+            bindButtonWithPermission('createFullCert', createFullCert, 'operator');
+            bindButtonWithPermission('generateRequest', generateRequest, 'operator');
+            bindButtonWithPermission('signRequest', signRequest, 'operator');
+            
+            // Available to all authenticated users
+            bindButton('showCert', showCert);
+            bindButton('downloadCert', downloadCert);
+            bindButton('listCertificates', listCertificates);
+            
+            // Admin & Operator functions
+            bindButtonWithPermission('validateCert', validateCert, 'operator');
+            bindButtonWithPermission('revokeCert', revokeCert, 'operator');
+            bindButtonWithPermission('checkExpiring', checkExpiring, 'operator');
+            bindButtonWithPermission('showExpiryDashboard', showExpiryDashboard, 'operator');
+            bindButtonWithPermission('checkConnection', checkConnection, 'operator');
+            bindButtonWithPermission('createBackup', createBackup, 'operator');
+            
+            // SCEP event listeners (Admin & Operator)
+            bindButtonWithPermission('showSCEPInfo', showSCEPInfo, 'operator');
+            bindButtonWithPermission('testSCEPHealth', testSCEPHealth, 'operator');
+            bindButtonWithPermission('openIOSSimulator', openIOSSimulator, 'operator');
+            
+            // OCSP event listeners (Admin & Operator)
+            bindButtonWithPermission('showOCSPInfo', showOCSPInfo, 'operator');
+            bindButtonWithPermission('testOCSPHealth', testOCSPHealth, 'operator');
+            bindButtonWithPermission('openOCSPSimulator', openOCSPSimulator, 'operator');
+            
+            // SCEP Password Management (Admin only)
+            bindButtonWithPermission('updateSCEPPassword', updateSCEPPassword, 'admin');
+            
+            // User management event listeners (Admin only)
+            bindButtonWithPermission('showUsers', showUsers, 'admin');
+            bindButtonWithPermission('addUser', addUser, 'admin');
+            
+            // Modal event listeners
+            document.getElementById('closeModal').onclick = hideCAModal;
+            document.getElementById('cancelCA').onclick = hideCAModal;
+            document.getElementById('caForm').onsubmit = (e) => {
+                e.preventDefault();
+                submitCAForm();
+            };
+            
+            // User Modal event listeners
+            document.getElementById('closeUserModal').onclick = hideUserModal;
+            document.getElementById('cancelUser').onclick = hideUserModal;
+            document.getElementById('userForm').onsubmit = (e) => {
+                e.preventDefault();
+                submitUserForm();
+            };
+            
+            // Progress Modal event listeners
+            document.getElementById('closeProgress').onclick = hideProgressModal;
+            
+            // Close modals when clicking outside
+            window.onclick = (event) => {
+                const caModal = document.getElementById('caModal');
+                const userModal = document.getElementById('userModal');
+                const progressModal = document.getElementById('progressModal');
+                
+                if (event.target === caModal) {
+                    hideCAModal();
+                } else if (event.target === userModal) {
+                    hideUserModal();
+                } else if (event.target === progressModal) {
+                    // Only allow closing progress modal if operation is complete
+                    const progressButtons = document.getElementById('progressButtons');
+                    if (progressButtons.style.display !== 'none') {
+                        hideProgressModal();
+                    }
+                }
+            };
+            
+            // Search and filter event listeners
+            document.getElementById('searchCerts').oninput = filterCertificates;
+            document.getElementById('filterType').onchange = filterCertificates;
+            document.getElementById('filterExpiry').onchange = filterCertificates;
+        });
+
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        // Auto-hide status messages after 10 seconds (except loading)
+        setInterval(() => {
+            const statusDiv = document.getElementById('status');
+            if (statusDiv.classList.contains('show') && !statusDiv.classList.contains('loading')) {
+                setTimeout(() => {
+                    if (!statusDiv.classList.contains('loading')) {
+                        statusDiv.classList.remove('show');
+                    }
+                }, 10000);
+            }
+        }, 1000);
+
+        // Guided Tour Implementation
+        let guidedTour = null;
+
+        function createGuidedTour() {
+            if (guidedTour) {
+                guidedTour.cancel();
+            }
+
+            guidedTour = new Shepherd.Tour({
+                useModalOverlay: true,
+                defaultStepOptions: {
+                    classes: 'shepherd-theme-arrows',
+                    scrollTo: true,
+                    scrollToHandler: function(element) {
+                        // Center the element vertically in the viewport
+                        if (element) {
+                            const elementRect = element.getBoundingClientRect();
+                            const viewportHeight = window.innerHeight;
+                            const elementHeight = elementRect.height;
+                            
+                            // Calculate position to center the element
+                            const offsetFromTop = elementRect.top + window.pageYOffset;
+                            const scrollToPosition = offsetFromTop - (viewportHeight / 2) + (elementHeight / 2);
+                            
+                            // Smooth scroll to the calculated position
+                            window.scrollTo({
+                                top: Math.max(0, scrollToPosition),
+                                behavior: 'smooth'
+                            });
+                        }
+                    },
+                    cancelIcon: {
+                        enabled: true
+                    }
+                }
+            });
+
+            // Step 1: Welcome
+            guidedTour.addStep({
+                title: '🎉 Welcome to CA Manager!',
+                text: `
+                    <div class="tour-progress">Step 1 of 6</div>
+                    <p>Welcome to your PKI Certificate Authority Management System! This guided tour will help you set up your first PKI environment in just 3 simple steps.</p>
+                    <p><strong>You'll learn to:</strong></p>
+                    <ul>
+                        <li>🏗️ Initialize your PKI</li>
+                        <li>🔐 Create a Certificate Authority</li>
+                        <li>📜 Generate your first server certificate</li>
+                    </ul>
+                `,
+                buttons: [
+                    {
+                        text: 'Skip Tour',
+                        classes: 'shepherd-button-secondary',
+                        action: function() {
+                            guidedTour.cancel();
+                        }
+                    },
+                    {
+                        text: 'Start Tour',
+                        action: function() {
+                            guidedTour.next();
+                        }
+                    }
+                ]
+            });
+
+            // Step 2: PKI Status
+            guidedTour.addStep({
+                title: '📊 Check PKI Status',
+                text: `
+                    <div class="tour-progress">Step 2 of 6</div>
+                    <p>First, let's check if your PKI is already initialized. Click the <strong>"Check PKI Status"</strong> button to see the current state of your certificate authority.</p>
+                    <p>This will tell us if we need to initialize a new PKI or if one already exists.</p>
+                    <p><em>After viewing the status, close the modal to continue to the next step.</em></p>
+                `,
+                attachTo: {
+                    element: '#checkStatus',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        text: 'Previous',
+                        classes: 'shepherd-button-secondary',
+                        action: function() {
+                            guidedTour.back();
+                        }
+                    },
+                    {
+                        text: 'Skip',
+                        action: function() {
+                            guidedTour.next();
+                        }
+                    }
+                ],
+                when: {
+                    show: function() {
+                        // Set up event listeners when this step is shown
+                        const checkStatusBtn = document.getElementById('checkStatus');
+                        const infoModal = document.getElementById('infoModal'); 
+                        
+                        // Track if user has clicked the check status button
+                        let hasClickedCheck = false;
+                        
+                        function onCheckStatusClick() {
+                            hasClickedCheck = true;
+                            // Temporarily hide shepherd modal overlay to allow interaction with PKI modal
+                            setTimeout(() => {
+                                const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                if (shepherdOverlay) {
+                                    shepherdOverlay.style.display = 'none';
+                                }
+                                
+                                // Also make sure the info modal elements are not blocked
+                                const infoModalElements = [
+                                    '#infoModal',
+                                    '#infoModal .close',
+                                    '#infoModal .modal-footer button'
+                                ];
+                                
+                                infoModalElements.forEach(selector => {
+                                    const element = document.querySelector(selector);
+                                    if (element) {
+                                        element.style.pointerEvents = 'auto';
+                                        element.style.zIndex = '10001';
+                                    }
+                                });
+                            }, 200);
+                        }
+                        
+                        function checkModalClosed() {
+                            if (hasClickedCheck && infoModal.style.display === 'none' && guidedTour.getCurrentStep()) {
+                                // Re-show shepherd modal overlay
+                                const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                if (shepherdOverlay) {
+                                    shepherdOverlay.style.display = 'block';
+                                }
+                                
+                                // User has clicked check status and modal is now closed, advance tour
+                                setTimeout(() => {
+                                    if (guidedTour.getCurrentStep()) {
+                                        guidedTour.next();
+                                    }
+                                }, 300);
+                                hasClickedCheck = false; // Reset flag
+                            }
+                        }
+                        
+                        // Add event listener for check status button
+                        checkStatusBtn.addEventListener('click', onCheckStatusClick);
+                        
+                        // Use MutationObserver to watch for modal display changes
+                        const observer = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                                    checkModalClosed();
+                                }
+                            });
+                        });
+                        
+                        observer.observe(infoModal, {
+                            attributes: true,
+                            attributeFilter: ['style']
+                        });
+                        
+                        // Store cleanup functions in a closure variable
+                        const stepCleanupFunctions = {
+                            removeListener: () => checkStatusBtn.removeEventListener('click', onCheckStatusClick),
+                            disconnectObserver: () => observer.disconnect()
+                        };
+                        
+                        // Store cleanup reference on the tour for this step
+                        if (!guidedTour.stepCleanup) {
+                            guidedTour.stepCleanup = {};
+                        }
+                        guidedTour.stepCleanup['step2'] = stepCleanupFunctions;
+                    },
+                    hide: function() {
+                        // Cleanup when step is hidden
+                        if (guidedTour.stepCleanup && guidedTour.stepCleanup['step2']) {
+                            const cleanup = guidedTour.stepCleanup['step2'];
+                            if (cleanup.removeListener) cleanup.removeListener();
+                            if (cleanup.disconnectObserver) cleanup.disconnectObserver();
+                            delete guidedTour.stepCleanup['step2'];
+                        }
+                    }
+                }
+            });
+
+            // Step 3: Initialize PKI
+            guidedTour.addStep({
+                title: '🏗️ Initialize PKI',
+                text: `
+                    <div class="tour-progress">Step 3 of 6</div>
+                    <p>If the PKI isn't initialized yet, click <strong>"Initialize PKI"</strong> to create the directory structure and configuration files needed for your certificate authority.</p>
+                    <p>This is a one-time setup that prepares your environment for certificate management.</p>
+                    <p><em>After the initialization completes, close the modal to continue to the next step.</em></p>
+                `,
+                attachTo: {
+                    element: '#initPKI',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        text: 'Previous',
+                        classes: 'shepherd-button-secondary',
+                        action: function() {
+                            guidedTour.back();
+                        }
+                    },
+                    {
+                        text: 'Skip',
+                        action: function() {
+                            guidedTour.next();
+                        }
+                    }
+                ],
+                when: {
+                    show: function() {
+                        // Set up event listeners when this step is shown
+                        const initPKIBtn = document.getElementById('initPKI');
+                        const infoModal = document.getElementById('infoModal'); 
+                        
+                        // Track if user has clicked the initialize PKI button
+                        let hasClickedInit = false;
+                        
+                        function onInitPKIClick() {
+                            hasClickedInit = true;
+                            // Temporarily hide shepherd modal overlay to allow interaction with PKI modal
+                            setTimeout(() => {
+                                const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                if (shepherdOverlay) {
+                                    shepherdOverlay.style.display = 'none';
+                                }
+                                
+                                // Also make sure the info modal elements are not blocked
+                                const infoModalElements = [
+                                    '#infoModal',
+                                    '#infoModal .close',
+                                    '#infoModal .modal-footer button'
+                                ];
+                                
+                                infoModalElements.forEach(selector => {
+                                    const element = document.querySelector(selector);
+                                    if (element) {
+                                        element.style.pointerEvents = 'auto';
+                                        element.style.zIndex = '10001';
+                                    }
+                                });
+                            }, 200);
+                        }
+                        
+                        function checkModalClosed() {
+                            if (hasClickedInit && infoModal.style.display === 'none' && guidedTour.getCurrentStep()) {
+                                // Re-show shepherd modal overlay
+                                const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                if (shepherdOverlay) {
+                                    shepherdOverlay.style.display = 'block';
+                                }
+                                
+                                // User has clicked initialize PKI and modal is now closed, advance tour
+                                setTimeout(() => {
+                                    if (guidedTour.getCurrentStep()) {
+                                        guidedTour.next();
+                                    }
+                                }, 300);
+                                hasClickedInit = false; // Reset flag
+                            }
+                        }
+                        
+                        // Add event listener for initialize PKI button
+                        initPKIBtn.addEventListener('click', onInitPKIClick);
+                        
+                        // Use MutationObserver to watch for modal display changes
+                        const observer = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                                    checkModalClosed();
+                                }
+                            });
+                        });
+                        
+                        observer.observe(infoModal, {
+                            attributes: true,
+                            attributeFilter: ['style']
+                        });
+                        
+                        // Store cleanup functions in a closure variable
+                        const stepCleanupFunctions = {
+                            removeListener: () => initPKIBtn.removeEventListener('click', onInitPKIClick),
+                            disconnectObserver: () => observer.disconnect()
+                        };
+                        
+                        // Store cleanup reference on the tour for this step
+                        if (!guidedTour.stepCleanup) {
+                            guidedTour.stepCleanup = {};
+                        }
+                        guidedTour.stepCleanup['step3'] = stepCleanupFunctions;
+                    },
+                    hide: function() {
+                        // Cleanup when step is hidden
+                        if (guidedTour.stepCleanup && guidedTour.stepCleanup['step3']) {
+                            const cleanup = guidedTour.stepCleanup['step3'];
+                            if (cleanup.removeListener) cleanup.removeListener();
+                            if (cleanup.disconnectObserver) cleanup.disconnectObserver();
+                            delete guidedTour.stepCleanup['step3'];
+                        }
+                    }
+                }
+            });
+
+            // Step 4: Build CA
+            guidedTour.addStep({
+                title: '🔐 Create Certificate Authority',
+                text: `
+                    <div class="tour-progress">Step 4 of 6</div>
+                    <p>After initializing the PKI, you need to create your Certificate Authority (CA). Click <strong>"Build CA"</strong> to create the root certificate that will sign all other certificates.</p>
+                    <p>You'll be prompted to enter details like organization name and country. This CA will be the trust anchor for all certificates you issue.</p>
+                    <p><em>After configuring and building the CA, close the results modal to continue to the next step.</em></p>
+                `,
+                attachTo: {
+                    element: '#buildCA',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        text: 'Previous',
+                        classes: 'shepherd-button-secondary',
+                        action: function() {
+                            guidedTour.back();
+                        }
+                    },
+                    {
+                        text: 'Skip',
+                        action: function() {
+                            guidedTour.next();
+                        }
+                    }
+                ],
+                when: {
+                    show: function() {
+                        // Set up event listeners when this step is shown
+                        const buildCABtn = document.getElementById('buildCA');
+                        const caModal = document.getElementById('caModal'); 
+                        const infoModal = document.getElementById('infoModal'); 
+                        
+                        // Track if user has clicked the build CA button
+                        let hasClickedBuildCA = false;
+                        let caConfigModalClosed = false;
+                        
+                        function onBuildCAClick() {
+                            hasClickedBuildCA = true;
+                            // Hide overlay immediately to allow interaction with CA config modal
+                            setTimeout(() => {
+                                const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                if (shepherdOverlay) {
+                                    shepherdOverlay.style.display = 'none';
+                                }
+                                
+                                // Make sure the CA modal elements are not blocked
+                                const caModalElements = [
+                                    '#caModal',
+                                    '#caModal .close',
+                                    '#caModal input',
+                                    '#caModal select',
+                                    '#caModal button',
+                                    '#caModal .modal-footer button'
+                                ];
+                                
+                                caModalElements.forEach(selector => {
+                                    const elements = document.querySelectorAll(selector);
+                                    elements.forEach(element => {
+                                        if (element) {
+                                            element.style.pointerEvents = 'auto';
+                                            element.style.zIndex = '10001';
+                                        }
+                                    });
+                                });
+                            }, 200);
+                        }
+                        
+                        function checkCAConfigModalClosed() {
+                            if (hasClickedBuildCA && caModal.style.display === 'none' && !caConfigModalClosed) {
+                                caConfigModalClosed = true;
+                                // CA config submitted, now wait for results modal
+                                // Keep overlay hidden since results modal will open soon
+                            }
+                        }
+                        
+                        function checkResultsModalClosed() {
+                            if (hasClickedBuildCA && caConfigModalClosed && infoModal.style.display === 'none' && guidedTour.getCurrentStep()) {
+                                // Re-show shepherd modal overlay
+                                const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                if (shepherdOverlay) {
+                                    shepherdOverlay.style.display = 'block';
+                                }
+                                
+                                // User has completed CA build process and closed results modal, advance tour
+                                setTimeout(() => {
+                                    if (guidedTour.getCurrentStep()) {
+                                        guidedTour.next();
+                                    }
+                                }, 300);
+                                hasClickedBuildCA = false; // Reset flags
+                                caConfigModalClosed = false;
+                            }
+                        }
+                        
+                        function checkInfoModalOpened() {
+                            if (hasClickedBuildCA && caConfigModalClosed && infoModal.style.display === 'block') {
+                                // Results modal opened, hide shepherd overlay to allow interaction
+                                setTimeout(() => {
+                                    const shepherdOverlay = document.querySelector('.shepherd-modal-overlay-container');
+                                    if (shepherdOverlay) {
+                                        shepherdOverlay.style.display = 'none';
+                                    }
+                                    
+                                    // Make sure the info modal elements are not blocked
+                                    const infoModalElements = [
+                                        '#infoModal',
+                                        '#infoModal .close',
+                                        '#infoModal .modal-footer button'
+                                    ];
+                                    
+                                    infoModalElements.forEach(selector => {
+                                        const element = document.querySelector(selector);
+                                        if (element) {
+                                            element.style.pointerEvents = 'auto';
+                                            element.style.zIndex = '10001';
+                                        }
+                                    });
+                                }, 200);
+                            }
+                        }
+                        
+                        // Add event listener for build CA button
+                        buildCABtn.addEventListener('click', onBuildCAClick);
+                        
+                        // Use MutationObserver to watch for both modals
+                        const caModalObserver = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                                    checkCAConfigModalClosed();
+                                }
+                            });
+                        });
+                        
+                        const infoModalObserver = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                                    checkInfoModalOpened();
+                                    checkResultsModalClosed();
+                                }
+                            });
+                        });
+                        
+                        caModalObserver.observe(caModal, {
+                            attributes: true,
+                            attributeFilter: ['style']
+                        });
+                        
+                        infoModalObserver.observe(infoModal, {
+                            attributes: true,
+                            attributeFilter: ['style']
+                        });
+                        
+                        // Store cleanup functions in a closure variable
+                        const stepCleanupFunctions = {
+                            removeListener: () => buildCABtn.removeEventListener('click', onBuildCAClick),
+                            disconnectCAObserver: () => caModalObserver.disconnect(),
+                            disconnectInfoObserver: () => infoModalObserver.disconnect()
+                        };
+                        
+                        // Store cleanup reference on the tour for this step
+                        if (!guidedTour.stepCleanup) {
+                            guidedTour.stepCleanup = {};
+                        }
+                        guidedTour.stepCleanup['step4'] = stepCleanupFunctions;
+                    },
+                    hide: function() {
+                        // Cleanup when step is hidden
+                        if (guidedTour.stepCleanup && guidedTour.stepCleanup['step4']) {
+                            const cleanup = guidedTour.stepCleanup['step4'];
+                            if (cleanup.removeListener) cleanup.removeListener();
+                            if (cleanup.disconnectCAObserver) cleanup.disconnectCAObserver();
+                            if (cleanup.disconnectInfoObserver) cleanup.disconnectInfoObserver();
+                            delete guidedTour.stepCleanup['step4'];
+                        }
+                    }
+                }
+            });
+
+            // Step 5: Create Server Certificate
+            guidedTour.addStep({
+                title: '📜 Create Your First Certificate',
+                text: `
+                    <div class="tour-progress">Step 5 of 6</div>
+                    <p>Now let's create your first server certificate! Enter a name like "web-server" in the <strong>Certificate Name</strong> field, select <strong>"server"</strong> as the type, then click <strong>"Create Certificate"</strong>.</p>
+                    <p>Server certificates are used to secure web servers, API endpoints, and other network services.</p>
+                `,
+                attachTo: {
+                    element: '#certCommonName',
+                    on: 'bottom'
+                },
+                buttons: [
+                    {
+                        text: 'Previous',
+                        classes: 'shepherd-button-secondary',
+                        action: function() {
+                            guidedTour.back();
+                        }
+                    },
+                    {
+                        text: 'Next',
+                        action: function() {
+                            guidedTour.next();
+                        }
+                    }
+                ]
+            });
+
+            // Step 6: Completion
+            guidedTour.addStep({
+                title: '🎯 Tour Complete!',
+                text: `
+                    <div class="tour-progress">Step 6 of 6</div>
+                    <p><strong>Congratulations!</strong> You now know the essential PKI workflow:</p>
+                    <ol>
+                        <li>✅ Check PKI Status</li>
+                        <li>✅ Initialize PKI (if needed)</li>
+                        <li>✅ Build Certificate Authority</li>
+                        <li>✅ Create Certificates</li>
+                    </ol>
+                    <p>You can now manage certificates, monitor expiry dates, and use SCEP for device enrollment. Click the <strong>"🎓 Take Tour"</strong> button anytime to replay this tutorial.</p>
+                `,
+                buttons: [
+                    {
+                        text: 'Previous',
+                        classes: 'shepherd-button-secondary',
+                        action: function() {
+                            guidedTour.back();
+                        }
+                    },
+                    {
+                        text: 'Finish',
+                        action: function() {
+                            guidedTour.complete();
+                            markTourAsCompleted();
+                        }
+                    }
+                ]
+            });
+
+            return guidedTour;
+        }
+
+        function startGuidedTour() {
+            const tour = createGuidedTour();
+            tour.start();
+        }
+
+        function checkIfFirstTimeUser() {
+            // Check if user has seen the tour before
+            const hasSeenTour = localStorage.getItem('ca-manager-tour-completed');
+            if (!hasSeenTour) {
+                // Show tour after a short delay to let the page fully load
+                setTimeout(() => {
+                    startGuidedTour();
+                }, 1500);
+            }
+        }
+
+        function markTourAsCompleted() {
+            localStorage.setItem('ca-manager-tour-completed', 'true');
+            showStatus('🎓 Tutorial completed! You can restart it anytime using the "Take Tour" button.', 'success');
+        }
+
+        // Add tour trigger button
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create tour trigger button
+            const tourButton = document.createElement('button');
+            tourButton.className = 'tour-trigger-btn';
+            tourButton.innerHTML = '🎓 Take Tour';
+            tourButton.onclick = startGuidedTour;
+            document.body.appendChild(tourButton);
+
+            // Check if this is a first-time user
+            checkIfFirstTimeUser();
+        });
+    </script>
+
+    <!-- Tour Trigger Button -->
+    <button class="tour-trigger-btn" onclick="startGuidedTour()">🎓 Take Tour</button>
+
+</body>
+</html>
