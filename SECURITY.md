@@ -120,16 +120,6 @@ ufw deny 8081/tcp   # Block external Traefik dashboard access
 - **Failed Logins**: Monitor authentication failures
 - **Resource Usage**: Track unusual resource consumption
 
-#### Backup Security
-```bash
-# Secure backup practices
-# Encrypt backups
-gpg --cipher-algo AES256 --compress-algo 2 --symmetric pki-backup.tar.gz
-
-# Store backups securely
-aws s3 cp pki-backup.tar.gz.gpg s3://secure-backup-bucket/
-```
-
 ## 🔍 Security Scanning
 
 ### Automated Scanning
@@ -148,25 +138,6 @@ Regular security reviews include:
 - **Penetration Testing**: Periodic security testing
 - **Configuration Audits**: Security configuration validation
 
-## 🚨 Incident Response
-
-### Security Incident Classification
-
-| Severity | Description | Response Time |
-|----------|-------------|---------------|
-| **Critical** | Remote code execution, data breach | < 4 hours |
-| **High** | Privilege escalation, authentication bypass | < 24 hours |
-| **Medium** | Information disclosure, DoS | < 72 hours |
-| **Low** | Minor information leak, configuration issue | < 1 week |
-
-### Response Process
-
-1. **Detection**: Identify and validate security incident
-2. **Containment**: Isolate affected systems
-3. **Investigation**: Determine scope and impact
-4. **Mitigation**: Develop and deploy fixes
-5. **Recovery**: Restore normal operations
-6. **Lessons Learned**: Document and improve processes
 
 ## 📋 Security Checklist
 
@@ -197,24 +168,5 @@ Regular security reviews include:
 - **RFC 3647**: Certificate Policy and Certification Practices Framework
 - **RFC 5280**: Internet X.509 Public Key Infrastructure Certificate and CRL Profile
 - **RFC 8954**: Online Certificate Status Protocol (OCSP) Extensions
-
-### Security Guidelines
-- **NIST SP 800-57**: Cryptographic Key Management
-- **OWASP Top 10**: Web Application Security Risks
-- **CIS Controls**: Critical Security Controls
-
-### Compliance Frameworks
-- **SOC 2**: Service Organization Control 2
-- **ISO 27001**: Information Security Management
-- **FIPS 140-2**: Cryptographic Module Validation
-
-## 📞 Contact Information
-
-- **Security Team**: security@camanager.dev
-- **General Support**: support@camanager.dev
-- **GitHub Issues**: For non-security bugs and feature requests
-- **Community Forum**: For general discussions and questions
-
----
 
 **Security is everyone's responsibility. Thank you for helping keep CA Manager secure! 🛡️**
