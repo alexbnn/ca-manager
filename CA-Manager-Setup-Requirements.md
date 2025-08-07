@@ -25,10 +25,6 @@
 ## 🚀 Quick Start Process
 
 ### Step 1: Extract & Navigate
-```bash
-tar -xzf ca-manager-v4.0.0.tar.gz
-cd ca-manager-v4.0.0/
-```
 
 ### Step 2: Run Setup Script
 ```bash
