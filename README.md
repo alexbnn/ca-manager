@@ -28,11 +28,6 @@ A complete solution for managing your Public Key Infrastructure with a beautiful
 
 ### 1. Download and Extract
 
-```bash
-# Extract the CA Manager package
-tar -xzf ca-manager-v4.0.0.tar.gz
-cd ca-manager-v4.0.0/
-```
 
 ### 2. Run Setup Wizard
 
