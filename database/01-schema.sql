@@ -141,9 +141,9 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Create default admin user (no password required for initial setup)
 -- Admin can login with default password 'admin'
--- Password hash is bcrypt hash of 'admin' with cost factor 12
+-- Password hash is SHA-256 hash of 'admin'
 INSERT INTO users (username, email, password_hash, full_name, is_active, is_admin) VALUES 
-    ('admin', 'admin@example.com', '$2b$12$wL/BlaD//hyZhxY9PLQVbOujopj/XzjulFytrIs5ummKEvnM3TnGW', 'System Administrator', TRUE, TRUE)
+    ('admin', 'admin@example.com', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'System Administrator', TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- Assign admin role to default admin user

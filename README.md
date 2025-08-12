@@ -96,7 +96,7 @@ CA_MANAGER_BASE_URL=https://your-domain.com
 
 # Security
 SECRET_KEY=your-secret-key-here
-ADMIN_PASSWORD_HASH=$2b$12$wL/BlaD//hyZhxY9PLQVbOujopj/XzjulFytrIs5ummKEvnM3TnGW  # bcrypt hash of 'admin'
+ADMIN_PASSWORD_HASH=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918  # SHA-256 hash of 'admin'
 
 # Database
 POSTGRES_PASSWORD=secure-db-password
