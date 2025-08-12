@@ -20,11 +20,24 @@ fi
 # Check if setup has been completed
 if [ -f ".env" ] && [ -f "setup_complete.flag" ]; then
     echo "✅ Setup already completed. Starting CA Manager..."
+    
+    # Check for existing postgres volume that might have old password
+    if docker volume ls | grep -q "postgres-data"; then
+        echo ""
+        echo "⚠️  Warning: Existing PostgreSQL data volume detected."
+        echo "   If you have database connection issues, you may need to reset it:"
+        echo "   docker-compose down"
+        echo "   docker volume rm ca-manager-f_postgres-data"
+        echo "   ./deploy.sh"
+        echo ""
+    fi
+    
     docker-compose up -d
     echo ""
     echo "🌐 CA Manager is running!"
     echo "📊 Main Application: https://localhost/"
     echo "📈 Traefik Dashboard: http://localhost:8081/"
+    echo "🔑 Default login: admin / admin"
     exit 0
 fi
 

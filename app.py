@@ -126,6 +126,7 @@ def authenticate_user(username, password):
     try:
         conn = get_db_connection()
         if not conn:
+            logging.error("Failed to get database connection")
             return None
         
         with conn.cursor() as cursor:
@@ -141,14 +142,24 @@ def authenticate_user(username, password):
             
             user = cursor.fetchone()
             if user:
-                # Special case: admin user can login without password for initial setup
-                if username == 'admin' and (not password or password == ''):
-                    conn.close()
-                    return dict(user)
+                logging.info(f"User found: {username}, has_password_hash: {bool(user['password_hash'])}")
+                # Log first few chars of hash for debugging (safely)
+                if user['password_hash']:
+                    logging.debug(f"Password hash starts with: {user['password_hash'][:10]}...")
+                
                 # Regular password authentication for all users
-                elif user['password_hash'] and bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-                    conn.close()
-                    return dict(user)
+                if user['password_hash'] and password:
+                    try:
+                        if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+                            conn.close()
+                            logging.info(f"Authentication successful for user: {username}")
+                            return dict(user)
+                        else:
+                            logging.warning(f"Password verification failed for user: {username}")
+                    except Exception as e:
+                        logging.error(f"Bcrypt error for user {username}: {e}")
+                else:
+                    logging.warning(f"Missing password hash or password for user: {username}")
             
         conn.close()
         return None
@@ -364,13 +375,25 @@ def login():
     if not username:
         return jsonify({'status': 'error', 'message': 'Username required'}), 400
     
-    # Allow empty password for admin user (passwordless setup)
-    if not password and username != 'admin':
+    # Password is always required
+    if not password:
         return jsonify({'status': 'error', 'message': 'Password required'}), 400
     
     if MULTI_USER_MODE:
         # Multi-user authentication
+        logging.info(f"Multi-user mode login attempt for user: {username}")
         try:
+            # First check if database is accessible
+            conn = get_db_connection()
+            if not conn:
+                logging.error("Database connection failed - possible password mismatch. Check if postgres volume needs to be reset.")
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Database connection failed. If you recently ran setup, you may need to reset the database volume. Run: docker volume rm ca-manager-f_postgres-data',
+                    'details': 'The database password may have changed. Please check the logs or reset the database volume.'
+                }), 503
+            conn.close()
+            
             user = authenticate_user(username, password)
             if user:
                 # Extract role names from the user data
@@ -409,7 +432,21 @@ def login():
     
     else:
         # Legacy single-user authentication
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD_HASH:
+        # For backward compatibility, check both plain text and bcrypt hash
+        password_matches = False
+        
+        # First check if ADMIN_PASSWORD_HASH is a bcrypt hash (starts with $2)
+        if ADMIN_PASSWORD_HASH.startswith('$2'):
+            # It's a bcrypt hash, verify properly
+            try:
+                password_matches = bcrypt.checkpw(password.encode('utf-8'), ADMIN_PASSWORD_HASH.encode('utf-8'))
+            except:
+                password_matches = False
+        else:
+            # Plain text comparison for backward compatibility
+            password_matches = (password == ADMIN_PASSWORD_HASH)
+        
+        if username == ADMIN_USERNAME and password_matches:
             session['authenticated'] = True
             session['username'] = username
             session['is_admin'] = True

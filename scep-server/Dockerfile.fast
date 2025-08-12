@@ -1,0 +1,32 @@
+# Ultra-fast SCEP server using minimal dependencies
+FROM python:3.11-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install only essential runtime dependencies 
+RUN apk add --no-cache curl && \
+    adduser -D -u 1000 scepuser
+
+# Copy and install minimal requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir --no-compile -r requirements.txt
+
+# Copy application files
+COPY scep_server.py .
+
+# Create logs directory and set permissions
+RUN mkdir -p /app/logs && chown -R scepuser:scepuser /app
+
+USER scepuser
+EXPOSE 8090
+
+# Simple health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=2 \
+    CMD curl -f http://localhost:8090/health || exit 1
+
+# Environment
+ENV FLASK_APP=scep_server.py FLASK_ENV=production
+
+# Use Flask development server (faster startup for development)
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=8090"]

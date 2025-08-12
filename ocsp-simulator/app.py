@@ -36,7 +36,7 @@ DOMAIN = os.getenv('DOMAIN', 'localhost')
 def index():
     """OCSP simulator main page"""
     # Show external URLs for configuration display
-    external_ocsp_url = f"https://ca.{DOMAIN}/ocsp" if DOMAIN != 'localhost' else 'https://ca.localhost/ocsp'
+    external_ocsp_url = f"https://{DOMAIN}/ocsp"
     
     return render_template('index.html', 
                          ocsp_responder_url=external_ocsp_url,
@@ -367,7 +367,7 @@ def run_test_scenario(scenario):
 def health():
     """Health check endpoint"""
     # Show external URL for health endpoint as well
-    external_ocsp_url = f"https://ca.{DOMAIN}/ocsp" if DOMAIN != 'localhost' else 'https://ca.localhost/ocsp'
+    external_ocsp_url = f"https://{DOMAIN}/ocsp"
     
     return jsonify({
         'status': 'healthy',

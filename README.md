@@ -62,10 +62,10 @@ This will:
 ### 4. Access Your CA Manager
 
 - **Main Application**: `https://your-domain/` (or `https://localhost/`)
-- **Default Login**: `admin` / (password you set in wizard)
+- **Default Login**: `admin` / `admin` (change after first login)
 - **Traefik Dashboard**: `http://localhost:8081/`
-- **SCEP Endpoint**: `https://ca.your-domain/scep/` (or `https://ca.localhost/scep/`)
-- **OCSP Responder**: `https://ca.your-domain/ocsp` (or `https://ca.localhost/ocsp`)
+- **SCEP Endpoint**: `https://your-domain/scep/` (or `https://localhost/scep/`)
+- **OCSP Responder**: `https://your-domain/ocsp` (or `https://localhost/ocsp`)
 - **iOS SCEP Simulator**: `https://your-domain/simulator/`
 - **OCSP Simulator**: `https://your-domain/ocsp-simulator/`
 
@@ -88,7 +88,7 @@ CA_MANAGER_BASE_URL=https://your-domain.com
 
 # Security
 SECRET_KEY=your-secret-key-here
-ADMIN_PASSWORD_HASH=your-secure-password
+ADMIN_PASSWORD_HASH=$2b$12$wL/BlaD//hyZhxY9PLQVbOujopj/XzjulFytrIs5ummKEvnM3TnGW  # bcrypt hash of 'admin'
 
 # Database
 POSTGRES_PASSWORD=secure-db-password
@@ -287,9 +287,20 @@ lsof -i :80 -i :443 -i :8081 -i :8090
 - For Let's Encrypt: Ensure domain points to your server
 - For self-signed: Accept certificate in browser
 
-**Database connection:**
+**Database connection issues (admin/admin not working):**
+
+If you get "password authentication failed" errors after running setup:
 ```bash
-# Check PostgreSQL logs
+# The database volume may have an old password. Reset it:
+docker-compose down
+docker volume rm ca-manager-f_postgres-data  # Or: docker volume rm $(docker volume ls -q | grep postgres-data)
+docker-compose up -d
+```
+
+This happens when the setup wizard generates a new database password but the PostgreSQL volume still has the old password. The database password is set only when the volume is first created.
+
+```bash
+# Check PostgreSQL logs for details
 docker-compose logs postgres
 ```
 

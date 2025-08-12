@@ -26,8 +26,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
-# Configure app to work with path prefix
-app.config['APPLICATION_ROOT'] = '/simulator'
+# Flask will receive requests at root path after Traefik strips /simulator prefix
+# app.config['APPLICATION_ROOT'] = '/simulator'  # Not needed with stripprefix middleware
 app.secret_key = os.getenv('SECRET_KEY', 'ios-scep-simulator-secret-key-change-in-production')
 
 # Configuration
@@ -358,8 +358,7 @@ def get_full_scep_url(base_url=None):
         print(f"Failed to get full SCEP URL: {e}")
         return f"{base_url}/scep/pkiclient"
 
-@app.route('/simulator/')
-@app.route('/simulator')
+@app.route('/')
 def index():
     """Main page showing device simulator"""
     scep_base_url = get_ca_manager_scep_url()
@@ -367,7 +366,7 @@ def index():
                          devices=DEVICE_PROFILE_TEMPLATES,
                          scep_server_url=scep_base_url)
 
-@app.route('/simulator/device/<device_type>')
+@app.route('/device/<device_type>')
 def device_detail(device_type):
     """Device detail page with randomized device data"""
     if device_type not in DEVICE_PROFILE_TEMPLATES:
@@ -382,7 +381,7 @@ def device_detail(device_type):
                          device_type=device_type,
                          scep_server_url=scep_base_url)
 
-@app.route('/simulator/api/scep/test', methods=['POST'])
+@app.route('/api/scep/test', methods=['POST'])
 def test_scep_connection():
     """Test SCEP server connection"""
     data = request.get_json()
@@ -405,7 +404,7 @@ def test_scep_connection():
         'timestamp': datetime.now().isoformat()
     })
 
-@app.route('/simulator/api/scep/enroll', methods=['POST'])
+@app.route('/api/scep/enroll', methods=['POST'])
 def scep_enroll():
     """Simulate device certificate enrollment via SCEP"""
     data = request.get_json()
@@ -473,7 +472,7 @@ def scep_enroll():
             'timestamp': datetime.now().isoformat()
         }), 500
 
-@app.route('/simulator/api/devices')
+@app.route('/api/devices')
 def list_devices():
     """List available device profile templates"""
     return jsonify({
@@ -482,7 +481,7 @@ def list_devices():
         'count': len(DEVICE_PROFILE_TEMPLATES)
     })
 
-@app.route('/simulator/health')
+@app.route('/health')
 def health():
     """Health check endpoint"""
     return jsonify({

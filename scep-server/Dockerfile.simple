@@ -1,0 +1,37 @@
+# Simple single-stage SCEP server build
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install minimal dependencies in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gcc \
+    python3-dev \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1000 scepuser
+
+# Install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY scep_server.py .
+
+# Setup permissions  
+RUN mkdir -p /app/logs && chown -R scepuser:scepuser /app
+
+USER scepuser
+EXPOSE 8090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8090/health || exit 1
+
+# Environment
+ENV FLASK_APP=scep_server.py FLASK_ENV=production
+
+# Use gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8090", "--workers", "1", "--timeout", "120", "scep_server:app"]

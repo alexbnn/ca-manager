@@ -1,0 +1,29 @@
+accessLog:
+  filePath: /var/log/traefik/access.log
+api:
+  dashboard: true
+  insecure: true
+entryPoints:
+  web:
+    address: :80
+    http:
+      redirections:
+        entrypoint:
+          scheme: https
+          to: websecure
+  websecure:
+    address: :443
+log:
+  filePath: /var/log/traefik/traefik.log
+  level: INFO
+metrics:
+  prometheus:
+    addRoutersLabels: true
+providers:
+  docker:
+    endpoint: unix:///var/run/docker.sock
+    exposedByDefault: false
+    network: easyrsa-network
+  file:
+    filename: /etc/traefik/traefik-dynamic.yml
+    watch: true
