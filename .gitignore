@@ -162,3 +162,7 @@ site/
 # Setup wizard output
 setup_complete.json
 docker_labels.json
+# Memory/notes files
+MEMORY.md
+*.memory
+notes.md
