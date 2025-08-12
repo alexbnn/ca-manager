@@ -264,7 +264,7 @@ def setup_configuration():
             'ssl_type': data['ssl_type'],
             'email': email,
             'secret_key': secrets.token_urlsafe(32),
-            'admin_password': '$2b$12$wL/BlaD//hyZhxY9PLQVbOujopj/XzjulFytrIs5ummKEvnM3TnGW',  # bcrypt hash of 'admin'
+            'admin_password': '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',  # SHA-256 hash of 'admin'
             'db_password': secrets.token_urlsafe(16),
             'organization': data['organization'],
             'country': data['country'],

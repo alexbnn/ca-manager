@@ -27,7 +27,7 @@ BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 # Database connection for multi-user authentication
 import psycopg2
 import psycopg2.extras
-import bcrypt
+# import bcrypt  # Replaced with SHA-256 for better compatibility
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -150,14 +150,16 @@ def authenticate_user(username, password):
                 # Regular password authentication for all users
                 if user['password_hash'] and password:
                     try:
-                        if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+                        # SHA-256 hash verification
+                        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+                        if password_hash == user['password_hash']:
                             conn.close()
                             logging.info(f"Authentication successful for user: {username}")
                             return dict(user)
                         else:
                             logging.warning(f"Password verification failed for user: {username}")
                     except Exception as e:
-                        logging.error(f"Bcrypt error for user {username}: {e}")
+                        logging.error(f"SHA-256 hash error for user {username}: {e}")
                 else:
                     logging.warning(f"Missing password hash or password for user: {username}")
             
@@ -432,14 +434,15 @@ def login():
     
     else:
         # Legacy single-user authentication
-        # For backward compatibility, check both plain text and bcrypt hash
+        # For backward compatibility, check both plain text and SHA-256 hash
         password_matches = False
         
-        # First check if ADMIN_PASSWORD_HASH is a bcrypt hash (starts with $2)
-        if ADMIN_PASSWORD_HASH.startswith('$2'):
-            # It's a bcrypt hash, verify properly
+        # Check if ADMIN_PASSWORD_HASH is a SHA-256 hash (64 hex characters)
+        if len(ADMIN_PASSWORD_HASH) == 64 and all(c in '0123456789abcdef' for c in ADMIN_PASSWORD_HASH.lower()):
+            # It's a SHA-256 hash, verify properly
             try:
-                password_matches = bcrypt.checkpw(password.encode('utf-8'), ADMIN_PASSWORD_HASH.encode('utf-8'))
+                password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+                password_matches = (password_hash == ADMIN_PASSWORD_HASH)
             except:
                 password_matches = False
         else:
@@ -2030,7 +2033,7 @@ def change_password():
             if not conn:
                 return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
             
-            password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            password_hash = hashlib.sha256(new_password.encode('utf-8')).hexdigest()
             with conn.cursor() as cursor:
                 cursor.execute(
                     "UPDATE users SET password_hash = %s WHERE id = %s",

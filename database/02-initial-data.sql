@@ -55,16 +55,16 @@ WHERE r.name = 'viewer'
 AND p.name IN ('pki_read', 'ca_read', 'cert_read', 'crl_read')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- Create default users with bcrypt hashed passwords
+-- Create default users with SHA-256 hashed passwords
 -- Password for all users: admin -> admin, operator -> operator, viewer -> viewer
--- These are bcrypt hashes with cost factor 12
+-- These are SHA-256 hashes
 
 -- Admin user (password: admin)
 INSERT INTO users (username, email, password_hash, full_name, is_admin, is_active)
 VALUES (
     'admin',
     'admin@example.com',
-    '$2b$12$wL/BlaD//hyZhxY9PLQVbOujopj/XzjulFytrIs5ummKEvnM3TnGW',
+    '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
     'System Administrator',
     true,
     true
@@ -80,7 +80,7 @@ INSERT INTO users (username, email, password_hash, full_name, is_admin, is_activ
 VALUES (
     'operator',
     'operator@example.com',
-    '$2b$12$sFL7IeQXUz/TWS/KlL/lOubnYLZlywB32uDt50M4mZocZAk5vmrJy',
+    '06e55b633481f7bb072957eabcf110c972e86691c3cfedabe088024bffe42f23',
     'PKI Operator',
     false,
     true
@@ -91,7 +91,7 @@ INSERT INTO users (username, email, password_hash, full_name, is_admin, is_activ
 VALUES (
     'viewer',
     'viewer@example.com',
-    '$2b$12$rozW9arRLoDNx8fUzZw0Fuapa8DxwzFPyjX91YntSHYWYd9T6keiu',
+    'd35ca5051b82ffc326a3b0b6574a9a3161dee16b9478a199ee39cd803ce5b799',
     'PKI Viewer',
     false,
     true
