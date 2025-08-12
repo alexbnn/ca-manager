@@ -224,8 +224,6 @@ FLASK_ENV=production
 # Rate Limiting
 RATELIMIT_STORAGE_URL=redis://redis:6379
 
-# Optional: Tenant ID for multi-tenant deployments
-TENANT_ID=
 """
     return env_content
 

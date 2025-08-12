@@ -33,8 +33,6 @@ services:
       # SCEP Server URL for external clients (uses actual tenant domain)
       - SCEP_SERVER_URL=${SCEP_SERVER_URL:-https://${DOMAIN:-localhost}}
       
-      # Tenant ID for proper internal SCEP health checks
-      - TENANT_ID=${TENANT_ID}
       
     depends_on:
       easyrsa-container:
