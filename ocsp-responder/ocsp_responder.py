@@ -26,15 +26,39 @@ CA_MANAGER_URL = os.getenv('CA_MANAGER_URL', 'http://ca-manager:5000')
 EASYRSA_CONTAINER_URL = os.getenv('EASYRSA_CONTAINER_URL', 'http://easyrsa-container:8080')
 DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
 
-# Configure logging  
-logging.basicConfig(
-    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/app/logs/ocsp.log'),
-        logging.StreamHandler()
+# Configure logging with fallback for permission issues
+def setup_logging():
+    handlers = [logging.StreamHandler()]  # Always have console output
+    
+    # Try to add file handler, fall back gracefully if permissions fail
+    log_file_paths = [
+        '/app/logs/ocsp.log',  # Primary location (Docker volume)
+        '/tmp/ocsp.log',       # Fallback location
     ]
-)
+    
+    for log_path in log_file_paths:
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            # Test write permissions
+            test_file = log_path + '.test'
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            # If we get here, we can write to this location
+            handlers.append(logging.FileHandler(log_path))
+            break
+        except (PermissionError, OSError, IOError) as e:
+            print(f"Cannot write to {log_path}: {e}")
+            continue
+    
+    logging.basicConfig(
+        level=logging.DEBUG if DEBUG_MODE else logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=handlers
+    )
+
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
