@@ -15,7 +15,7 @@ services:
       - AUTHENTICATION_ENABLED=true
       - MULTI_USER_MODE=true
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD_HASH=admin
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-$$2b$$12$$wL/BlaD//hyZhxY9PLQVbOujopj/XzjulFytrIs5ummKEvnM3TnGW}
       
       # Flask Settings
       - FLASK_ENV=production
@@ -64,9 +64,9 @@ services:
           cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.web.rule=Host(`ca.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.web.rule=Host(`ca.bonner.com`)"
+      - "traefik.http.routers.web.priority=10"
       - "traefik.http.routers.web.tls=true"
-      - "traefik.http.routers.web.priority=100"
       - "traefik.http.services.web.loadbalancer.server.port=5000"
   easyrsa-container:
     build: ./terminal-program
@@ -180,7 +180,8 @@ services:
           cpus: '0.1'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.scep.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/scep`)"
+      - "traefik.http.routers.scep.rule=Host(`ca.bonner.com`) && PathPrefix(`/scep`)"
+      - "traefik.http.routers.scep.priority=100"
       - "traefik.http.routers.scep.tls=true"
       - "traefik.http.services.scep.loadbalancer.server.port=8090"
   # iOS SCEP Client Simulator
@@ -189,8 +190,8 @@ services:
       context: ./ios-scep-simulator
       dockerfile: Dockerfile
     environment:
-      - SCEP_SERVER_URL=https://ca.${DOMAIN:-localhost}
-      - CA_MANAGER_BASE_URL=https://ca.${DOMAIN:-localhost}
+      - SCEP_SERVER_URL=https://${DOMAIN:-localhost}/scep
+      - CA_MANAGER_BASE_URL=https://${DOMAIN:-localhost}
       - FLASK_ENV=production
       - DOMAIN=${DOMAIN:-localhost}
     depends_on:
@@ -210,11 +211,12 @@ services:
           cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.simulator.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/simulator`)"
+      - "traefik.http.routers.simulator.rule=Host(`ca.bonner.com`) && PathPrefix(`/simulator`)"
+      - "traefik.http.routers.simulator.priority=1000"
       - "traefik.http.routers.simulator.tls=true"
-      - "traefik.http.routers.simulator.priority=200"
+      - "traefik.http.routers.simulator.middlewares=simulator-stripprefix"
+      - "traefik.http.middlewares.simulator-stripprefix.stripprefix.prefixes=/simulator"
       - "traefik.http.services.simulator.loadbalancer.server.port=3000"
-
   # OCSP Client Simulator
   ocsp-simulator:
     build:
@@ -222,7 +224,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - OCSP_RESPONDER_URL=http://ocsp-responder:8091
-      - CA_MANAGER_BASE_URL=https://ca.${DOMAIN:-localhost}
+      - CA_MANAGER_BASE_URL=https://${DOMAIN:-localhost}
       - FLASK_ENV=production
       - DOMAIN=${DOMAIN:-localhost}
     depends_on:
@@ -242,11 +244,10 @@ services:
           cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ocsp-simulator.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/ocsp-simulator`)"
-      - "traefik.http.routers.ocsp-simulator.tls=true"
+      - "traefik.http.routers.ocsp-simulator.rule=Host(`ca.bonner.com`) && PathPrefix(`/ocsp-simulator`)"
       - "traefik.http.routers.ocsp-simulator.priority=500"
+      - "traefik.http.routers.ocsp-simulator.tls=true"
       - "traefik.http.services.ocsp-simulator.loadbalancer.server.port=4000"
-
   # OCSP Responder - Online Certificate Status Protocol
   ocsp-responder:
     build:
@@ -274,11 +275,10 @@ services:
           cpus: '0.1'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ocsp.rule=Host(`ca.${DOMAIN:-localhost}`) && PathPrefix(`/ocsp`)"
+      - "traefik.http.routers.ocsp.rule=Host(`ca.bonner.com`) && PathPrefix(`/ocsp`)"
+      - "traefik.http.routers.ocsp.priority=100"
       - "traefik.http.routers.ocsp.tls=true"
-      - "traefik.http.routers.ocsp.priority=300"
       - "traefik.http.services.ocsp.loadbalancer.server.port=8091"
-
   # Traefik reverse proxy with automatic SSL and service discovery
   traefik:
     image: traefik:v3.0
@@ -364,6 +364,3 @@ volumes:
 networks:
   easyrsa-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.200.0.0/16

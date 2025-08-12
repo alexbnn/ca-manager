@@ -13,13 +13,11 @@ if [ -n "$TRAEFIK_IP" ]; then
     # Clean up any existing entries for our domains
     sed -i "/${DOMAIN:-localhost}/d" /etc/hosts 2>/dev/null || true
     
-    # Add domain and ca.domain to hosts file pointing to Traefik
+    # Add domain to hosts file pointing to Traefik
     echo "Adding host entries:"
     echo "  - $TRAEFIK_IP ${DOMAIN:-localhost}"
-    echo "  - $TRAEFIK_IP ca.${DOMAIN:-localhost}"
     
     echo "$TRAEFIK_IP ${DOMAIN:-localhost}" >> /etc/hosts
-    echo "$TRAEFIK_IP ca.${DOMAIN:-localhost}" >> /etc/hosts
     
     # Also add any other subdomains that might be needed
     if [ "${DOMAIN}" != "localhost" ]; then
@@ -34,7 +32,6 @@ else
     echo "  Using localhost fallback..."
     
     echo "127.0.0.1 ${DOMAIN:-localhost}" >> /etc/hosts
-    echo "127.0.0.1 ca.${DOMAIN:-localhost}" >> /etc/hosts
 fi
 
 # Display SCEP configuration

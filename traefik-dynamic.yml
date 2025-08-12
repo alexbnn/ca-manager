@@ -1,0 +1,63 @@
+# Traefik Dynamic Configuration
+# This file handles TLS certificates and additional routing rules
+
+# TLS Configuration for self-signed certificates
+tls:
+  options:
+    default:
+      minVersion: "VersionTLS12"
+      sslStrategies:
+        - "tls.SniStrict"
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  
+  certificates:
+    - certFile: /ssl/server.crt
+      keyFile: /ssl/server.key
+
+# HTTP Middlewares
+http:
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Frame-Options: "DENY"
+          X-Content-Type-Options: "nosniff"
+          X-XSS-Protection: "1; mode=block"
+          Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+        contentTypeNosniff: true
+        frameDeny: true
+        sslRedirect: true
+        
+    # Rate limiting
+    api-rate-limit:
+      rateLimit:
+        burst: 10
+        average: 5
+        period: "1m"
+        
+    web-rate-limit:
+      rateLimit:
+        burst: 30
+        average: 10
+        period: "1m"
+        
+    # WebSocket-friendly headers for noVNC
+    websocket-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        # Remove problematic security headers for WebSocket connections
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+        contentTypeNosniff: false
+        frameDeny: false
+
+  # Services can be defined here if needed
+  services: {}

@@ -101,7 +101,7 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 -- Insert default OCSP configuration
 INSERT INTO ocsp_config (parameter_name, parameter_value, description) VALUES 
     ('response_validity_hours', '24', 'OCSP response validity period in hours'),
-    ('responder_url', 'https://ca.localhost/ocsp', 'Public OCSP responder URL'),
+    ('responder_url', 'https://localhost/ocsp', 'Public OCSP responder URL'),
     ('signing_algorithm', 'SHA256', 'Algorithm used to sign OCSP responses'),
     ('enable_nonce', 'true', 'Whether to support nonce extension in requests'),
     ('max_request_size', '8192', 'Maximum size of OCSP request in bytes'),

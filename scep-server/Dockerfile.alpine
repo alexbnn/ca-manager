@@ -1,0 +1,45 @@
+# Fast Alpine-based SCEP server image
+FROM python:3.11-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install build and runtime dependencies in one layer
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    openssl-dev \
+    curl \
+    && adduser -D -u 1000 scepuser
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY scep_server.py .
+
+# Create logs directory and set ownership
+RUN mkdir -p /app/logs && \
+    chown -R scepuser:scepuser /app
+
+# Switch to non-root user
+USER scepuser
+
+# Expose port
+EXPOSE 8090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8090/health || exit 1
+
+# Environment variables
+ENV PYTHONPATH=/app
+ENV FLASK_APP=scep_server.py
+ENV FLASK_ENV=production
+
+# Use gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:8090", "--workers", "3", "--worker-class", "sync", "--timeout", "300", "scep_server:app"]
