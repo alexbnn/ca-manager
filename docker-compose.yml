@@ -259,7 +259,7 @@ services:
       - DEBUG_MODE=true
       - DOMAIN=${DOMAIN:-localhost}
     volumes:
-      - ./ocsp-responder/logs:/app/logs
+      - ocsp-logs:/app/logs
       # Mount source files for live updates
       - ./ocsp-responder/ocsp_responder.py:/app/ocsp_responder.py:ro
     restart: unless-stopped
