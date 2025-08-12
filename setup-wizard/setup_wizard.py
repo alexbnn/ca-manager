@@ -127,7 +127,7 @@ def update_docker_compose_labels(domain, use_letsencrypt):
     web_labels = [
         "traefik.enable=true",
         f"traefik.http.routers.web.rule=Host(`{domain}`)",
-        "traefik.http.routers.web.priority=100",
+        "traefik.http.routers.web.priority=10",
         "traefik.http.routers.web.tls=true",
         "traefik.http.services.web.loadbalancer.server.port=5000"
     ]
@@ -135,6 +135,7 @@ def update_docker_compose_labels(domain, use_letsencrypt):
     scep_labels = [
         "traefik.enable=true",
         f"traefik.http.routers.scep.rule=Host(`{ca_domain}`) && PathPrefix(`/scep`)",
+        "traefik.http.routers.scep.priority=100",
         "traefik.http.routers.scep.tls=true",
         "traefik.http.services.scep.loadbalancer.server.port=8090"
     ]
@@ -143,6 +144,7 @@ def update_docker_compose_labels(domain, use_letsencrypt):
     ocsp_responder_labels = [
         "traefik.enable=true",
         f"traefik.http.routers.ocsp.rule=Host(`{ca_domain}`) && PathPrefix(`/ocsp`)",
+        "traefik.http.routers.ocsp.priority=100",
         "traefik.http.routers.ocsp.tls=true",
         "traefik.http.services.ocsp.loadbalancer.server.port=8091"
     ]
@@ -160,6 +162,7 @@ def update_docker_compose_labels(domain, use_letsencrypt):
     ios_simulator_labels = [
         "traefik.enable=true",
         f"traefik.http.routers.simulator.rule=Host(`{domain}`) && PathPrefix(`/simulator`)",
+        "traefik.http.routers.simulator.priority=1000",
         "traefik.http.routers.simulator.tls=true",
         "traefik.http.services.simulator.loadbalancer.server.port=3000"
     ]
