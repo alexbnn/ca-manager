@@ -64,7 +64,7 @@ services:
           cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.web.rule=Host(`ca.bonner.com`)"
+      - "traefik.http.routers.web.rule=Host(`${DOMAIN:-localhost}`)"
       - "traefik.http.routers.web.priority=10"
       - "traefik.http.routers.web.tls=true"
       - "traefik.http.services.web.loadbalancer.server.port=5000"
@@ -180,7 +180,7 @@ services:
           cpus: '0.1'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.scep.rule=Host(`ca.bonner.com`) && PathPrefix(`/scep`)"
+      - "traefik.http.routers.scep.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/scep`)"
       - "traefik.http.routers.scep.priority=100"
       - "traefik.http.routers.scep.tls=true"
       - "traefik.http.services.scep.loadbalancer.server.port=8090"
@@ -211,7 +211,7 @@ services:
           cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.simulator.rule=Host(`ca.bonner.com`) && PathPrefix(`/simulator`)"
+      - "traefik.http.routers.simulator.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/simulator`)"
       - "traefik.http.routers.simulator.priority=1000"
       - "traefik.http.routers.simulator.tls=true"
       - "traefik.http.routers.simulator.middlewares=simulator-stripprefix"
@@ -244,7 +244,7 @@ services:
           cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ocsp-simulator.rule=Host(`ca.bonner.com`) && PathPrefix(`/ocsp-simulator`)"
+      - "traefik.http.routers.ocsp-simulator.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/ocsp-simulator`)"
       - "traefik.http.routers.ocsp-simulator.priority=500"
       - "traefik.http.routers.ocsp-simulator.tls=true"
       - "traefik.http.services.ocsp-simulator.loadbalancer.server.port=4000"
@@ -275,7 +275,7 @@ services:
           cpus: '0.1'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ocsp.rule=Host(`ca.bonner.com`) && PathPrefix(`/ocsp`)"
+      - "traefik.http.routers.ocsp.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/ocsp`)"
       - "traefik.http.routers.ocsp.priority=100"
       - "traefik.http.routers.ocsp.tls=true"
       - "traefik.http.services.ocsp.loadbalancer.server.port=8091"
