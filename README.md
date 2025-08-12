@@ -26,12 +26,20 @@ A complete solution for managing your Public Key Infrastructure with a beautiful
 - Port 8000 available for setup wizard
 - Ports 80, 443, 8081, 8090 available for main application
 
-### 1. Download and Extract
+### 1. Clone from GitHub
 
 ```bash
-# Extract the CA Manager package
-tar -xzf ca-manager-v4.0.0.tar.gz
-cd ca-manager-v4.0.0/
+# Clone the CA Manager repository
+git clone https://github.com/alexbnn/ca-manager.git
+cd ca-manager/
+```
+
+Alternatively, download as ZIP:
+```bash
+# Download and extract ZIP file
+wget https://github.com/alexbnn/ca-manager/archive/refs/heads/main.zip
+unzip main.zip
+cd ca-manager-main/
 ```
 
 ### 2. Run Setup Wizard
