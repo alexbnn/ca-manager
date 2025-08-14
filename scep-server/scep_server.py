@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 import tempfile
+import time
 
 app = Flask(__name__)
 
@@ -58,7 +59,32 @@ SCEP_OPERATIONS = {
 }
 
 # SCEP Password Configuration (Always Enabled)
+# Try to load from database first via the web interface, fallback to env var
 SCEP_PASSWORD = os.getenv('SCEP_PASSWORD', 'MySecretSCEPPassword123')
+
+# Function to load password from database via web interface
+def load_password_from_database():
+    """Load SCEP password from database through web interface"""
+    global SCEP_PASSWORD
+    try:
+        # Query the web interface internal endpoint to get the stored password
+        response = requests.get(
+            "http://web-interface:5000/api/internal/scep-password",
+            timeout=5
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('password'):
+                SCEP_PASSWORD = data['password']
+                logger.info(f"Loaded SCEP password from database (length: {len(SCEP_PASSWORD)})")
+                return True
+    except Exception as e:
+        logger.warning(f"Could not load password from database: {e}")
+    
+    # Fallback to environment variable
+    SCEP_PASSWORD = os.getenv('SCEP_PASSWORD', 'MySecretSCEPPassword123')
+    logger.info(f"Using environment variable for SCEP password (length: {len(SCEP_PASSWORD)})")
+    return False
 
 def extract_challenge_password(csr):
     """Extract challenge password from CSR attributes"""
@@ -559,14 +585,18 @@ def reload_config():
             "error": str(e)
         }), 500
 
+# Initialize on module load (works with gunicorn)
+os.makedirs('/app/logs', exist_ok=True)
+logger.info("SCEP Server module loading...")
+logger.info(f"EasyRSA Container URL: {EASYRSA_CONTAINER_URL}")
+logger.info(f"Debug Mode: {DEBUG_MODE}")
+
+# Try to load password from database on startup
+# Add a small delay to ensure web-interface is ready
+time.sleep(5)
+load_password_from_database()
+
 if __name__ == '__main__':
-    # Create logs directory
-    os.makedirs('/app/logs', exist_ok=True)
-    
-    logger.info("Starting SCEP Server...")
-    logger.info(f"EasyRSA Container URL: {EASYRSA_CONTAINER_URL}")
-    logger.info(f"CA Identifier: {SCEP_CA_IDENTIFIER}")
-    logger.info(f"Debug Mode: {DEBUG_MODE}")
-    
-    # Run the Flask app
+    # Run the Flask app directly (for development)
+    logger.info("Starting SCEP Server in development mode...")
     app.run(host='0.0.0.0', port=8090, debug=DEBUG_MODE)

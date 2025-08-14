@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Request Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .step::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: -50%;
+            width: 100%;
+            height: 2px;
+            background: #e0e0e0;
+            z-index: -1;
+        }
+
+        .step:last-child::after {
+            display: none;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #666;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .step.active .step-number {
+            background: #6B73FF;
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .step-title {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .template-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .template-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .template-card:hover {
+            border-color: #6B73FF;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(107, 115, 255, 0.2);
+        }
+
+        .template-card.selected {
+            border-color: #6B73FF;
+            background: #f0f2ff;
+        }
+
+        .template-card h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .template-card p {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .san-inputs {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .san-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .san-input-group input {
+            flex: 1;
+        }
+
+        .san-input-group button {
+            padding: 8px 15px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .add-san-btn {
+            padding: 8px 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #6B73FF;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a62ff;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #81c784;
+        }
+
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+
+        .csr-preview {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #6B73FF;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .success-section {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .success-icon {
+            font-size: 64px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .download-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #6B73FF;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-btn:hover {
+            background: #5a62ff;
+        }
+
+        .qr-code {
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Certificate Request Portal</h1>
+            <p>Request and manage your digital certificates</p>
+        </div>
+
+        <div class="steps">
+            <div class="step active" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-title">Choose Template</div>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-title">Certificate Details</div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div class="step-title">Review & Submit</div>
+            </div>
+            <div class="step" id="step4">
+                <div class="step-number">4</div>
+                <div class="step-title">Download</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <form id="certificateRequestForm">
+                <!-- Step 1: Template Selection -->
+                <div class="form-section active" id="section1">
+                    <h2>Select Certificate Template</h2>
+                    <p style="color: #666; margin-bottom: 20px;">Choose the type of certificate you need</p>
+                    
+                    <div class="template-cards" id="templateCards">
+                        <!-- Templates will be loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Step 2: Certificate Details -->
+                <div class="form-section" id="section2">
+                    <h2>Certificate Details</h2>
+                    
+                    <div class="form-group">
+                        <label>Your Name *</label>
+                        <input type="text" id="requesterName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email Address *</label>
+                        <input type="email" id="requesterEmail" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Department/Team</label>
+                        <input type="text" id="department">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Common Name (CN) *</label>
+                        <input type="text" id="commonName" required>
+                        <small>For web servers: FQDN (e.g., www.example.com). For email: email address</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Subject Alternative Names (SANs)</label>
+                        <div class="san-inputs">
+                            <div id="sansList"></div>
+                            <button type="button" class="add-san-btn" onclick="addSAN()">+ Add SAN</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Key Algorithm</label>
+                        <select id="keyAlgorithm">
+                            <option value="RSA">RSA</option>
+                            <option value="ECDSA">ECDSA</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="keySizeGroup">
+                        <label>Key Size</label>
+                        <select id="keySize">
+                            <option value="2048">2048 bits</option>
+                            <option value="3072">3072 bits</option>
+                            <option value="4096" selected>4096 bits</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Validity Period (Days)</label>
+                        <input type="number" id="validityDays" value="365" min="30" max="825">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Additional Notes</label>
+                        <textarea id="notes" placeholder="Any special requirements or notes..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Step 3: Review -->
+                <div class="form-section" id="section3">
+                    <h2>Review Your Request</h2>
+                    
+                    <div class="alert alert-info">
+                        Please review your certificate request details before submitting.
+                    </div>
+
+                    <div id="reviewDetails" style="padding: 20px; background: #f9f9f9; border-radius: 6px;">
+                        <!-- Review details will be populated here -->
+                    </div>
+
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>
+                            <input type="checkbox" id="confirmAccuracy" required>
+                            I confirm that all information provided is accurate
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Step 4: Success/Download -->
+                <div class="form-section" id="section4">
+                    <div class="success-section">
+                        <div class="success-icon">✅</div>
+                        <h2>Certificate Request Submitted!</h2>
+                        <p id="requestStatus" style="color: #666; margin-top: 10px;"></p>
+                        
+                        <div id="downloadSection" style="display: none;">
+                            <div class="download-buttons">
+                                <a href="#" class="download-btn" id="downloadPEM">
+                                    📄 Download PEM
+                                </a>
+                                <a href="#" class="download-btn" id="downloadP12">
+                                    🔐 Download P12
+                                </a>
+                                <a href="#" class="download-btn" id="downloadDER">
+                                    📦 Download DER
+                                </a>
+                            </div>
+                            
+                            <div id="qrCodeSection" style="margin-top: 30px; display: none;">
+                                <h3>Mobile Installation</h3>
+                                <p style="color: #666;">Scan this QR code with your mobile device</p>
+                                <div class="qr-code" id="qrCode"></div>
+                            </div>
+                        </div>
+
+                        <div id="pendingApproval" style="display: none; margin-top: 20px;">
+                            <div class="alert alert-info">
+                                Your request is pending approval. You will receive an email once it's approved.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" id="prevBtn" onclick="changeStep(-1)" style="display: none;">Previous</button>
+                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="changeStep(1)">Next</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn" style="display: none;">Submit Request</button>
+                </div>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">Processing your request...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let selectedTemplate = null;
+        let requestId = null;
+        let templates = [];
+
+        // Load certificate templates
+        async function loadTemplates() {
+            try {
+                const response = await fetch('/api/certificate-templates');
+                templates = await response.json();
+                
+                const container = document.getElementById('templateCards');
+                container.innerHTML = templates.map(template => `
+                    <div class="template-card" data-template="${template.template_name}" onclick="selectTemplate('${template.template_name}')">
+                        <h4>${template.display_name}</h4>
+                        <p>${template.description}</p>
+                        <small>Valid for ${template.default_validity_days} days</small>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load templates:', error);
+            }
+        }
+
+        function selectTemplate(templateName) {
+            selectedTemplate = templates.find(t => t.template_name === templateName);
+            
+            // Update UI
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelector(`[data-template="${templateName}"]`).classList.add('selected');
+            
+            // Update validity days
+            if (selectedTemplate) {
+                document.getElementById('validityDays').value = selectedTemplate.default_validity_days;
+                document.getElementById('validityDays').max = selectedTemplate.max_validity_days;
+            }
+        }
+
+        function changeStep(direction) {
+            const sections = document.querySelectorAll('.form-section');
+            const steps = document.querySelectorAll('.step');
+            
+            // Validate current step
+            if (direction > 0 && !validateStep(currentStep)) {
+                return;
+            }
+            
+            // Hide current section
+            sections[currentStep - 1].classList.remove('active');
+            steps[currentStep - 1].classList.remove('active');
+            
+            // Update step
+            currentStep += direction;
+            
+            // Show new section
+            sections[currentStep - 1].classList.add('active');
+            steps[currentStep - 1].classList.add('active');
+            
+            // Mark completed steps
+            if (direction > 0) {
+                steps[currentStep - 2].classList.add('completed');
+            }
+            
+            updateButtons();
+            
+            // Populate review if on step 3
+            if (currentStep === 3) {
+                populateReview();
+            }
+        }
+
+        function validateStep(step) {
+            if (step === 1) {
+                if (!selectedTemplate) {
+                    alert('Please select a certificate template');
+                    return false;
+                }
+            } else if (step === 2) {
+                const requesterName = document.getElementById('requesterName').value;
+                const requesterEmail = document.getElementById('requesterEmail').value;
+                const commonName = document.getElementById('commonName').value;
+                
+                if (!requesterName || !requesterEmail || !commonName) {
+                    alert('Please fill in all required fields');
+                    return false;
+                }
+                
+                if (!validateEmail(requesterEmail)) {
+                    alert('Please enter a valid email address');
+                    return false;
+                }
+            } else if (step === 3) {
+                if (!document.getElementById('confirmAccuracy').checked) {
+                    alert('Please confirm the accuracy of your information');
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        function validateEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function updateButtons() {
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            prevBtn.style.display = currentStep === 1 ? 'none' : 'block';
+            
+            if (currentStep === 3) {
+                nextBtn.style.display = 'none';
+                submitBtn.style.display = 'block';
+            } else if (currentStep === 4) {
+                nextBtn.style.display = 'none';
+                submitBtn.style.display = 'none';
+                prevBtn.style.display = 'none';
+            } else {
+                nextBtn.style.display = 'block';
+                submitBtn.style.display = 'none';
+            }
+        }
+
+        function addSAN() {
+            const sansList = document.getElementById('sansList');
+            const sanDiv = document.createElement('div');
+            sanDiv.className = 'san-input-group';
+            sanDiv.innerHTML = `
+                <select>
+                    <option value="dns">DNS</option>
+                    <option value="ip">IP</option>
+                    <option value="email">Email</option>
+                </select>
+                <input type="text" placeholder="Enter value">
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            sansList.appendChild(sanDiv);
+        }
+
+        function populateReview() {
+            const reviewDetails = document.getElementById('reviewDetails');
+            const sans = [];
+            
+            document.querySelectorAll('.san-input-group').forEach(group => {
+                const type = group.querySelector('select').value;
+                const value = group.querySelector('input').value;
+                if (value) {
+                    sans.push(`${type}: ${value}`);
+                }
+            });
+            
+            reviewDetails.innerHTML = `
+                <h3>Request Details</h3>
+                <p><strong>Template:</strong> ${selectedTemplate.display_name}</p>
+                <p><strong>Requester:</strong> ${document.getElementById('requesterName').value}</p>
+                <p><strong>Email:</strong> ${document.getElementById('requesterEmail').value}</p>
+                <p><strong>Department:</strong> ${document.getElementById('department').value || 'N/A'}</p>
+                <p><strong>Common Name:</strong> ${document.getElementById('commonName').value}</p>
+                <p><strong>SANs:</strong> ${sans.length > 0 ? sans.join(', ') : 'None'}</p>
+                <p><strong>Key Algorithm:</strong> ${document.getElementById('keyAlgorithm').value}</p>
+                <p><strong>Key Size:</strong> ${document.getElementById('keySize').value} bits</p>
+                <p><strong>Validity:</strong> ${document.getElementById('validityDays').value} days</p>
+            `;
+        }
+
+        // Form submission
+        document.getElementById('certificateRequestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!validateStep(3)) {
+                return;
+            }
+            
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            
+            // Collect SANs
+            const sansDns = [];
+            const sansIp = [];
+            const sansEmail = [];
+            
+            document.querySelectorAll('.san-input-group').forEach(group => {
+                const type = group.querySelector('select').value;
+                const value = group.querySelector('input').value;
+                if (value) {
+                    if (type === 'dns') sansDns.push(value);
+                    else if (type === 'ip') sansIp.push(value);
+                    else if (type === 'email') sansEmail.push(value);
+                }
+            });
+            
+            const requestData = {
+                requester_name: document.getElementById('requesterName').value,
+                requester_email: document.getElementById('requesterEmail').value,
+                department: document.getElementById('department').value,
+                common_name: document.getElementById('commonName').value,
+                san_dns_names: sansDns,
+                san_ip_addresses: sansIp,
+                san_emails: sansEmail,
+                certificate_type: selectedTemplate.certificate_type,
+                certificate_template: selectedTemplate.template_name,
+                key_algorithm: document.getElementById('keyAlgorithm').value,
+                key_size: parseInt(document.getElementById('keySize').value),
+                validity_days: parseInt(document.getElementById('validityDays').value),
+                notes: document.getElementById('notes').value
+            };
+            
+            try {
+                const response = await fetch('/api/certificate-requests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    requestId = result.request_id;
+                    
+                    // Move to success step
+                    loading.style.display = 'none';
+                    changeStep(1);
+                    
+                    // Update status
+                    const statusText = document.getElementById('requestStatus');
+                    
+                    if (result.status === 'approved' || !selectedTemplate.requires_approval) {
+                        statusText.textContent = 'Your certificate has been issued and is ready for download!';
+                        document.getElementById('downloadSection').style.display = 'block';
+                        setupDownloadLinks(requestId);
+                        
+                        // Generate QR code for mobile
+                        generateQRCode(requestId);
+                    } else {
+                        statusText.textContent = `Request ID: ${requestId}`;
+                        document.getElementById('pendingApproval').style.display = 'block';
+                    }
+                } else {
+                    throw new Error(result.message || 'Failed to submit request');
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                alert('Error: ' + error.message);
+            }
+        });
+
+        function setupDownloadLinks(requestId) {
+            document.getElementById('downloadPEM').href = `/api/certificate-requests/${requestId}/download?format=pem`;
+            document.getElementById('downloadP12').href = `/api/certificate-requests/${requestId}/download?format=p12`;
+            document.getElementById('downloadDER').href = `/api/certificate-requests/${requestId}/download?format=der`;
+        }
+
+        async function generateQRCode(requestId) {
+            try {
+                const response = await fetch(`/api/certificate-requests/${requestId}/qr`);
+                const result = await response.json();
+                
+                if (result.qr_code) {
+                    document.getElementById('qrCode').innerHTML = `<img src="${result.qr_code}" alt="QR Code">`;
+                    document.getElementById('qrCodeSection').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Failed to generate QR code:', error);
+            }
+        }
+
+        // Key algorithm change handler
+        document.getElementById('keyAlgorithm').addEventListener('change', (e) => {
+            const keySizeGroup = document.getElementById('keySizeGroup');
+            const keySize = document.getElementById('keySize');
+            
+            if (e.target.value === 'ECDSA') {
+                keySize.innerHTML = `
+                    <option value="256">P-256</option>
+                    <option value="384">P-384</option>
+                    <option value="521">P-521</option>
+                `;
+            } else {
+                keySize.innerHTML = `
+                    <option value="2048">2048 bits</option>
+                    <option value="3072">3072 bits</option>
+                    <option value="4096" selected>4096 bits</option>
+                `;
+            }
+        });
+
+        // Initialize
+        loadTemplates();
+    </script>
+</body>
+</html>
