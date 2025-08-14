@@ -366,12 +366,40 @@ def index():
                          devices=DEVICE_PROFILE_TEMPLATES,
                          scep_server_url=scep_base_url)
 
+@app.route('/simulator')
+def simulator_redirect():
+    """Redirect /simulator to /simulator/ """
+    return redirect('/simulator/')
+
+@app.route('/simulator/')
+def simulator_index():
+    """Main page showing device simulator (with /simulator prefix)"""
+    scep_base_url = get_ca_manager_scep_url()
+    return render_template('index.html', 
+                         devices=DEVICE_PROFILE_TEMPLATES,
+                         scep_server_url=scep_base_url)
+
 @app.route('/device/<device_type>')
 def device_detail(device_type):
     """Device detail page with randomized device data"""
     if device_type not in DEVICE_PROFILE_TEMPLATES:
         flash(f"Unknown device type: {device_type}", 'danger')
         return redirect(url_for('index'))
+    
+    # Generate random device profile each time
+    device = get_random_device_profile(device_type)
+    scep_base_url = get_ca_manager_scep_url()
+    return render_template('device.html', 
+                         device=device, 
+                         device_type=device_type,
+                         scep_server_url=scep_base_url)
+
+@app.route('/simulator/device/<device_type>')
+def simulator_device_detail(device_type):
+    """Device detail page with randomized device data (with /simulator prefix)"""
+    if device_type not in DEVICE_PROFILE_TEMPLATES:
+        flash(f"Unknown device type: {device_type}", 'danger')
+        return redirect('/simulator/')
     
     # Generate random device profile each time
     device = get_random_device_profile(device_type)
@@ -480,6 +508,22 @@ def list_devices():
         'devices': DEVICE_PROFILE_TEMPLATES,
         'count': len(DEVICE_PROFILE_TEMPLATES)
     })
+
+# Duplicate API routes with /simulator prefix
+@app.route('/simulator/api/scep/test', methods=['POST'])
+def simulator_test_scep_connection():
+    """Test SCEP server connection (with /simulator prefix)"""
+    return test_scep_connection()
+
+@app.route('/simulator/api/scep/enroll', methods=['POST'])
+def simulator_scep_enrollment():
+    """Perform SCEP enrollment (with /simulator prefix)"""
+    return scep_enrollment()
+
+@app.route('/simulator/api/devices')
+def simulator_list_devices():
+    """List available device profile templates (with /simulator prefix)"""
+    return list_devices()
 
 @app.route('/health')
 def health():
