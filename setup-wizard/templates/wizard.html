@@ -426,12 +426,21 @@
                         <p class="section-subtitle">Choose how you want to handle SSL certificates</p>
 
                         <div class="form-group">
-                            <div class="ssl-option" data-option="letsencrypt">
+                            <div class="ssl-option" data-option="letsencrypt-http">
                                 <i class="fas fa-certificate ssl-icon"></i>
-                                <input type="radio" name="ssl_type" value="letsencrypt" id="ssl-letsencrypt">
+                                <input type="radio" name="ssl_type" value="letsencrypt-http" id="ssl-letsencrypt-http">
                                 <div class="ssl-option-content">
-                                    <h4>Let's Encrypt (Automatic)</h4>
-                                    <p>Free SSL certificates with automatic renewal. Requires a valid domain.</p>
+                                    <h4>Let's Encrypt (HTTP Challenge)</h4>
+                                    <p>Free SSL certificates with HTTP-01 challenge. Works with most domains and firewalls.</p>
+                                </div>
+                            </div>
+
+                            <div class="ssl-option" data-option="letsencrypt-tls">
+                                <i class="fas fa-shield-alt ssl-icon"></i>
+                                <input type="radio" name="ssl_type" value="letsencrypt-tls" id="ssl-letsencrypt-tls">
+                                <div class="ssl-option-content">
+                                    <h4>Let's Encrypt (TLS Challenge)</h4>
+                                    <p>Free SSL certificates with TLS-ALPN-01 challenge. Better for port 80 restrictions.</p>
                                 </div>
                             </div>
 
@@ -580,7 +589,7 @@
                 this.classList.add('selected');
                 
                 const emailGroup = document.getElementById('email-group');
-                if (radio.value === 'letsencrypt') {
+                if (radio.value === 'letsencrypt-http' || radio.value === 'letsencrypt-tls') {
                     emailGroup.style.display = 'block';
                     document.getElementById('email').required = true;
                 } else {
@@ -599,13 +608,17 @@
             if (domain === 'localhost') {
                 // Force self-signed for localhost
                 document.getElementById('ssl-selfsigned').checked = true;
-                document.getElementById('ssl-letsencrypt').disabled = true;
-                document.querySelector('[data-option="letsencrypt"]').style.opacity = '0.5';
+                document.getElementById('ssl-letsencrypt-http').disabled = true;
+                document.getElementById('ssl-letsencrypt-tls').disabled = true;
+                document.querySelector('[data-option="letsencrypt-http"]').style.opacity = '0.5';
+                document.querySelector('[data-option="letsencrypt-tls"]').style.opacity = '0.5';
                 emailGroup.style.display = 'none';
                 document.getElementById('email').required = false;
             } else {
-                document.getElementById('ssl-letsencrypt').disabled = false;
-                document.querySelector('[data-option="letsencrypt"]').style.opacity = '1';
+                document.getElementById('ssl-letsencrypt-http').disabled = false;
+                document.getElementById('ssl-letsencrypt-tls').disabled = false;
+                document.querySelector('[data-option="letsencrypt-http"]').style.opacity = '1';
+                document.querySelector('[data-option="letsencrypt-tls"]').style.opacity = '1';
             }
         });
 
@@ -658,7 +671,7 @@
                 const domain = document.getElementById('domain').value.toLowerCase();
                 const email = document.getElementById('email').value;
                 
-                if (sslType === 'letsencrypt' && domain !== 'localhost' && !email) {
+                if ((sslType === 'letsencrypt-http' || sslType === 'letsencrypt-tls') && domain !== 'localhost' && !email) {
                     showAlert('Email is required for Let\'s Encrypt certificates', 'error');
                     document.getElementById('email').focus();
                     return false;

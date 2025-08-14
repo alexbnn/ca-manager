@@ -16,6 +16,7 @@ import jwt
 from functools import wraps
 import time
 import urllib3
+import uuid
 
 # Disable SSL warnings for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -88,7 +89,9 @@ def initialize_database():
                 '01-schema.sql',
                 '02-initial-data.sql', 
                 '03-tenant-schema.sql',
-                '04-ocsp-schema.sql'
+                '04-ocsp-schema.sql',
+                '05-system-config.sql',
+                '06-intermediate-ca-schema.sql'
             ]
             
             for schema_file in schema_files:
@@ -272,6 +275,67 @@ def log_operation(operation, details=None):
         'details': details
     }
     logging.info(f"AUDIT: {json.dumps(log_entry)}")
+
+def get_system_config(config_key, default_value=None):
+    """Get system configuration value from database"""
+    conn = get_db_connection()
+    if not conn:
+        return default_value
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT config_value FROM system_config WHERE config_key = %s",
+                (config_key,)
+            )
+            result = cursor.fetchone()
+        conn.close()
+        return result['config_value'] if result else default_value
+    except Exception as e:
+        logging.error(f"Error getting system config {config_key}: {e}")
+        if conn:
+            conn.close()
+        return default_value
+
+def set_system_config(config_key, config_value, user_id=None, description=None):
+    """Set system configuration value in database"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        with conn.cursor() as cursor:
+            # Check if config exists
+            cursor.execute(
+                "SELECT id FROM system_config WHERE config_key = %s",
+                (config_key,)
+            )
+            exists = cursor.fetchone()
+            
+            if exists:
+                # Update existing config
+                cursor.execute(
+                    """UPDATE system_config 
+                       SET config_value = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP
+                       WHERE config_key = %s""",
+                    (config_value, user_id, config_key)
+                )
+            else:
+                # Insert new config
+                cursor.execute(
+                    """INSERT INTO system_config (config_key, config_value, description, updated_by)
+                       VALUES (%s, %s, %s, %s)""",
+                    (config_key, config_value, description, user_id)
+                )
+            conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logging.error(f"Error setting system config {config_key}: {e}")
+        if conn:
+            conn.rollback()
+            conn.close()
+        return False
 
 def auth_required(permission=None):
     """Authentication decorator with optional permission check"""
@@ -1214,46 +1278,59 @@ def get_scep_url_public():
             "message": f"Error getting SCEP URL: {str(e)}"
         })
 
+@app.route('/api/internal/scep-password', methods=['GET'])
+def get_scep_password_internal():
+    """Internal endpoint for SCEP server to get password from database (no auth required)"""
+    # Only allow internal service calls
+    if request.remote_addr not in ['127.0.0.1', 'localhost'] and not request.remote_addr.startswith('172.'):
+        return jsonify({"error": "Forbidden"}), 403
+    
+    try:
+        current_password = get_system_config('scep_password', 'MySecretSCEPPassword123')
+        return jsonify({
+            "status": "success",
+            "password": current_password,
+            "password_length": len(current_password)
+        })
+    except Exception as e:
+        logging.error(f"Error getting SCEP password for internal service: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/scep/password', methods=['GET', 'POST'])
 @auth_required()
 def manage_scep_password():
     """Get or update SCEP challenge password"""
     try:
         if request.method == 'GET':
-            # Get current SCEP password status from the SCEP server for real-time info
+            # Get current SCEP password from database first
+            current_password = get_system_config('scep_password', 'MySecretSCEPPassword123')
+            
+            # Sync with SCEP server to ensure it has the latest password
             try:
-                # Query SCEP server for current password info
                 scep_config_response = requests.post(
                     "http://scep-server:8090/reload-config",
-                    json={},  # Empty payload to just get current status
+                    json={"password": current_password},  # Send current DB password to SCEP server
                     headers={"Content-Type": "application/json"},
                     timeout=5
                 )
                 
                 if scep_config_response.status_code == 200:
                     scep_info = scep_config_response.json()
-                    password_length = scep_info.get('password_length', 0)
-                    password_set = password_length > 0
-                    
-                    # Get the actual current password from SCEP server response
-                    current_password = scep_info.get('current_password', os.getenv('SCEP_PASSWORD', 'MySecretSCEPPassword123'))
-                    logging.info(f"SCEP server returned password info: length={password_length}, password={current_password[:4]}***")
+                    password_length = len(current_password)
+                    password_set = bool(current_password)
+                    logging.info(f"SCEP server synced with database password: length={password_length}")
                 else:
-                    # Fallback to environment variable
-                    logging.warning(f"SCEP server returned non-200 status: {scep_config_response.status_code}")
-                    current_password = os.getenv('SCEP_PASSWORD', 'MySecretSCEPPassword123')
+                    # SCEP server couldn't be synced, but we have the DB value
+                    logging.warning(f"SCEP server sync returned non-200 status: {scep_config_response.status_code}")
                     password_set = bool(current_password)
                     password_length = len(current_password) if current_password else 0
-                    logging.info(f"Using fallback environment password (non-200): length={password_length}, password={current_password[:4]}***")
                     
             except Exception as e:
-                logging.warning(f"Could not query SCEP server for password info: {e}")
-                logging.warning(f"Exception type: {type(e)}, Exception details: {str(e)}")
-                # Fallback to environment variable
-                current_password = os.getenv('SCEP_PASSWORD', 'MySecretSCEPPassword123')
+                logging.warning(f"Could not sync with SCEP server: {e}")
+                # Still return the database value
                 password_set = bool(current_password)
                 password_length = len(current_password) if current_password else 0
-                logging.info(f"Using fallback environment password: length={password_length}, password={current_password[:4]}***")
+                logging.info(f"Using database password: length={password_length}")
             
             # Check if user is admin to include actual password for hover tooltip
             response_data = {
@@ -1286,6 +1363,14 @@ def manage_scep_password():
                     "message": "Password must be at least 8 characters long"
                 }), 400
                 
+            # Save to database for persistence
+            user_id = session.get('user_id')
+            if not set_system_config('scep_password', new_password, user_id, 'SCEP challenge password for device enrollment'):
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to save password to database"
+                }), 500
+            
             # Update the current environment variable for immediate effect
             os.environ['SCEP_PASSWORD'] = new_password
             
@@ -1304,11 +1389,13 @@ def manage_scep_password():
             except Exception as e:
                 logging.warning(f"Could not notify SCEP server about password change: {e}")
             
+            log_operation('scep_password_update', {'password_length': len(new_password)})
+            
             return jsonify({
                 "status": "success",
-                "message": "SCEP password updated successfully",
+                "message": "SCEP password updated successfully and persisted to database",
                 "password_length": len(new_password),
-                "note": "Password updated in real-time - no restart required"
+                "note": "Password updated and will persist across restarts"
             })
             
     except Exception as e:
@@ -2122,6 +2209,414 @@ def delete_user_by_id(user_id):
     except Exception as e:
         logging.error(f"Failed to delete user: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ================================
+# Certificate Request Portal APIs
+# ================================
+
+@app.route('/certificate-request')
+def certificate_request_portal():
+    """Certificate request portal page"""
+    return render_template('certificate_request.html')
+
+@app.route('/api/certificate-templates', methods=['GET'])
+def get_certificate_templates():
+    """Get available certificate templates"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT template_name, display_name, description, certificate_type, 
+                       default_validity_days, max_validity_days, requires_approval
+                FROM certificate_templates 
+                WHERE is_active = true
+                ORDER BY display_name
+            """)
+            templates = cursor.fetchall()
+        
+        conn.close()
+        return jsonify(templates)
+        
+    except Exception as e:
+        logging.error(f"Failed to get certificate templates: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/certificate-requests', methods=['POST'])
+def create_certificate_request():
+    """Create a new certificate request"""
+    try:
+        data = request.json
+        
+        # Validate required fields
+        required_fields = ['requester_name', 'requester_email', 'common_name', 'certificate_type']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        # Generate request ID
+        request_id = str(uuid.uuid4())
+        
+        with conn.cursor() as cursor:
+            # Check if template exists and get details
+            template = None
+            if data.get('certificate_template'):
+                cursor.execute("""
+                    SELECT * FROM certificate_templates 
+                    WHERE template_name = %s AND is_active = true
+                """, (data['certificate_template'],))
+                template = cursor.fetchone()
+            
+            # Insert certificate request
+            cursor.execute("""
+                INSERT INTO certificate_requests (
+                    request_id, requester_name, requester_email, department,
+                    common_name, san_dns_names, san_ip_addresses, san_emails,
+                    certificate_type, key_algorithm, key_size, validity_days,
+                    certificate_template, approval_required, status,
+                    request_metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                request_id,
+                data['requester_name'],
+                data['requester_email'],
+                data.get('department'),
+                data['common_name'],
+                data.get('san_dns_names', []),
+                data.get('san_ip_addresses', []),
+                data.get('san_emails', []),
+                data['certificate_type'],
+                data.get('key_algorithm', 'RSA'),
+                data.get('key_size', 2048),
+                data.get('validity_days', 365),
+                data.get('certificate_template'),
+                template['requires_approval'] if template else True,
+                'pending',
+                json.dumps({'notes': data.get('notes', ''), 'created_via': 'web_portal'})
+            ))
+            
+            result = cursor.fetchone()
+            request_db_id = result['id'] if isinstance(result, dict) else result[0]
+            conn.commit()
+        
+        conn.close()
+        
+        # If auto-approval is enabled, process immediately
+        auto_approve = template and not template['requires_approval']
+        if auto_approve:
+            # Trigger certificate issuance
+            update_request_status(request_db_id, 'approved', 'system', 'Auto-approved based on template settings')
+            # Generate the actual certificate
+            cert_generated = generate_certificate_for_request(request_db_id, request_id, data)
+        
+        log_operation('certificate_request_created', {
+            'request_id': request_id,
+            'common_name': data['common_name'],
+            'requester': data['requester_email']
+        })
+        
+        return jsonify({
+            'status': 'success',
+            'request_id': request_id,
+            'approval_required': not auto_approve,
+            'message': 'Certificate request submitted successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to create certificate request: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/certificate-requests/<request_id>/download')
+def download_certificate_request(request_id):
+    """Download certificate in various formats"""
+    try:
+        format_type = request.args.get('format', 'pem').lower()
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT certificate_pem, private_key_pem, common_name, status
+                FROM certificate_requests 
+                WHERE request_id = %s
+            """, (request_id,))
+            
+            cert_data = cursor.fetchone()
+            if not cert_data:
+                return jsonify({'error': 'Certificate request not found'}), 404
+            
+            if cert_data['status'] not in ['approved', 'issued']:
+                return jsonify({'error': 'Certificate not yet issued'}), 400
+        
+        conn.close()
+        
+        # Log download
+        log_certificate_download(request_id, format_type, request.remote_addr)
+        
+        if format_type == 'pem':
+            return Response(
+                cert_data['certificate_pem'],
+                mimetype='application/x-pem-file',
+                headers={'Content-Disposition': f'attachment; filename={cert_data["common_name"]}.pem'}
+            )
+        elif format_type == 'der':
+            # Convert PEM to DER
+            from cryptography import x509
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.backends import default_backend
+            
+            cert = x509.load_pem_x509_certificate(cert_data['certificate_pem'].encode(), default_backend())
+            der_data = cert.public_bytes(serialization.Encoding.DER)
+            
+            return Response(
+                der_data,
+                mimetype='application/x-x509-ca-cert',
+                headers={'Content-Disposition': f'attachment; filename={cert_data["common_name"]}.der'}
+            )
+        elif format_type == 'p12':
+            # Create PKCS12
+            if not cert_data['private_key_pem']:
+                return jsonify({'error': 'Private key not available for P12 format'}), 400
+            
+            from cryptography import x509
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.serialization import pkcs12
+            from cryptography.hazmat.backends import default_backend
+            
+            cert = x509.load_pem_x509_certificate(cert_data['certificate_pem'].encode(), default_backend())
+            key = serialization.load_pem_private_key(cert_data['private_key_pem'].encode(), password=None, backend=default_backend())
+            
+            p12_data = pkcs12.serialize_key_and_certificates(
+                name=cert_data['common_name'].encode(),
+                key=key,
+                cert=cert,
+                cas=None,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+            
+            return Response(
+                p12_data,
+                mimetype='application/x-pkcs12',
+                headers={'Content-Disposition': f'attachment; filename={cert_data["common_name"]}.p12'}
+            )
+        else:
+            return jsonify({'error': 'Unsupported format'}), 400
+            
+    except Exception as e:
+        logging.error(f"Failed to download certificate: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/certificate-requests/<request_id>/qr')
+def generate_qr_code(request_id):
+    """Generate QR code for mobile certificate installation"""
+    try:
+        # Generate QR code with download URL
+        download_url = f"{request.host_url}api/certificate-requests/{request_id}/download?format=p12"
+        
+        import qrcode
+        import io
+        import base64
+        
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(download_url)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        img_data = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'qr_code': f'data:image/png;base64,{img_data}',
+            'download_url': download_url
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to generate QR code: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Helper functions
+def update_request_status(request_db_id, status, actor_name, comment=None):
+    """Update certificate request status"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+        
+        # Get request data for certificate generation
+        request_data = None
+        if status == 'approved':
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT request_id, common_name, certificate_type, requester_name, requester_email, 
+                           device_type, purpose, validity_days, san_dns_names, san_ip_addresses
+                    FROM certificate_requests 
+                    WHERE id = %s
+                """, (request_db_id,))
+                
+                result = cursor.fetchone()
+                if result:
+                    if isinstance(result, dict):
+                        request_data = result
+                    else:
+                        # Convert tuple to dict
+                        columns = ['request_id', 'common_name', 'certificate_type', 'requester_name', 
+                                 'requester_email', 'device_type', 'purpose', 'validity_days', 
+                                 'san_dns_names', 'san_ip_addresses']
+                        request_data = dict(zip(columns, result))
+        
+        with conn.cursor() as cursor:
+            # Update request status
+            cursor.execute("""
+                UPDATE certificate_requests 
+                SET status = %s, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (status, request_db_id))
+            
+            # Add approval record
+            cursor.execute("""
+                INSERT INTO request_approvals (request_id, action, actor_name, comment)
+                VALUES (%s, %s, %s, %s)
+            """, (request_db_id, status, actor_name, comment))
+            
+            conn.commit()
+        
+        conn.close()
+        
+        # Generate certificate if approved
+        if status == 'approved' and request_data:
+            logging.info(f"Triggering certificate generation for request {request_data['request_id']}")
+            cert_generated = generate_certificate_for_request(request_db_id, request_data['request_id'], request_data)
+            if cert_generated:
+                logging.info(f"Certificate successfully generated for request {request_data['request_id']}")
+            else:
+                logging.error(f"Failed to generate certificate for request {request_data['request_id']}")
+        
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to update request status: {e}")
+        return False
+
+def log_certificate_download(request_id, format_type, ip_address, email=None):
+    """Log certificate download for audit"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id FROM certificate_requests WHERE request_id = %s
+            """, (request_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                cursor.execute("""
+                    INSERT INTO certificate_downloads (
+                        request_id, download_format, download_ip, download_method, downloaded_by_email
+                    ) VALUES (%s, %s, %s, %s, %s)
+                """, (result['id'], format_type, ip_address, 'web', email))
+                conn.commit()
+        
+        conn.close()
+        
+    except Exception as e:
+        logging.error(f"Failed to log certificate download: {e}")
+
+def generate_certificate_for_request(request_db_id, request_id, request_data):
+    """Generate actual certificate using EasyRSA"""
+    try:
+        common_name = request_data['common_name']
+        cert_type = request_data['certificate_type']
+        validity_days = request_data.get('validity_days', 365)
+        
+        # Map certificate types to EasyRSA types
+        easyrsa_type_map = {
+            'server': 'server',
+            'client': 'client',
+            'email': 'client',
+            'code_signing': 'client'
+        }
+        easyrsa_type = easyrsa_type_map.get(cert_type, 'client')
+        
+        # Generate certificate via EasyRSA API using the correct pattern
+        operation = 'build-client-full' if easyrsa_type == 'client' else 'build-server-full'
+        result = make_easyrsa_request(operation, {'name': common_name})
+        
+        if result.get('status') == 'error':
+            logging.error(f"Failed to generate certificate: {result.get('message')}")
+            return False
+        
+        # Get the certificate and key content from the generated files
+        files_result = make_easyrsa_request('get-cert-files', {'name': common_name})
+        
+        if files_result.get('status') == 'error':
+            logging.error(f"Failed to retrieve certificate files for {common_name}: {files_result.get('message')}")
+            return False
+        
+        # Extract just the PEM certificate from the response (it includes text and PEM)
+        cert_response_text = files_result.get('certificate', '')
+        if '-----BEGIN CERTIFICATE-----' in cert_response_text:
+            cert_start = cert_response_text.find('-----BEGIN CERTIFICATE-----')
+            cert_end = cert_response_text.find('-----END CERTIFICATE-----') + len('-----END CERTIFICATE-----')
+            cert_pem = cert_response_text[cert_start:cert_end]
+        else:
+            cert_pem = cert_response_text
+        key_pem = files_result.get('private_key', '')
+        ca_cert = files_result.get('ca_certificate', '')
+        
+        # Update database with generated certificate
+        conn = get_db_connection()
+        if not conn:
+            return False
+        
+        with conn.cursor() as cursor:
+            # Extract serial number from certificate
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+            
+            try:
+                cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+                serial_number = str(cert_obj.serial_number)
+                expires_at = cert_obj.not_valid_after
+            except:
+                serial_number = None
+                expires_at = datetime.now() + timedelta(days=validity_days)
+            
+            cursor.execute("""
+                UPDATE certificate_requests 
+                SET certificate_pem = %s,
+                    private_key_pem = %s,
+                    status = 'issued',
+                    serial_number = %s,
+                    issued_at = CURRENT_TIMESTAMP,
+                    expires_at = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (cert_pem, key_pem, serial_number, expires_at, request_db_id))
+            
+            conn.commit()
+        
+        conn.close()
+        
+        logging.info(f"Successfully generated certificate for request {request_id} (CN: {common_name})")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to generate certificate for request {request_id}: {e}")
+        return False
 
 if __name__ == '__main__':
     # Ensure logs directory exists

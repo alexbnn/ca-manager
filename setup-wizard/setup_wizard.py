@@ -53,7 +53,7 @@ def generate_secure_password():
     """Generate a secure password"""
     return secrets.token_urlsafe(16)
 
-def update_traefik_config(domain, use_letsencrypt, email=None):
+def update_traefik_config(domain, ssl_type, email=None):
     """Update Traefik configuration with domain and SSL settings"""
     config = {
         'api': {
@@ -97,16 +97,25 @@ def update_traefik_config(domain, use_letsencrypt, email=None):
         }
     }
     
+    use_letsencrypt = ssl_type in ['letsencrypt-http', 'letsencrypt-tls']
+    
     if use_letsencrypt and email and domain != 'localhost':
+        acme_config = {
+            'email': email,
+            'storage': '/letsencrypt/acme.json'
+        }
+        
+        # Configure challenge type based on SSL type
+        if ssl_type == 'letsencrypt-http':
+            acme_config['httpChallenge'] = {
+                'entryPoint': 'web'
+            }
+        elif ssl_type == 'letsencrypt-tls':
+            acme_config['tlsChallenge'] = {}
+        
         config['certificatesResolvers'] = {
             'letsencrypt': {
-                'acme': {
-                    'email': email,
-                    'storage': '/letsencrypt/acme.json',
-                    'httpChallenge': {
-                        'entryPoint': 'web'
-                    }
-                }
+                'acme': acme_config
             }
         }
     
@@ -119,7 +128,7 @@ def update_traefik_config(domain, use_letsencrypt, email=None):
     
     return config
 
-def update_docker_compose_labels(domain, use_letsencrypt):
+def update_docker_compose_labels(domain, ssl_type):
     """Generate Docker Compose labels for services"""
     # Use the domain directly without adding ca subdomain
     ca_domain = domain
@@ -166,6 +175,8 @@ def update_docker_compose_labels(domain, use_letsencrypt):
         "traefik.http.routers.simulator.tls=true",
         "traefik.http.services.simulator.loadbalancer.server.port=3000"
     ]
+    
+    use_letsencrypt = ssl_type in ['letsencrypt-http', 'letsencrypt-tls']
     
     if use_letsencrypt and domain != 'localhost':
         web_labels.append("traefik.http.routers.web.tls.certResolver=letsencrypt")
@@ -247,7 +258,8 @@ def setup_configuration():
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
         domain = data['domain'].strip().lower()
-        use_letsencrypt = data['ssl_type'] == 'letsencrypt'
+        ssl_type = data['ssl_type']
+        use_letsencrypt = ssl_type in ['letsencrypt-http', 'letsencrypt-tls']
         email = data.get('email', '').strip()
         
         # Validate domain
@@ -277,13 +289,13 @@ def setup_configuration():
         }
         
         # Update Traefik configuration
-        traefik_config = update_traefik_config(domain, use_letsencrypt, email)
+        traefik_config = update_traefik_config(domain, ssl_type, email)
         
         # Create configuration files (in production, these would be written to mounted volumes)
         config_output = {
             'traefik_config': traefik_config,
             'env_content': create_env_file(config),
-            'docker_labels': update_docker_compose_labels(domain, use_letsencrypt),
+            'docker_labels': update_docker_compose_labels(domain, ssl_type),
             'setup_complete': True
         }
         
@@ -313,7 +325,7 @@ def setup_configuration():
             print(f"✅ Written traefik.yml to {traefik_path}")
             
             # Update docker-compose labels
-            labels_dict = update_docker_compose_labels(domain, use_letsencrypt)
+            labels_dict = update_docker_compose_labels(domain, ssl_type)
             
             # Save setup completion marker
             completion_path = os.path.join(output_dir, 'setup_complete.flag')
