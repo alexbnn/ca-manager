@@ -2508,10 +2508,10 @@
             }
             
             setLoading(true);
-            showStatus(`Downloading certificate bundle for ${name}...`, 'loading');
+            showStatus(`Downloading certificate for ${name}...`, 'loading');
 
             try {
-                const response = await fetch(`/api/certificates/download/${encodeURIComponent(name)}?format=zip&include_key=true`);
+                const response = await fetch(`/api/certificates/download/${encodeURIComponent(name)}?format=pem&include_key=true`);
                 
                 if (!response.ok) {
                     const errorData = await response.json();
@@ -2522,7 +2522,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `${name}-bundle.zip`;
+                link.download = `${name}.pem`;
                 link.style.display = 'none';
                 
                 document.body.appendChild(link);
@@ -2530,7 +2530,7 @@
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(url);
                 
-                showStatus(`✅ Certificate bundle for ${name} downloaded successfully`, 'success');
+                showStatus(`✅ Certificate ${name}.pem downloaded successfully`, 'success');
                 
             } catch (error) {
                 console.error('Download error:', error);
