@@ -267,7 +267,7 @@ def handle_get_ca_cert():
             ca_cert_data,
             mimetype=SCEP_CA_CERT_CONTENT_TYPE,
             headers={
-                'Content-Disposition': 'attachment; filename="ca.crt"',
+                'Content-Disposition': 'attachment; filename="ca.pem"',
                 'Content-Length': str(len(ca_cert_data))
             }
         )
