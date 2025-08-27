@@ -647,8 +647,8 @@ def download_ca():
             return send_file(
                 file_obj,
                 as_attachment=True,
-                download_name='ca.crt',
-                mimetype='application/x-x509-ca-cert'
+                download_name='ca.pem',
+                mimetype='application/x-pem-file'
             )
         else:
             return jsonify({
@@ -754,7 +754,7 @@ def download_certificate(name):
                 
                 # Add CA certificate
                 if 'ca_certificate' in result:
-                    zip_file.writestr("ca.crt", result['ca_certificate'])
+                    zip_file.writestr("ca.pem", result['ca_certificate'])
             
             zip_buffer.seek(0)
             return send_file(

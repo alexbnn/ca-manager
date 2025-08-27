@@ -101,8 +101,8 @@ def download_ca():
             return send_file(
                 ca_file_path,
                 as_attachment=True,
-                download_name='ca.crt',
-                mimetype='application/x-x509-ca-cert'
+                download_name='ca.pem',
+                mimetype='application/x-pem-file'
             )
         else:
             return jsonify({
