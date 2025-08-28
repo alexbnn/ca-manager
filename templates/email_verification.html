@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - 802.1X Certificate</title>
+    <style>
+        :root {
+            --primary-purple: #5B059C;
+            --dark-blue: #101B37;
+            --light-gray: #EAECF0;
+            --success-green: #12B76A;
+            --error-red: #F04438;
+            --font-primary: 'DM Sans', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            background: linear-gradient(135deg, var(--dark-blue) 0%, #1a2951 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .verification-container {
+            background: white;
+            color: #333;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            color: var(--primary-purple);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .verification-form {
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 0.5rem;
+            font-weight: 600;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-purple);
+            outline: none;
+        }
+
+        .btn {
+            background: var(--primary-purple);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #4a0482;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info-text {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-content {
+            display: none;
+        }
+
+        .success-content h2 {
+            color: var(--success-green);
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="verification-container">
+        <div class="logo">
+            <h1>Email Verification</h1>
+            <p>802.1X Certificate Request</p>
+        </div>
+
+        <div id="verification-form" class="verification-form">
+            <p class="info-text">Please enter the 6-digit verification code sent to your email address.</p>
+            
+            <div class="form-group">
+                <label for="verificationCode">Verification Code</label>
+                <input type="text" id="verificationCode" maxlength="6" placeholder="000000" autocomplete="off">
+            </div>
+
+            <div class="status-message" id="statusMessage"></div>
+
+            <button class="btn" onclick="verifyCode()" id="verifyBtn">Verify Email</button>
+            
+            <p class="info-text" style="margin-top: 1rem;">
+                Didn't receive the code? Check your spam folder or wait a few minutes for delivery.
+            </p>
+        </div>
+
+        <div id="success-content" class="success-content">
+            <h2>✅ Email Verified Successfully!</h2>
+            <p>Your email address has been verified. You can now close this window and complete your certificate request.</p>
+        </div>
+    </div>
+
+    <script>
+        const token = '{{ token }}';
+        const statusMessage = document.getElementById('statusMessage');
+        const verificationForm = document.getElementById('verification-form');
+        const successContent = document.getElementById('success-content');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const codeInput = document.getElementById('verificationCode');
+
+        // Auto-focus on code input
+        codeInput.focus();
+
+        // Auto-format code input
+        codeInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 6) value = value.substring(0, 6);
+            e.target.value = value;
+            
+            // Auto-verify when 6 digits entered
+            if (value.length === 6) {
+                setTimeout(verifyCode, 500);
+            }
+        });
+
+        // Allow Enter key to submit
+        codeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && codeInput.value.length === 6) {
+                verifyCode();
+            }
+        });
+
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message status-' + type;
+            statusMessage.style.display = 'block';
+        }
+
+        async function verifyCode() {
+            const code = codeInput.value.trim();
+            
+            if (!code || code.length !== 6) {
+                showStatus('Please enter a 6-digit verification code', 'error');
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+            
+            try {
+                const response = await fetch('/api/verify-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        code: code
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'verified') {
+                    // Show success
+                    verificationForm.style.display = 'none';
+                    successContent.style.display = 'block';
+                    
+                    // Store verification status in localStorage for the parent window
+                    localStorage.setItem('email_verification_success', 'true');
+                    localStorage.setItem('verified_email', result.email);
+                    localStorage.setItem('verification_token', token);
+                    
+                    // Try to notify parent window if opened as popup
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            type: 'email_verified',
+                            email: result.email,
+                            token: token
+                        }, '*');
+                    }
+                    
+                } else {
+                    showStatus(result.error || 'Verification failed', 'error');
+                }
+            } catch (error) {
+                showStatus('Network error. Please try again.', 'error');
+                console.error('Verification error:', error);
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify Email';
+            }
+        }
+    </script>
+</body>
+</html>

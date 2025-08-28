@@ -104,11 +104,18 @@
         }
 
         .form-section {
-            display: none;
+            display: none !important;
         }
 
         .form-section.active {
-            display: block;
+            display: block !important;
+        }
+
+        .verification-step {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin: 20px 0;
         }
 
         .form-group {
@@ -357,18 +364,18 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔒 Certificate Request Portal</h1>
-            <p>Request and manage your digital certificates</p>
+            <h1>🔒 802.1X Certificate Portal</h1>
+            <p>Request network authentication certificates for 802.1X/EAP-TLS</p>
         </div>
 
         <div class="steps">
             <div class="step active" id="step1">
                 <div class="step-number">1</div>
-                <div class="step-title">Choose Template</div>
+                <div class="step-title">Identity Details</div>
             </div>
             <div class="step" id="step2">
                 <div class="step-number">2</div>
-                <div class="step-title">Certificate Details</div>
+                <div class="step-title">Email Verification</div>
             </div>
             <div class="step" id="step3">
                 <div class="step-number">3</div>
@@ -381,20 +388,11 @@
         </div>
 
         <div class="card">
-            <form id="certificateRequestForm">
-                <!-- Step 1: Template Selection -->
-                <div class="form-section active" id="section1">
-                    <h2>Select Certificate Template</h2>
-                    <p style="color: #666; margin-bottom: 20px;">Choose the type of certificate you need</p>
-                    
-                    <div class="template-cards" id="templateCards">
-                        <!-- Templates will be loaded dynamically -->
-                    </div>
-                </div>
+            <form id="certificateRequestForm" novalidate>
 
-                <!-- Step 2: Certificate Details -->
-                <div class="form-section" id="section2">
-                    <h2>Certificate Details</h2>
+                <!-- Step 1: Certificate Details -->
+                <div class="form-section active" id="section1">
+                    <h2>Identity Information</h2>
                     
                     <div class="form-group">
                         <label>Your Name *</label>
@@ -414,51 +412,83 @@
                     <div class="form-group">
                         <label>Common Name (CN) *</label>
                         <input type="text" id="commonName" required>
-                        <small>For web servers: FQDN (e.g., www.example.com). For email: email address</small>
+                        <small id="cnHint">Enter the username or computer name for 802.1X authentication</small>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="sanGroup" style="display: none;">
                         <label>Subject Alternative Names (SANs)</label>
                         <div class="san-inputs">
                             <div id="sansList"></div>
-                            <button type="button" class="add-san-btn" onclick="addSAN()">+ Add SAN</button>
+                            <button type="button" class="add-san-btn" onclick="addSAN()">+ Add Email SAN</button>
+                            <small>Optional: Add email address for user certificates</small>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Key Algorithm</label>
-                        <select id="keyAlgorithm">
-                            <option value="RSA">RSA</option>
-                            <option value="ECDSA">ECDSA</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="keySizeGroup">
-                        <label>Key Size</label>
-                        <select id="keySize">
-                            <option value="2048">2048 bits</option>
-                            <option value="3072">3072 bits</option>
-                            <option value="4096" selected>4096 bits</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Validity Period (Days)</label>
-                        <input type="number" id="validityDays" value="365" min="30" max="825">
+                    <!-- Hidden fields with fixed values -->
+                    <input type="hidden" id="keyAlgorithm" value="RSA">
+                    <input type="hidden" id="keySize" value="2048">
+                    <input type="hidden" id="validityDays" value="365">
+                    
+                    <div class="info-box" style="background: #e3f2fd; border: 1px solid #2196f3; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                        <h4 style="color: #1976d2; margin: 0 0 0.5rem 0;">🔧 Certificate Configuration</h4>
+                        <p style="margin: 0; color: #1976d2;">
+                            <strong>Algorithm:</strong> RSA 2048-bit<br>
+                            <strong>Validity:</strong> 365 days (1 year)<br>
+                            <small>Optimized for 802.1X wireless authentication</small>
+                        </p>
                     </div>
 
                     <div class="form-group">
                         <label>Additional Notes</label>
-                        <textarea id="notes" placeholder="Any special requirements or notes..."></textarea>
+                        <textarea id="notes" placeholder="Device type, network access requirements, or other 802.1X-specific notes..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Step 2: Email Verification -->
+                <div class="form-section" id="section2">
+                    <h2>🔐 Email Verification Required</h2>
+                    
+                    <div class="alert alert-info">
+                        <strong>Security Notice:</strong> We need to verify that you own the email address you're requesting a certificate for. This ensures certificates can only be issued to authorized users.
+                    </div>
+
+                    <div id="verification-sent" class="verification-step" style="display: block;">
+                        <div class="alert alert-success">
+                            ✅ Verification email sent to <strong id="emailToVerify"></strong>! Please check your inbox.
+                        </div>
+                        
+                        <p>Enter the 6-digit verification code from your email:</p>
+                        
+                        <div class="form-group" style="margin: 20px 0;">
+                            <label style="display: block; margin-bottom: 10px; font-weight: bold;">Verification Code:</label>
+                            <input type="text" id="verificationCode" maxlength="6" placeholder="000000" 
+                                   style="width: 200px; padding: 15px; text-align: center; letter-spacing: 0.5rem; font-size: 1.5rem; font-weight: bold; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto; display: block;">
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary" onclick="verifyEmail()" style="margin: 20px auto; display: block; padding: 12px 30px; font-size: 1.1rem;">
+                            ✅ Verify Email
+                        </button>
+                        
+                        <p class="help-text">
+                            Didn't receive the email? Check your spam folder or 
+                            <button type="button" class="btn btn-link" onclick="resendVerificationEmail()">resend code</button>
+                        </p>
+                    </div>
+
+                    <div id="verification-success" class="verification-step" style="display: none;">
+                        <div class="alert alert-success">
+                            🎉 <strong>Email verified successfully!</strong><br>
+                            You can now proceed to review and submit your certificate request.
+                        </div>
                     </div>
                 </div>
 
                 <!-- Step 3: Review -->
                 <div class="form-section" id="section3">
-                    <h2>Review Your Request</h2>
+                    <h2>Review Your 802.1X Certificate Request</h2>
                     
                     <div class="alert alert-info">
-                        Please review your certificate request details before submitting.
+                        Please review your 802.1X certificate details before submitting. This certificate will be used for network authentication.
                     </div>
 
                     <div id="reviewDetails" style="padding: 20px; background: #f9f9f9; border-radius: 6px;">
@@ -467,7 +497,7 @@
 
                     <div class="form-group" style="margin-top: 20px;">
                         <label>
-                            <input type="checkbox" id="confirmAccuracy" required>
+                            <input type="checkbox" id="confirmAccuracy">
                             I confirm that all information provided is accurate
                         </label>
                     </div>
@@ -477,25 +507,30 @@
                 <div class="form-section" id="section4">
                     <div class="success-section">
                         <div class="success-icon">✅</div>
-                        <h2>Certificate Request Submitted!</h2>
+                        <h2>802.1X Certificate Request Submitted!</h2>
                         <p id="requestStatus" style="color: #666; margin-top: 10px;"></p>
                         
                         <div id="downloadSection" style="display: none;">
+                            <div class="alert alert-info" style="margin-bottom: 20px;">
+                                <strong>Installation Instructions:</strong><br>
+                                • <strong>Windows:</strong> Double-click the P12 file and follow the import wizard<br>
+                                • <strong>macOS/iOS:</strong> Double-click P12 file or use QR code for mobile<br>
+                                • <strong>Android:</strong> Go to Settings > Security > Install certificates<br>
+                                • <strong>Network Equipment:</strong> Use PEM format for most enterprise switches/APs
+                            </div>
+                            
                             <div class="download-buttons">
+                                <a href="#" class="download-btn" id="downloadP12">
+                                    🔐 Download P12 (Recommended)
+                                </a>
                                 <a href="#" class="download-btn" id="downloadPEM">
                                     📄 Download PEM
-                                </a>
-                                <a href="#" class="download-btn" id="downloadP12">
-                                    🔐 Download P12
-                                </a>
-                                <a href="#" class="download-btn" id="downloadDER">
-                                    📦 Download DER
                                 </a>
                             </div>
                             
                             <div id="qrCodeSection" style="margin-top: 30px; display: none;">
-                                <h3>Mobile Installation</h3>
-                                <p style="color: #666;">Scan this QR code with your mobile device</p>
+                                <h3>Mobile Device Installation</h3>
+                                <p style="color: #666;">Scan this QR code with your mobile device to install the certificate</p>
                                 <div class="qr-code" id="qrCode"></div>
                             </div>
                         </div>
@@ -524,26 +559,42 @@
 
     <script>
         let currentStep = 1;
-        let selectedTemplate = null;
+        let selectedTemplate = null; // Will be auto-selected
         let requestId = null;
         let templates = [];
 
-        // Load certificate templates
+        // Load 802.1X certificate templates
         async function loadTemplates() {
             try {
                 const response = await fetch('/api/certificate-templates');
-                templates = await response.json();
+                const allTemplates = await response.json();
                 
-                const container = document.getElementById('templateCards');
-                container.innerHTML = templates.map(template => `
-                    <div class="template-card" data-template="${template.template_name}" onclick="selectTemplate('${template.template_name}')">
-                        <h4>${template.display_name}</h4>
-                        <p>${template.description}</p>
-                        <small>Valid for ${template.default_validity_days} days</small>
-                    </div>
-                `).join('');
+                // Show only the specific WiFi 802.1X authentication template
+                templates = allTemplates.filter(t => 
+                    t.template_name === 'wifi_8021x'
+                );
+                
+                // Fallback: if no wifi_8021x template found, create a default one
+                if (templates.length === 0) {
+                    templates = [{
+                        template_name: 'wifi_8021x',
+                        display_name: '802.1X WiFi Authentication',
+                        description: 'Certificate for WiFi EAP-TLS authentication',
+                        default_validity_days: 365
+                    }];
+                }
+                
+                // Auto-select the first (and only) template - no UI needed
+                selectedTemplate = templates[0];
+                console.log('Auto-selected 802.1X template:', selectedTemplate);
             } catch (error) {
                 console.error('Failed to load templates:', error);
+                // Fallback to show at least the 802.1x template we know exists
+                document.getElementById('templateCards').innerHTML = `
+                    <div class="alert alert-error">
+                        Unable to load certificate templates. Please refresh the page or contact your administrator.
+                    </div>
+                `;
             }
         }
 
@@ -556,19 +607,31 @@
             });
             document.querySelector(`[data-template="${templateName}"]`).classList.add('selected');
             
-            // Update validity days
+            // Update validity days and form behavior
             if (selectedTemplate) {
                 document.getElementById('validityDays').value = selectedTemplate.default_validity_days;
                 document.getElementById('validityDays').max = selectedTemplate.max_validity_days;
+                
+                // Show/hide SAN section and update CN hint based on template
+                const sanGroup = document.getElementById('sanGroup');
+                const cnHint = document.getElementById('cnHint');
+                
+                if (templateName.includes('wifi') || templateName.includes('8021x') || templateName === 'client_auth') {
+                    sanGroup.style.display = 'block';
+                    cnHint.textContent = 'Enter your username or email address for network authentication';
+                } else {
+                    sanGroup.style.display = 'none';
+                    cnHint.textContent = 'Enter the computer name or hostname for device authentication';
+                }
             }
         }
 
-        function changeStep(direction) {
+        async function changeStep(direction) {
             const sections = document.querySelectorAll('.form-section');
             const steps = document.querySelectorAll('.step');
             
             // Validate current step
-            if (direction > 0 && !validateStep(currentStep)) {
+            if (direction > 0 && !(await validateStep(currentStep))) {
                 return;
             }
             
@@ -583,6 +646,10 @@
             sections[currentStep - 1].classList.add('active');
             steps[currentStep - 1].classList.add('active');
             
+            // Debug log
+            console.log('Changed to step', currentStep);
+            console.log('Active section:', sections[currentStep - 1]);
+            
             // Mark completed steps
             if (direction > 0) {
                 steps[currentStep - 2].classList.add('completed');
@@ -590,19 +657,25 @@
             
             updateButtons();
             
+            // Auto-send verification email when advancing to step 2
+            if (direction > 0 && currentStep === 2) {
+                await sendVerificationEmailAuto();
+                // Ensure verification form is visible
+                const verificationSent = document.getElementById('verification-sent');
+                if (verificationSent) {
+                    verificationSent.style.display = 'block';
+                    console.log('Verification form shown');
+                }
+            }
+            
             // Populate review if on step 3
             if (currentStep === 3) {
                 populateReview();
             }
         }
 
-        function validateStep(step) {
+        async function validateStep(step) {
             if (step === 1) {
-                if (!selectedTemplate) {
-                    alert('Please select a certificate template');
-                    return false;
-                }
-            } else if (step === 2) {
                 const requesterName = document.getElementById('requesterName').value;
                 const requesterEmail = document.getElementById('requesterEmail').value;
                 const commonName = document.getElementById('commonName').value;
@@ -614,6 +687,24 @@
                 
                 if (!validateEmail(requesterEmail)) {
                     alert('Please enter a valid email address');
+                    return false;
+                }
+                
+                // Validate CN email if CN is an email address
+                if (!validateCNEmail(commonName, requesterEmail)) {
+                    alert('If using an email address as Common Name, it must match your email address or be from the same domain for security reasons.');
+                    return false;
+                }
+                
+                // Check if email domain is allowed
+                if (!(await isEmailDomainAllowed(requesterEmail))) {
+                    alert('Sorry, your email domain is not authorized for certificate requests. Please contact your administrator.');
+                    return false;
+                }
+            } else if (step === 2) {
+                // Check if email verification is complete
+                if (!isEmailVerified) {
+                    alert('Please complete email verification before proceeding');
                     return false;
                 }
             } else if (step === 3) {
@@ -628,6 +719,52 @@
 
         function validateEmail(email) {
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function validateCNEmail(commonName, requesterEmail) {
+            // If CN is not an email format, it's valid (like username)
+            if (!validateEmail(commonName)) {
+                return true;
+            }
+            
+            // If CN is an email, it must exactly match the requester email
+            return commonName.toLowerCase() === requesterEmail.toLowerCase();
+        }
+        
+        async function isEmailDomainAllowed(email) {
+            try {
+                const domain = email.split('@')[1].toLowerCase();
+                
+                const response = await fetch('/api/email-domains', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch allowed domains');
+                    return false;
+                }
+                
+                const data = await response.json();
+                const allowedDomains = data.domains || [];
+                
+                // Check if the domain matches any allowed domain
+                return allowedDomains.some(allowedDomain => {
+                    if (allowedDomain.domain === domain) {
+                        return true;
+                    }
+                    
+                    // Check subdomain if allowed
+                    if (allowedDomain.allow_subdomains && domain.endsWith('.' + allowedDomain.domain)) {
+                        return true;
+                    }
+                    
+                    return false;
+                });
+                
+            } catch (error) {
+                console.error('Error checking email domain:', error);
+                return false;
+            }
         }
 
         function updateButtons() {
@@ -656,11 +793,9 @@
             sanDiv.className = 'san-input-group';
             sanDiv.innerHTML = `
                 <select>
-                    <option value="dns">DNS</option>
-                    <option value="ip">IP</option>
                     <option value="email">Email</option>
                 </select>
-                <input type="text" placeholder="Enter value">
+                <input type="email" placeholder="user@company.com">
                 <button type="button" onclick="this.parentElement.remove()">Remove</button>
             `;
             sansList.appendChild(sanDiv);
@@ -678,17 +813,24 @@
                 }
             });
             
+            const authType = selectedTemplate.template_name === 'user-auth' ? 'User Authentication' : 'Machine Authentication';
+            const authDescription = selectedTemplate.template_name === 'user-auth' ? 
+                'This certificate will authenticate you as a user on the corporate network' :
+                'This certificate will authenticate this device on the corporate network';
+            
             reviewDetails.innerHTML = `
-                <h3>Request Details</h3>
-                <p><strong>Template:</strong> ${selectedTemplate.display_name}</p>
+                <h3>802.1X Certificate Details</h3>
+                <p><strong>Authentication Type:</strong> ${authType}</p>
+                <p><strong>Purpose:</strong> ${authDescription}</p>
                 <p><strong>Requester:</strong> ${document.getElementById('requesterName').value}</p>
                 <p><strong>Email:</strong> ${document.getElementById('requesterEmail').value}</p>
                 <p><strong>Department:</strong> ${document.getElementById('department').value || 'N/A'}</p>
-                <p><strong>Common Name:</strong> ${document.getElementById('commonName').value}</p>
-                <p><strong>SANs:</strong> ${sans.length > 0 ? sans.join(', ') : 'None'}</p>
+                <p><strong>Identity (CN):</strong> ${document.getElementById('commonName').value}</p>
+                ${sans.length > 0 ? `<p><strong>Email SANs:</strong> ${sans.join(', ')}</p>` : ''}
                 <p><strong>Key Algorithm:</strong> ${document.getElementById('keyAlgorithm').value}</p>
                 <p><strong>Key Size:</strong> ${document.getElementById('keySize').value} bits</p>
                 <p><strong>Validity:</strong> ${document.getElementById('validityDays').value} days</p>
+                <p><strong>Certificate Usage:</strong> Network Authentication (802.1X/EAP-TLS)</p>
             `;
         }
 
@@ -731,7 +873,8 @@
                 key_algorithm: document.getElementById('keyAlgorithm').value,
                 key_size: parseInt(document.getElementById('keySize').value),
                 validity_days: parseInt(document.getElementById('validityDays').value),
-                notes: document.getElementById('notes').value
+                notes: document.getElementById('notes').value,
+                verification_token: verificationToken
             };
             
             try {
@@ -756,14 +899,14 @@
                     const statusText = document.getElementById('requestStatus');
                     
                     if (result.status === 'approved' || !selectedTemplate.requires_approval) {
-                        statusText.textContent = 'Your certificate has been issued and is ready for download!';
+                        statusText.textContent = 'Your 802.1X certificate has been issued and is ready for download and installation!';
                         document.getElementById('downloadSection').style.display = 'block';
                         setupDownloadLinks(requestId);
                         
-                        // Generate QR code for mobile
+                        // Generate QR code for mobile devices
                         generateQRCode(requestId);
                     } else {
-                        statusText.textContent = `Request ID: ${requestId}`;
+                        statusText.textContent = `Request ID: ${requestId} - Pending administrator approval`;
                         document.getElementById('pendingApproval').style.display = 'block';
                     }
                 } else {
@@ -778,7 +921,6 @@
         function setupDownloadLinks(requestId) {
             document.getElementById('downloadPEM').href = `/api/certificate-requests/${requestId}/download?format=pem`;
             document.getElementById('downloadP12').href = `/api/certificate-requests/${requestId}/download?format=p12`;
-            document.getElementById('downloadDER').href = `/api/certificate-requests/${requestId}/download?format=der`;
         }
 
         async function generateQRCode(requestId) {
@@ -795,25 +937,98 @@
             }
         }
 
-        // Key algorithm change handler
-        document.getElementById('keyAlgorithm').addEventListener('change', (e) => {
-            const keySizeGroup = document.getElementById('keySizeGroup');
-            const keySize = document.getElementById('keySize');
-            
-            if (e.target.value === 'ECDSA') {
-                keySize.innerHTML = `
-                    <option value="256">P-256</option>
-                    <option value="384">P-384</option>
-                    <option value="521">P-521</option>
-                `;
-            } else {
-                keySize.innerHTML = `
-                    <option value="2048">2048 bits</option>
-                    <option value="3072">3072 bits</option>
-                    <option value="4096" selected>4096 bits</option>
-                `;
+        // Email verification functionality
+        let isEmailVerified = false;
+        let verificationToken = null;
+
+        async function sendVerificationEmailAuto() {
+            try {
+                const requesterEmail = document.getElementById('requesterEmail').value;
+                
+                // Update the display to show which email was sent to
+                document.getElementById('emailToVerify').textContent = requesterEmail;
+                
+                const response = await fetch('/api/certificate-requests/start-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        requester_email: requesterEmail,
+                        requester_name: document.getElementById('requesterName').value,
+                        common_name: document.getElementById('commonName').value,
+                        certificate_type: '802.1X Authentication'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to send verification email');
+                }
+                
+                // Store the verification token for later use
+                verificationToken = result.verification_token;
+                console.log('Verification email sent successfully');
+                
+            } catch (error) {
+                console.error('Error sending verification email:', error);
+                alert('Failed to send verification email: ' + error.message);
             }
-        });
+        }
+
+        async function verifyEmail() {
+            try {
+                const code = document.getElementById('verificationCode').value.trim();
+                
+                if (!code || code.length !== 6) {
+                    alert('Please enter a 6-digit verification code');
+                    return;
+                }
+                
+                const requesterEmail = document.getElementById('requesterEmail').value;
+                
+                const response = await fetch('/api/verify-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: verificationToken,
+                        code: code
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'verified') {
+                    isEmailVerified = true;
+                    
+                    // Hide verification form and show success
+                    document.getElementById('verification-sent').style.display = 'none';
+                    document.getElementById('verification-success').style.display = 'block';
+                    
+                    // Auto-advance after 2 seconds
+                    setTimeout(() => {
+                        changeStep(1);
+                    }, 2000);
+                    
+                } else {
+                    alert(result.error || 'Verification failed. Please check your code and try again.');
+                }
+                
+            } catch (error) {
+                console.error('Error verifying email:', error);
+                alert('Verification failed: ' + error.message);
+            }
+        }
+
+        async function resendVerificationEmail() {
+            await sendVerificationEmailAuto();
+            alert('Verification email resent! Please check your inbox.');
+        }
+
+        // Algorithm and key size are now fixed - no dynamic changes needed
 
         // Initialize
         loadTemplates();

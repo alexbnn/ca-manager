@@ -401,6 +401,114 @@
             display: block;
         }
         
+        /* Pending Requests List */
+        .pending-requests-list {
+            display: none;
+        }
+        
+        .pending-requests-list.show {
+            display: block;
+        }
+        
+        .request-item {
+            background: var(--text-light);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .request-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .request-item.selected {
+            border-color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.05);
+        }
+        
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .request-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .request-title {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 1.1rem;
+        }
+        
+        .request-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+        }
+        
+        .request-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .request-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 6px;
+        }
+        
+        .request-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .request-field label {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .request-field span {
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+        
+        .btn-approve {
+            background-color: var(--success-green);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .btn-reject {
+            background-color: var(--error-red);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .request-checkbox {
+            margin-right: 1rem;
+            transform: scale(1.2);
+        }
+        
         /* Certificate Expiry Dashboard Styles */
         .expiry-dashboard {
             background: #f8f9fa;
@@ -1365,9 +1473,141 @@
             </div>
             {% endif %}
 
+            <!-- Certificate Request Approvals Section (Admin & Operator) -->
+            {% if 'admin' in user.roles or 'operator' in user.roles %}
+            <div class="section" id="approvals-section">
+                <h2><span class="section-icon">7</span>Certificate Request Approvals</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Review and approve pending certificate requests from the self-service portal.
+                </p>
+                
+                <div class="button-grid">
+                    <button class="btn btn-info" id="loadPendingRequests" onclick="window.loadPendingRequests()">📋 Load Pending Requests</button>
+                    <button class="btn btn-success" id="bulkApprove" style="display: none;" onclick="window.bulkApproveSelected()">✅ Bulk Approve Selected</button>
+                    <button class="btn btn-danger" id="bulkReject" style="display: none;" onclick="window.bulkRejectSelected()">❌ Bulk Reject Selected</button>
+                </div>
+                
+                <div id="pendingRequestsList" class="pending-requests-list" style="margin-top: 1.5rem;">
+                    <!-- Pending requests will be loaded here -->
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Email Domain Management Section (Admin only) -->
+            {% if user.is_admin %}
+            <div class="section" id="domains-section">
+                <h2><span class="section-icon">8</span>Email Domain Whitelist</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Manage which email domains are allowed to request 802.1X certificates.
+                </p>
+                
+                <div class="button-grid">
+                    <button class="btn btn-info" onclick="loadEmailDomains()">📋 Load Domains</button>
+                    <button class="btn btn-success" onclick="showAddDomainForm()">➕ Add Domain</button>
+                </div>
+
+                <!-- Add Domain Form -->
+                <div id="add-domain-form" class="form-container" style="display: none; margin-top: 1rem; background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                    <h3 style="margin-bottom: 1rem;">Add Email Domain</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newEmailDomain" style="display: block; margin-bottom: 0.5rem;">Domain Name *</label>
+                            <input type="text" id="newEmailDomain" placeholder="example.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label for="domainDescription" style="display: block; margin-bottom: 0.5rem;">Description</label>
+                            <input type="text" id="domainDescription" placeholder="Optional description" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" id="allowSubdomains" style="margin-right: 0.5rem;"> Allow subdomains (e.g., user@sub.example.com)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-actions" style="margin-top: 1rem;">
+                        <button class="btn btn-success" onclick="addEmailDomain()">Add Domain</button>
+                        <button class="btn btn-secondary" onclick="hideAddDomainForm()">Cancel</button>
+                    </div>
+                </div>
+                
+                <div id="email-domains-content" class="domains-list" style="margin-top: 1.5rem;">
+                    <!-- Domains will be loaded here -->
+                </div>
+            </div>
+
+            <!-- SMTP Configuration Section (Admin only) -->
+            <div class="section" id="smtp-section">
+                <h2><span class="section-icon">9</span>SMTP Email Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure SMTP settings for sending email verifications.
+                </p>
+                
+                
+                <div class="smtp-config">
+                    <h3 style="margin-bottom: 1rem;">SMTP Configuration</h3>
+                    <div id="smtp-config-content" class="config-form" style="display: block;">
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                            <div class="form-group">
+                                <label for="smtpServer">SMTP Server *:</label>
+                                <input type="text" id="smtpServer" placeholder="smtp.gmail.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpPort">SMTP Port:</label>
+                                <input type="number" id="smtpPort" placeholder="587" min="1" max="65535" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpUsername">SMTP Username:</label>
+                                <input type="text" id="smtpUsername" placeholder="your-email@domain.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpPassword">SMTP Password:</label>
+                                <input type="password" id="smtpPassword" placeholder="Password" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpSenderEmail">Sender Email *:</label>
+                                <input type="email" id="smtpSenderEmail" placeholder="noreply@yourcompany.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpSenderName">Sender Name:</label>
+                                <input type="text" id="smtpSenderName" placeholder="CA Manager" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label>
+                                <input type="checkbox" id="smtpUseTLS" checked>
+                                Use TLS/STARTTLS
+                            </label>
+                        </div>
+                        
+                        <div class="button-grid" style="margin-top: 1rem;">
+                            <button class="btn btn-primary" onclick="saveSMTPConfig()">💾 Save Configuration</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Test Email Address:</label>
+                        <input type="email" id="testEmailAddress" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    
+                    <div class="button-grid" style="margin-top: 1rem;">
+                        <button class="btn btn-info" onclick="loadSMTPConfig()">🔄 Refresh Configuration</button>
+                        <button class="btn btn-warning" onclick="testSMTPConnection()">✉️ Test Email</button>
+                    </div>
+                    
+                    <div id="smtp-status" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div class="config-instructions" style="margin-top: 2rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
+                    <h3 style="margin-bottom: 1rem; color: #0c5460;">✅ Live Configuration Active</h3>
+                    <p style="color: #0c5460;">SMTP configuration is now managed through the database and takes effect immediately after saving. No container restart required!</p>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Certificate Tracking Section -->
             <div class="section">
-                <h2><span class="section-icon">7</span>Certificate Tracking</h2>
+                <h2><span class="section-icon">8</span>Certificate Tracking</h2>
                 
                 <!-- Search and Filter Controls -->
                 <div class="search-controls">
@@ -1430,7 +1670,7 @@
             <!-- User Management Section (Admin Only) -->
             {% if user.is_admin %}
             <div class="section" id="userManagementSection">
-                <h2><span class="section-icon">8</span>User Management</h2>
+                <h2><span class="section-icon">9</span>User Management</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage user accounts and permissions for the PKI system.
                 </p>
@@ -1604,8 +1844,8 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="newPassword">Password:</label>
-                        <input type="password" id="newPassword" required minlength="6" maxlength="128" placeholder="Enter password">
+                        <label for="newUserPassword">Password:</label>
+                        <input type="password" id="newUserPassword" required minlength="6" maxlength="128" placeholder="Enter password">
                         <small class="form-help">Minimum 6 characters</small>
                     </div>
                     
@@ -1687,6 +1927,19 @@
     </div>
 
     <script>
+        console.log('Script execution started');
+        
+        // Global error handler to catch and display JavaScript errors
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('JavaScript Error: ', msg, 'at line', lineNo);
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:red;color:white;padding:10px;z-index:9999;border-radius:5px;';
+            errorDiv.textContent = 'JS Error: ' + msg + ' (Line ' + lineNo + ')';
+            document.body.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 10000);
+            return false;
+        };
+        
         let isLoading = false;
         let authenticationEnabled = false;
         let currentCertificates = [];
@@ -1694,8 +1947,8 @@
         // Current user information
         let currentUser = {
             username: '{{ user.username if user else "" }}',
-            roles: {{ user.roles | tojson if user and user.roles else [] }},
-            is_admin: {{ user.is_admin | tojson if user else false }}
+            roles: {{ (user.roles | tojson) if (user and user.roles) else '[]' | safe }},
+            is_admin: {{ (user.is_admin | tojson) if user else 'false' | safe }}
         };
         
         // Helper function to check user permissions
@@ -2566,6 +2819,275 @@
                 }
             } catch (error) {
                 showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        // Helper function for date formatting (needed by certificate approvals)
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        // Certificate Request Approvals Management
+        window.loadPendingRequests = async function loadPendingRequests() {
+            if (isLoading) return;
+            setLoading(true);
+            showStatus('Loading pending certificate requests...', 'loading');
+            
+            try {
+                const result = await apiRequest('/api/certificate-requests?status=pending');
+                
+                if (result && Array.isArray(result)) {
+                    displayPendingRequests(result);
+                    showStatus(`Found ${result.length} pending certificate requests`, 'success');
+                } else {
+                    document.getElementById('pendingRequestsList').innerHTML = 
+                        '<div style="padding: 1rem; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; color: #1976d2;">No pending certificate requests found.</div>';
+                    document.getElementById('pendingRequestsList').classList.add('show');
+                }
+            } catch (error) {
+                console.error('Error loading pending requests:', error);
+                showStatus('Failed to load pending requests: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        function displayPendingRequests(requests) {
+            const container = document.getElementById('pendingRequestsList');
+            
+            if (!requests || requests.length === 0) {
+                container.innerHTML = '<div style="padding: 1rem; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; color: #1976d2;">No pending certificate requests found.</div>';
+                container.classList.add('show');
+                return;
+            }
+            
+            const html = requests.map(request => `
+                <div class="request-item" data-request-id="${request.request_id}">
+                    <div class="request-header">
+                        <div class="request-info">
+                            <div class="request-title">
+                                <input type="checkbox" class="request-checkbox" value="${request.request_id}">
+                                ${request.common_name} (${request.certificate_type})
+                            </div>
+                            <div class="request-subtitle">
+                                Requested by ${request.requester_name} <${request.requester_email}> 
+                                ${formatDate(request.created_at)}
+                            </div>
+                        </div>
+                        <div class="request-actions">
+                            <button class="btn-approve" data-request-id="${request.request_id}" data-action="approve">✅ Approve</button>
+                            <button class="btn-reject" data-request-id="${request.request_id}" data-action="reject">❌ Reject</button>
+                        </div>
+                    </div>
+                    
+                    <div class="request-details">
+                        <div class="request-field">
+                            <label>Certificate Template:</label>
+                            <span>${request.certificate_template || 'Default'}</span>
+                        </div>
+                        <div class="request-field">
+                            <label>Department:</label>
+                            <span>${request.department || 'Not specified'}</span>
+                        </div>
+                        <div class="request-field">
+                            <label>Key Algorithm:</label>
+                            <span>${request.key_algorithm} ${request.key_size} bits</span>
+                        </div>
+                        <div class="request-field">
+                            <label>Validity Period:</label>
+                            <span>${request.validity_days} days</span>
+                        </div>
+                        ${request.san_dns_names && request.san_dns_names.length > 0 ? `
+                        <div class="request-field">
+                            <label>DNS SANs:</label>
+                            <span>${request.san_dns_names.join(', ')}</span>
+                        </div>
+                        ` : ''}
+                        ${request.san_emails && request.san_emails.length > 0 ? `
+                        <div class="request-field">
+                            <label>Email SANs:</label>
+                            <span>${request.san_emails.join(', ')}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+            container.classList.add('show');
+            
+            // Add event delegation for approve/reject buttons (only if not already added)
+            if (!container.hasAttribute('data-listeners-added')) {
+                container.setAttribute('data-listeners-added', 'true');
+                container.addEventListener('click', function(event) {
+                    let target = event.target;
+                    
+                    // Check if clicked element or parent has the data attributes
+                    while (target && target !== container) {
+                        const requestId = target.getAttribute('data-request-id');
+                        const action = target.getAttribute('data-action');
+                        
+                        if (requestId && action === 'approve') {
+                            event.preventDefault();
+                            approveRequest(requestId);
+                            return;
+                        } else if (requestId && action === 'reject') {
+                            event.preventDefault();
+                            rejectRequest(requestId);
+                            return;
+                        }
+                        
+                        target = target.parentElement;
+                    }
+                });
+            }
+            
+            // Show bulk action buttons if there are requests
+            if (requests.length > 0) {
+                document.getElementById('bulkApprove').style.display = 'inline-block';
+                document.getElementById('bulkReject').style.display = 'inline-block';
+            }
+        }
+        
+        async function approveRequest(requestId) {
+            if (isLoading) return;
+            
+            setLoading(true);
+            showStatus('Approving certificate request...', 'loading');
+            
+            try {
+                const response = await fetch('/api/certificate-requests/' + requestId + '/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('Certificate request approved and issued successfully!', 'success');
+                    // Remove the approved request from the display
+                    const requestElement = document.querySelector(`[data-request-id="${requestId}"]`);
+                    if (requestElement) {
+                        requestElement.remove();
+                    }
+                } else {
+                    showStatus('Failed to approve request: ' + (result.message || result.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error approving request:', error);
+                showStatus('Failed to approve request: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        async function rejectRequest(requestId) {
+            const reason = prompt('Enter rejection reason (optional):');
+            if (reason === null) return; // User cancelled
+            
+            if (isLoading) return;
+            
+            setLoading(true);
+            showStatus('Rejecting certificate request...', 'loading');
+            
+            try {
+                const response = await fetch('/api/certificate-requests/' + requestId + '/reject', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reason: reason || 'No reason provided' })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('Certificate request rejected successfully', 'success');
+                    // Remove the rejected request from the display
+                    const requestElement = document.querySelector(`[data-request-id="${requestId}"]`);
+                    if (requestElement) {
+                        requestElement.remove();
+                    }
+                } else {
+                    showStatus('Failed to reject request: ' + (result.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting request:', error);
+                showStatus('Failed to reject request: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        window.bulkApproveSelected = async function bulkApproveSelected() {
+            console.log('bulkApproveSelected called');
+            const selectedRequests = Array.from(document.querySelectorAll('.request-checkbox:checked')).map(cb => cb.value);
+            console.log('Selected requests:', selectedRequests);
+            
+            if (selectedRequests.length === 0) {
+                showStatus('Please select at least one request to approve', 'warning');
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to approve ${selectedRequests.length} selected certificate requests?`)) {
+                console.log('User confirmed bulk approval');
+                // Process each request sequentially to avoid loading state conflicts
+                for (const requestId of selectedRequests) {
+                    console.log('Processing approval for:', requestId);
+                    await approveRequest(requestId);
+                    // Small delay between requests
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                console.log('Bulk approval completed');
+            }
+        }
+        
+        window.bulkRejectSelected = function bulkRejectSelected() {
+            const selectedRequests = Array.from(document.querySelectorAll('.request-checkbox:checked')).map(cb => cb.value);
+            
+            if (selectedRequests.length === 0) {
+                showStatus('Please select at least one request to reject', 'warning');
+                return;
+            }
+            
+            const reason = prompt('Enter rejection reason for all selected requests:');
+            if (reason === null) return; // User cancelled
+            
+            if (confirm(`Are you sure you want to reject ${selectedRequests.length} selected certificate requests?`)) {
+                selectedRequests.forEach(requestId => {
+                    // Call rejectRequest but with a predefined reason
+                    rejectRequestWithReason(requestId, reason);
+                });
+            }
+        }
+        
+        async function rejectRequestWithReason(requestId, reason) {
+            if (isLoading) return;
+            
+            setLoading(true);
+            showStatus('Rejecting certificate request...', 'loading');
+            
+            try {
+                const result = await apiRequest('/api/certificate-requests/' + requestId + '/reject', 'POST', { reason: reason || 'No reason provided' });
+                
+                if (result && result.status === 'success') {
+                    showStatus('Certificate request rejected successfully', 'success');
+                    // Remove the rejected request from the display
+                    const requestElement = document.querySelector(`[data-request-id="${requestId}"]`);
+                    if (requestElement) {
+                        requestElement.remove();
+                    }
+                } else {
+                    showStatus('Failed to reject request: ' + (result.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting request:', error);
+                showStatus('Failed to reject request: ' + error.message, 'error');
             } finally {
                 setLoading(false);
             }
@@ -3450,7 +3972,7 @@ Dependencies:
             // Get form values
             const username = document.getElementById('newUsername').value.trim();
             const email = document.getElementById('newEmail').value.trim();
-            const password = document.getElementById('newPassword').value;
+            const password = document.getElementById('newUserPassword').value;
             const fullName = document.getElementById('newFullName').value.trim();
             const role = document.getElementById('newRole').value;
             
@@ -3543,15 +4065,53 @@ Dependencies:
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
-            // Check connection on page load
-            setTimeout(checkConnection, 1000);
+            console.log('DOMContentLoaded - starting initialization');
             
-            // Check PKI and CA status on page load
-            setTimeout(updatePKIButton, 1500);
-            setTimeout(updateCAButton, 2000);
-            
-            // Load dashboard initially
-            setTimeout(loadDashboard, 3000);
+            // Add try-catch to identify which function is breaking
+            try {
+                // Check connection on page load
+                setTimeout(() => {
+                    console.log('Calling checkConnection');
+                    checkConnection().catch(e => console.error('checkConnection error:', e));
+                }, 1000);
+                
+                // Check PKI and CA status on page load  
+                setTimeout(() => {
+                    console.log('Calling updatePKIButton');
+                    updatePKIButton().catch(e => console.error('updatePKIButton error:', e));
+                }, 1500);
+                
+                setTimeout(() => {
+                    console.log('Calling updateCAButton');
+                    updateCAButton().catch(e => console.error('updateCAButton error:', e));
+                }, 2000);
+                
+                // Load SMTP configuration (only for admins and with delay)
+                setTimeout(() => {
+                    console.log('Loading SMTP configuration');
+                    const smtpSection = document.getElementById('smtp-section');
+                    const smtpServer = document.getElementById('smtpServer');
+                    console.log('SMTP section found:', !!smtpSection);
+                    console.log('SMTP server input found:', !!smtpServer);
+                    
+                    if (smtpSection && smtpServer) {
+                        loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
+                    } else if (smtpSection) {
+                        console.log('SMTP section exists but form elements not ready, trying again...');
+                        setTimeout(() => loadSMTPConfig(), 3000);
+                    } else {
+                        console.log('SMTP section not found - user may not be admin or section not rendered');
+                    }
+                }, 5000);
+                
+                // Load dashboard initially
+                setTimeout(() => {
+                    console.log('Calling loadDashboard');
+                    loadDashboard().catch(e => console.error('loadDashboard error:', e));
+                }, 3000);
+            } catch(e) {
+                console.error('DOMContentLoaded initialization error:', e);
+            }
             
             // Load SCEP URL after dashboard loads
             setTimeout(loadSCEPUrl, 4000);
@@ -4281,6 +4841,385 @@ Dependencies:
             // Check if this is a first-time user
             checkIfFirstTimeUser();
         });
+
+        // Email Domain Management Functions  
+        async function loadEmailDomains() {
+            console.log('🔍 loadEmailDomains called - version 2.0');
+            try {
+                showLoading('email-domains-content');
+                const response = await fetch('/api/email-domains', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const content = document.getElementById('email-domains-content');
+                    if (data.domains.length === 0) {
+                        content.innerHTML = '<p class="no-data">No email domains configured.</p>';
+                        return;
+                    }
+                    
+                    let html = `
+                    <div class="domains-table-container" style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; margin-top: 1rem;">
+                        <table class="domains-table" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: linear-gradient(135deg, #5B059C 0%, #7B1FA2 100%); color: white;">
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; border: none;">🌐 Domain</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; border: none;">🔗 Subdomains</th>
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; border: none;">📝 Description</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; border: none;">📅 Created</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; border: none;">⚡ Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.domains.forEach((domain, index) => {
+                        const rowBg = index % 2 === 0 ? '#f8f9fa' : 'white';
+                        const subdomainBadge = domain.allow_subdomains 
+                            ? '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">✅ Yes</span>'
+                            : '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">❌ No</span>';
+                        
+                        html += `
+                            <tr style="background: ${rowBg}; transition: all 0.3s ease; border: none;" 
+                                onmouseover="this.style.background='#e8f4fd'; this.style.transform='scale(1.01)'" 
+                                onmouseout="this.style.background='${rowBg}'; this.style.transform='scale(1)'">
+                                <td style="padding: 1rem; border: none; font-weight: 600; color: #2c3e50;">
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="background: #e3f2fd; color: #1976d2; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.8rem; margin-right: 0.5rem;">@</span>
+                                        ${domain.domain}
+                                    </div>
+                                </td>
+                                <td style="padding: 1rem; text-align: center; border: none;">
+                                    ${subdomainBadge}
+                                </td>
+                                <td style="padding: 1rem; border: none; color: #666; font-style: ${domain.description ? 'normal' : 'italic'};">
+                                    ${domain.description || 'No description provided'}
+                                </td>
+                                <td style="padding: 1rem; text-align: center; border: none; color: #666; font-size: 0.85rem;">
+                                    ${formatDate(domain.created_at)}
+                                </td>
+                                <td style="padding: 1rem; text-align: center; border: none;">
+                                    <button class="btn btn-danger btn-sm" 
+                                            onclick="removeEmailDomain('${domain.domain}')"
+                                            style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); 
+                                                   border: none; color: white; padding: 0.5rem 1rem; border-radius: 8px; 
+                                                   font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+                                                   box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);"
+                                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(220, 53, 69, 0.4)'"
+                                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(220, 53, 69, 0.3)'">
+                                        🗑️ Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    `;
+                    content.innerHTML = html;
+                } else {
+                    showError(data.error || 'Failed to load email domains');
+                }
+            } catch (error) {
+                console.error('Email domains loading error:', error);
+                showError(`Network error loading email domains: ${error.message}`);
+            }
+        }
+
+        async function addEmailDomain() {
+            const domain = document.getElementById('newEmailDomain').value.trim();
+            const allowSubdomains = document.getElementById('allowSubdomains').checked;
+            const description = document.getElementById('domainDescription').value.trim();
+            
+            if (!domain) {
+                showError('Domain is required');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/email-domains', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        domain: domain,
+                        allow_subdomains: allowSubdomains,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showMessage('Email domain added successfully', 'success');
+                    document.getElementById('newEmailDomain').value = '';
+                    document.getElementById('allowSubdomains').checked = false;
+                    document.getElementById('domainDescription').value = '';
+                    loadEmailDomains();
+                } else {
+                    showError(data.error || 'Failed to add email domain');
+                }
+            } catch (error) {
+                console.error('Add email domain error:', error);
+                showError(`Network error adding email domain: ${error.message}`);
+            }
+        }
+
+        async function removeEmailDomain(domain) {
+            if (!confirm(`Are you sure you want to remove domain "${domain}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/email-domains/${domain}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showMessage('Email domain removed successfully', 'success');
+                    loadEmailDomains();
+                } else {
+                    showError(data.error || 'Failed to remove email domain');
+                }
+            } catch (error) {
+                showError('Network error removing email domain');
+            }
+        }
+
+        // SMTP Configuration Functions
+        async function loadSMTPConfig() {
+            try {
+                console.log('loadSMTPConfig: Starting...');
+                
+                const response = await fetch('/api/smtp-config', {
+                    credentials: 'include'
+                });
+                console.log('loadSMTPConfig: API response received', response.status);
+                
+                const data = await response.json();
+                console.log('loadSMTPConfig: Data parsed', data);
+                
+                if (response.ok) {
+                    // Get elements directly since we know they exist
+                    const smtpServer = document.getElementById('smtpServer');
+                    const smtpPort = document.getElementById('smtpPort');
+                    const smtpUsername = document.getElementById('smtpUsername');
+                    const smtpPassword = document.getElementById('smtpPassword');
+                    const smtpSenderEmail = document.getElementById('smtpSenderEmail');
+                    const smtpSenderName = document.getElementById('smtpSenderName');
+                    const smtpUseTLS = document.getElementById('smtpUseTLS');
+                    
+                    // Set values with null safety
+                    if (smtpServer) smtpServer.value = data.config.smtp_server || '';
+                    if (smtpPort) smtpPort.value = data.config.smtp_port || '587';
+                    if (smtpUsername) smtpUsername.value = data.config.smtp_username || '';
+                    if (smtpPassword) smtpPassword.value = data.config.smtp_password || '';
+                    if (smtpSenderEmail) smtpSenderEmail.value = data.config.sender_email || '';
+                    if (smtpSenderName) smtpSenderName.value = data.config.sender_name || '';
+                    if (smtpUseTLS) smtpUseTLS.checked = data.config.use_tls || false;
+                    
+                    const statusDiv = document.getElementById('smtp-status');
+                    if (data.config.last_test_status) {
+                        statusDiv.innerHTML = `<div class="status-${data.config.last_test_status}">${data.config.last_test_message}</div>`;
+                    } else {
+                        statusDiv.innerHTML = '<div class="status-info">SMTP not configured</div>';
+                    }
+                    
+                    document.getElementById('smtp-config-content').style.display = 'block';
+                    console.log('loadSMTPConfig: Configuration loaded successfully');
+                } else {
+                    console.log('loadSMTPConfig: API response not OK', data);
+                    showError(data.error || 'Failed to load SMTP configuration');
+                }
+            } catch (error) {
+                console.error('loadSMTPConfig: Error caught:', error);
+                showError(`Network error loading SMTP configuration: ${error.message}`);
+            } finally {
+                console.log('loadSMTPConfig: Function completed');
+            }
+        }
+
+        async function saveSMTPConfig() {
+            const passwordField = document.getElementById('smtpPassword');
+            const config = {
+                smtp_server: document.getElementById('smtpServer').value.trim(),
+                smtp_port: parseInt(document.getElementById('smtpPort').value),
+                smtp_username: document.getElementById('smtpUsername').value.trim(),
+                sender_email: document.getElementById('smtpSenderEmail').value.trim(),
+                sender_name: document.getElementById('smtpSenderName').value.trim(),
+                use_tls: document.getElementById('smtpUseTLS').checked
+            };
+            
+            // Only include password if it's been changed (not the masked value)
+            const passwordValue = passwordField.value;
+            if (passwordValue && passwordValue !== '****') {
+                config.smtp_password = passwordValue;
+            }
+            
+            if (!config.smtp_server || !config.sender_email) {
+                showError('SMTP server and sender email are required');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/smtp-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(config)
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showMessage('SMTP configuration saved successfully', 'success');
+                } else {
+                    showError(data.error || 'Failed to save SMTP configuration');
+                }
+            } catch (error) {
+                showError('Network error saving SMTP configuration');
+            }
+        }
+
+        async function testSMTPConnection() {
+            const testEmail = document.getElementById('testEmailAddress').value.trim();
+            if (!testEmail) {
+                showError('Please enter a test email address');
+                return;
+            }
+            
+            try {
+                const button = document.querySelector('button[onclick="testSMTPConnection()"]');
+                button.disabled = true;
+                button.textContent = 'Testing...';
+                
+                const response = await fetch('/api/smtp-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        test_email: testEmail
+                    })
+                });
+                
+                const data = await response.json();
+                const statusDiv = document.getElementById('smtp-status');
+                
+                if (response.ok && data.status === 'success') {
+                    statusDiv.innerHTML = '<div class="status-success">✅ Test email sent successfully!</div>';
+                    showMessage('Test email sent successfully', 'success');
+                } else {
+                    statusDiv.innerHTML = `<div class="status-error">❌ ${data.error || 'Test failed'}</div>`;
+                    showError(data.error || 'SMTP test failed');
+                }
+            } catch (error) {
+                document.getElementById('smtp-status').innerHTML = '<div class="status-error">❌ Network error during test</div>';
+                showError('Network error during SMTP test');
+            } finally {
+                const button = document.querySelector('button[onclick="testSMTPConnection()"]');
+                button.disabled = false;
+                button.textContent = 'Test Connection';
+            }
+        }
+
+        // Helper function for loading states
+        function showLoading(elementId) {
+            document.getElementById(elementId).innerHTML = '<div class="loading">Loading...</div>';
+        }
+
+        // Helper functions for error/success messages
+        function showError(message) {
+            console.error(message);
+            // Create or update error message element
+            let errorDiv = document.getElementById('error-message');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.id = 'error-message';
+                errorDiv.style.cssText = `
+                    position: fixed; top: 20px; right: 20px; z-index: 10000;
+                    background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
+                    padding: 15px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                `;
+                document.body.appendChild(errorDiv);
+            }
+            errorDiv.innerHTML = `<strong>Error:</strong> ${message}`;
+            errorDiv.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showMessage(message, type = 'success') {
+            console.log(message);
+            // Create or update message element
+            let msgDiv = document.getElementById('success-message');
+            if (!msgDiv) {
+                msgDiv = document.createElement('div');
+                msgDiv.id = 'success-message';
+                msgDiv.style.cssText = `
+                    position: fixed; top: 20px; right: 20px; z-index: 10000;
+                    padding: 15px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                `;
+                document.body.appendChild(msgDiv);
+            }
+            
+            if (type === 'success') {
+                msgDiv.style.background = '#d4edda';
+                msgDiv.style.color = '#155724';
+                msgDiv.style.border = '1px solid #c3e6cb';
+            } else {
+                msgDiv.style.background = '#fff3cd';
+                msgDiv.style.color = '#856404';
+                msgDiv.style.border = '1px solid #ffeaa7';
+            }
+            
+            msgDiv.innerHTML = `<strong>${type === 'success' ? 'Success:' : 'Info:'}</strong> ${message}`;
+            msgDiv.style.display = 'block';
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                msgDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Email Domain Management UI Functions
+        function showAddDomainForm() {
+            const form = document.getElementById('add-domain-form');
+            if (form) {
+                form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function hideAddDomainForm() {
+            const form = document.getElementById('add-domain-form');
+            if (form) {
+                form.style.display = 'none';
+            }
+        }
+
+        // Make functions globally available
+        window.loadEmailDomains = loadEmailDomains;
+        window.addEmailDomain = addEmailDomain;
+        window.removeEmailDomain = removeEmailDomain;
+        window.loadSMTPConfig = loadSMTPConfig;
+        window.saveSMTPConfig = saveSMTPConfig;
+        window.testSMTPConnection = testSMTPConnection;
+        window.showAddDomainForm = showAddDomainForm;
+        window.hideAddDomainForm = hideAddDomainForm;
+        window.showError = showError;
+        window.showMessage = showMessage;
     </script>
 
     <!-- Tour Trigger Button -->
