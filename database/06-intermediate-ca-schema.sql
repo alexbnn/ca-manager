@@ -141,7 +141,7 @@ INSERT INTO certificate_templates (template_name, display_name, description, cer
     ('email_signing', 'Email Signing (S/MIME)', 'Certificate for email encryption and signing', 'email', 365, 1095, true),
     ('code_signing', 'Code Signing', 'Certificate for signing code and executables', 'code_signing', 730, 1095, true),
     ('vpn_client', 'VPN Client', 'Certificate for VPN client authentication', 'client', 365, 730, false),
-    ('wifi_8021x', '802.1X WiFi Authentication', 'Certificate for WiFi EAP-TLS authentication', 'client', 730, 1095, false)
+    ('wifi_8021x', '802.1X WiFi Authentication', 'Certificate for WiFi EAP-TLS authentication', 'client', 730, 1095, true)
 ON CONFLICT (template_name) DO NOTHING;
 
 -- Function to update the updated_at timestamp

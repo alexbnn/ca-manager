@@ -17,6 +17,14 @@ from functools import wraps
 import time
 import urllib3
 import uuid
+import secrets
+import smtplib
+import re
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+import psycopg2
+import psycopg2.extras
 
 # Disable SSL warnings for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -26,8 +34,6 @@ APP_VERSION = "4.0.0"
 BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 
 # Database connection for multi-user authentication
-import psycopg2
-import psycopg2.extras
 # import bcrypt  # Replaced with SHA-256 for better compatibility
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
@@ -50,6 +56,15 @@ def ensure_database_initialized():
 
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://pkiuser:pkipass@postgres:5432/pkiauth')
+
+# Email configuration for verification
+SMTP_HOST = os.getenv('SMTP_HOST', 'localhost')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '25'))
+SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'false').lower() == 'true'
+SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@ca.bonner.com')
+EMAIL_VERIFICATION_REQUIRED = os.getenv('EMAIL_VERIFICATION_REQUIRED', 'true').lower() == 'true'
 
 def get_db_connection():
     """Get database connection"""
@@ -79,7 +94,7 @@ def initialize_database():
             );
         """)
         
-        table_exists = cursor.fetchone()[0]
+        table_exists = cursor.fetchone()['exists']
         
         if not table_exists:
             logging.info("Database not initialized. Running initialization scripts...")
@@ -2219,6 +2234,185 @@ def certificate_request_portal():
     """Certificate request portal page"""
     return render_template('certificate_request.html')
 
+@app.route('/test-js')
+def test_js():
+    """Test JavaScript functionality"""
+    return render_template('test-js.html')
+
+@app.route('/simple-test')
+def simple_test():
+    """Simple JavaScript test"""
+    return render_template('simple-test.html')
+
+@app.route('/diagnostic')
+def diagnostic():
+    """JavaScript diagnostic test"""
+    return render_template('diagnostic.html')
+
+@app.route('/test-minimal')
+def test_minimal():
+    """Minimal JavaScript test"""
+    # Get user from session if authenticated
+    user = None
+    if 'user_id' in session:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, username, roles, is_admin FROM users WHERE id = %s", (session['user_id'],))
+            user_data = cursor.fetchone()
+            if user_data:
+                user = {
+                    'id': user_data['id'],
+                    'username': user_data['username'],
+                    'roles': user_data['roles'] or [],
+                    'is_admin': user_data['is_admin']
+                }
+            cursor.close()
+            conn.close()
+    return render_template('test-minimal.html', user=user)
+
+# ================================
+# Email Verification Functions
+# ================================
+
+def send_verification_email(email, verification_code, verification_url):
+    """Send verification email with code using database SMTP configuration"""
+    try:
+        # Get SMTP configuration from database
+        conn = get_db_connection()
+        if not conn:
+            logging.error("Database connection failed while getting SMTP config")
+            return False
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT smtp_server, smtp_port, smtp_username, smtp_password, 
+                   sender_email, sender_name, use_tls
+            FROM smtp_config ORDER BY id DESC LIMIT 1
+        """)
+        
+        config_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not config_row:
+            # Fallback to environment variables if database config not found
+            logging.warning("No SMTP configuration found in database, using environment variables")
+            smtp_server, smtp_port, smtp_username, smtp_password = SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD
+            sender_email, sender_name, use_tls = SMTP_FROM_EMAIL, "CA Manager", SMTP_USE_TLS
+        else:
+            # Access as dictionary since config_row is a RealDictRow
+            smtp_server = config_row['smtp_server']
+            smtp_port = config_row['smtp_port']
+            smtp_username = config_row['smtp_username']
+            smtp_password = config_row['smtp_password']
+            sender_email = config_row['sender_email']
+            sender_name = config_row['sender_name']
+            use_tls = config_row['use_tls']
+        
+        # Validate required SMTP settings
+        if not smtp_server or not sender_email:
+            logging.error("SMTP server or sender email not configured")
+            return False
+        
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = '802.1X Certificate Request - Email Verification'
+        msg['From'] = f"{sender_name} <{sender_email}>" if sender_name else sender_email
+        msg['To'] = email
+        
+        # Create the HTML content
+        html = f"""
+        <html>
+        <head></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #5B059C;">802.1X Certificate Request Verification</h2>
+            <p>You have requested an 802.1X certificate for this email address.</p>
+            
+            <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p><strong>Your verification code is:</strong></p>
+                <h1 style="color: #5B059C; letter-spacing: 5px; text-align: center;">{verification_code}</h1>
+            </div>
+            
+            <p>Or click the link below to verify your email:</p>
+            <p><a href="{verification_url}" style="background: #5B059C; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email Address</a></p>
+            
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                This verification code expires in 15 minutes. If you did not request this certificate, please ignore this email.
+            </p>
+        </body>
+        </html>
+        """
+        
+        # Create plain text version
+        text = f"""
+802.1X Certificate Request Verification
+
+You have requested an 802.1X certificate for this email address.
+
+Your verification code is: {verification_code}
+
+Or visit this URL to verify your email:
+{verification_url}
+
+This verification code expires in 15 minutes. If you did not request this certificate, please ignore this email.
+        """
+        
+        part1 = MIMEText(text, 'plain')
+        part2 = MIMEText(html, 'html')
+        
+        msg.attach(part1)
+        msg.attach(part2)
+        
+        # Send email using database configuration
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        
+        if use_tls:
+            server.starttls()
+        
+        if smtp_username and smtp_password:
+            server.login(smtp_username, smtp_password)
+        
+        server.send_message(msg)
+        server.quit()
+        
+        logging.info(f"Verification email sent successfully to {email}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to send verification email: {e}")
+        return False
+
+def verify_email_domain(email):
+    """Check if email domain is in the allowed list"""
+    try:
+        domain = email.split('@')[1].lower()
+        
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Check if domain or parent domain is allowed
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM allowed_email_domains 
+            WHERE enabled = true 
+            AND (
+                domain = %s 
+                OR (allow_subdomains = true AND %s LIKE '%%.' || domain)
+            )
+        """, (domain, domain))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        return result['count'] > 0
+    except Exception as e:
+        logging.error(f"Error verifying email domain: {e}")
+        return False
+
 @app.route('/api/certificate-templates', methods=['GET'])
 def get_certificate_templates():
     """Get available certificate templates"""
@@ -2244,9 +2438,9 @@ def get_certificate_templates():
         logging.error(f"Failed to get certificate templates: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/certificate-requests', methods=['POST'])
-def create_certificate_request():
-    """Create a new certificate request"""
+@app.route('/api/certificate-requests/start-verification', methods=['POST'])
+def start_certificate_request_verification():
+    """Start email verification for certificate request"""
     try:
         data = request.json
         
@@ -2256,56 +2450,240 @@ def create_certificate_request():
             if not data.get(field):
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
+        # Validate email format
+        email = data['requester_email'].lower().strip()
+        if not '@' in email:
+            return jsonify({'error': 'Invalid email format'}), 400
+        
+        # Check if email domain is allowed
+        if not verify_email_domain(email):
+            domain = email.split('@')[1]
+            return jsonify({
+                'error': f'Email domain "{domain}" is not authorized for certificate requests',
+                'contact_admin': True
+            }), 403
+        
+        # Generate verification code and token
+        verification_code = f"{secrets.randbelow(1000000):06d}"
+        verification_token = secrets.token_urlsafe(32)
+        
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
         
+        # Store verification request
+        cursor = conn.cursor()
+        
+        # Delete any existing pending verifications for this email
+        cursor.execute("""
+            DELETE FROM email_verifications 
+            WHERE email = %s AND verified_at IS NULL
+        """, (email,))
+        
+        # Create new verification
+        cursor.execute("""
+            INSERT INTO email_verifications (
+                email, verification_code, token, request_data, 
+                expires_at, ip_address, user_agent
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            email,
+            verification_code,
+            verification_token,
+            json.dumps(data),
+            datetime.now() + timedelta(minutes=15),
+            request.remote_addr,
+            request.headers.get('User-Agent', '')
+        ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Send verification email
+        domain = os.getenv('DOMAIN', 'ca.bonner.com')
+        verification_url = f"https://{domain}/verify-email?token={verification_token}"
+        
+        if send_verification_email(email, verification_code, verification_url):
+            return jsonify({
+                'status': 'verification_sent',
+                'message': f'Verification email sent to {email}',
+                'verification_token': verification_token,
+                'expires_minutes': 15
+            })
+        else:
+            return jsonify({'error': 'Failed to send verification email'}), 500
+            
+    except Exception as e:
+        logging.error(f"Error starting verification: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/certificate-requests', methods=['GET', 'POST'])
+def handle_certificate_requests():
+    """Handle certificate requests - GET to list, POST to create"""
+    if request.method == 'GET':
+        return list_certificate_requests()
+    else:
+        return create_certificate_request()
+
+def list_certificate_requests():
+    """List certificate requests with optional status filter"""
+    try:
+        status_filter = request.args.get('status')
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Build query based on filter
+        if status_filter:
+            cursor.execute("""
+                SELECT request_id, requester_name, requester_email, common_name, 
+                       certificate_type, status, created_at, certificate_template,
+                       department, key_algorithm, key_size, validity_days,
+                       san_dns_names, san_emails, email_verified
+                FROM certificate_requests 
+                WHERE status = %s 
+                ORDER BY created_at DESC
+            """, (status_filter,))
+        else:
+            cursor.execute("""
+                SELECT request_id, requester_name, requester_email, common_name, 
+                       certificate_type, status, created_at, certificate_template,
+                       department, key_algorithm, key_size, validity_days,
+                       san_dns_names, san_emails, email_verified
+                FROM certificate_requests 
+                ORDER BY created_at DESC
+            """)
+        
+        requests_data = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        # Convert to list of dictionaries
+        requests_list = [dict(req) for req in requests_data]
+        
+        return jsonify(requests_list)
+        
+    except Exception as e:
+        logging.error(f"Error listing certificate requests: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+def create_certificate_request():
+    """Create a new certificate request (requires email verification)"""
+    try:
+        data = request.json
+        
+        # Check if this is a verified request
+        verification_token = data.get('verification_token')
+        verification_code = data.get('verification_code')
+        
+        if not verification_token:
+            return jsonify({'error': 'Email verification required. Please use /start-verification endpoint first.'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        # Verify the token and code
+        cursor = conn.cursor()
+        
+        # Check verification
+        cursor.execute("""
+            SELECT * FROM email_verifications 
+            WHERE token = %s AND expires_at > CURRENT_TIMESTAMP
+        """, (verification_token,))
+        
+        verification = cursor.fetchone()
+        
+        if not verification:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Invalid or expired verification token'}), 400
+        
+        # If code is provided, verify it matches
+        if verification_code and verification['verification_code'] != verification_code:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Invalid verification code'}), 400
+        
+        # Mark as verified
+        cursor.execute("""
+            UPDATE email_verifications 
+            SET verified_at = CURRENT_TIMESTAMP 
+            WHERE token = %s
+        """, (verification_token,))
+        
+        # Get original request data
+        request_data_raw = verification['request_data']
+        if isinstance(request_data_raw, str):
+            original_data = json.loads(request_data_raw)
+        else:
+            # Already parsed as dict
+            original_data = request_data_raw
+        
+        # Use the original verified email
+        data['requester_email'] = verification['email']
+        
+        # Validate required fields
+        required_fields = ['requester_name', 'requester_email', 'common_name', 'certificate_type']
+        for field in required_fields:
+            if not data.get(field):
+                cursor.close()
+                conn.close()
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
         # Generate request ID
         request_id = str(uuid.uuid4())
         
-        with conn.cursor() as cursor:
-            # Check if template exists and get details
-            template = None
-            if data.get('certificate_template'):
-                cursor.execute("""
-                    SELECT * FROM certificate_templates 
-                    WHERE template_name = %s AND is_active = true
-                """, (data['certificate_template'],))
-                template = cursor.fetchone()
-            
-            # Insert certificate request
+        # Check if template exists and get details
+        template = None
+        if data.get('certificate_template'):
             cursor.execute("""
-                INSERT INTO certificate_requests (
-                    request_id, requester_name, requester_email, department,
-                    common_name, san_dns_names, san_ip_addresses, san_emails,
-                    certificate_type, key_algorithm, key_size, validity_days,
-                    certificate_template, approval_required, status,
-                    request_metadata
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (
-                request_id,
-                data['requester_name'],
-                data['requester_email'],
-                data.get('department'),
-                data['common_name'],
-                data.get('san_dns_names', []),
-                data.get('san_ip_addresses', []),
-                data.get('san_emails', []),
-                data['certificate_type'],
-                data.get('key_algorithm', 'RSA'),
-                data.get('key_size', 2048),
-                data.get('validity_days', 365),
-                data.get('certificate_template'),
-                template['requires_approval'] if template else True,
-                'pending',
-                json.dumps({'notes': data.get('notes', ''), 'created_via': 'web_portal'})
-            ))
-            
-            result = cursor.fetchone()
-            request_db_id = result['id'] if isinstance(result, dict) else result[0]
-            conn.commit()
+                SELECT * FROM certificate_templates 
+                WHERE template_name = %s AND is_active = true
+            """, (data['certificate_template'],))
+            template = cursor.fetchone()
         
+        # Insert certificate request with verification flag
+        cursor.execute("""
+            INSERT INTO certificate_requests (
+                request_id, requester_name, requester_email, department,
+                common_name, san_dns_names, san_ip_addresses, san_emails,
+                certificate_type, key_algorithm, key_size, validity_days,
+                certificate_template, approval_required, status,
+                request_metadata, email_verified, verification_token,
+                verification_completed_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            request_id,
+            data['requester_name'],
+            data['requester_email'],
+            data.get('department'),
+            data['common_name'],
+            data.get('san_dns_names', []),
+            data.get('san_ip_addresses', []),
+            data.get('san_emails', []),
+            data['certificate_type'],
+            data.get('key_algorithm', 'RSA'),
+            data.get('key_size', 2048),
+            data.get('validity_days', 365),
+            data.get('certificate_template'),
+            template['requires_approval'] if template else True,
+            'pending',
+            json.dumps({'notes': data.get('notes', ''), 'created_via': 'web_portal_verified'}),
+            True,  # email_verified
+            verification_token,
+            datetime.now()
+        ))
+        
+        result = cursor.fetchone()
+        request_db_id = result['id'] if isinstance(result, dict) else result[0]
+        conn.commit()
+        cursor.close()
         conn.close()
         
         # If auto-approval is enabled, process immediately
@@ -2319,267 +2697,810 @@ def create_certificate_request():
         log_operation('certificate_request_created', {
             'request_id': request_id,
             'common_name': data['common_name'],
-            'requester': data['requester_email']
+            'requester': data['requester_email'],
+            'email_verified': True
         })
         
         return jsonify({
             'status': 'success',
             'request_id': request_id,
-            'approval_required': not auto_approve,
-            'message': 'Certificate request submitted successfully'
+            'message': 'Certificate request created successfully with verified email',
+            'approval_required': template['requires_approval'] if template else True,
+            'auto_approved': auto_approve
+        })
+            
+    except Exception as e:
+        logging.error(f"Error creating certificate request: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/certificate-requests/<request_id>/approve', methods=['POST'])
+def approve_certificate_request(request_id):
+    """Approve a certificate request"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Get the request details
+        cursor.execute("""
+            SELECT id, status FROM certificate_requests 
+            WHERE request_id = %s
+        """, (request_id,))
+        
+        request_row = cursor.fetchone()
+        if not request_row:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Certificate request not found'}), 404
+        
+        request_db_id = request_row['id']
+        current_status = request_row['status']
+        
+        if current_status != 'pending':
+            cursor.close()
+            conn.close()
+            return jsonify({'error': f'Cannot approve request with status: {current_status}'}), 400
+        
+        # Update status to approved
+        update_request_status(request_db_id, 'approved', session.get('username', 'admin'), 'Approved via web interface')
+        
+        # Get requester email before closing cursor
+        cursor.execute("SELECT requester_email, requester_name, common_name FROM certificate_requests WHERE id = %s", (request_db_id,))
+        requester_info = cursor.fetchone()
+        requester_email = requester_info['requester_email'] if requester_info else None
+        requester_name = requester_info['requester_name'] if requester_info else None
+        common_name = requester_info['common_name'] if requester_info else None
+        
+        cursor.close()
+        conn.close()
+        
+        # Trigger certificate generation
+        cert_generated = generate_certificate_for_request(request_db_id, request_id, None)
+        
+        # Send certificate via email if generation was successful and we have email
+        if cert_generated and requester_email:
+            try:
+                logging.info(f"Attempting to email certificate for request {request_id} to {requester_email} (CN: {common_name})")
+                # Get the certificate data that was just generated
+                conn = get_db_connection()
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT certificate_pem, private_key_pem 
+                        FROM certificate_requests 
+                        WHERE id = %s AND status = 'issued'
+                    """, (request_db_id,))
+                    cert_row = cursor.fetchone()
+                    cursor.close()
+                    conn.close()
+                    
+                    if cert_row and cert_row['certificate_pem'] and cert_row['private_key_pem']:
+                        # Get CA certificate from the earlier EasyRSA get-cert-files call
+                        ca_result = make_easyrsa_request("get-cert-files", {"name": common_name, "include_key": False})
+                        ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
+                        
+                        email_sent = send_certificate_email_with_data(
+                            request_id, requester_email, requester_name, common_name,
+                            cert_row['certificate_pem'], cert_row['private_key_pem'], ca_cert_pem
+                        )
+                        if email_sent:
+                            logging.info(f"Certificate for request {request_id} sent to {requester_email}")
+                        else:
+                            logging.error(f"Failed to send certificate email for {request_id}")
+                    else:
+                        logging.error(f"Certificate data not found in database for {request_id}")
+                else:
+                    logging.error(f"Database connection failed when trying to email certificate for {request_id}")
+            except Exception as e:
+                logging.error(f"Exception while sending certificate email for {request_id}: {e}")
+                # Don't fail the approval if email fails
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Certificate request approved and generated successfully',
+            'request_id': request_id,
+            'certificate_sent': cert_generated and requester_email is not None
         })
         
     except Exception as e:
-        logging.error(f"Failed to create certificate request: {e}")
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Error approving certificate request: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/api/certificate-requests/<request_id>/download')
-def download_certificate_request(request_id):
-    """Download certificate in various formats"""
+@app.route('/api/certificate-requests/<request_id>/reject', methods=['POST'])
+def reject_certificate_request(request_id):
+    """Reject a certificate request"""
     try:
-        format_type = request.args.get('format', 'pem').lower()
+        data = request.get_json() or {}
+        reason = data.get('reason', 'No reason provided')
         
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
         
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT certificate_pem, private_key_pem, common_name, status
-                FROM certificate_requests 
-                WHERE request_id = %s
-            """, (request_id,))
-            
-            cert_data = cursor.fetchone()
-            if not cert_data:
-                return jsonify({'error': 'Certificate request not found'}), 404
-            
-            if cert_data['status'] not in ['approved', 'issued']:
-                return jsonify({'error': 'Certificate not yet issued'}), 400
+        cursor = conn.cursor()
         
+        # Get the request details
+        cursor.execute("""
+            SELECT id, status FROM certificate_requests 
+            WHERE request_id = %s
+        """, (request_id,))
+        
+        request_row = cursor.fetchone()
+        if not request_row:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Certificate request not found'}), 404
+        
+        request_db_id = request_row['id']
+        current_status = request_row['status']
+        
+        if current_status not in ['pending', 'approved']:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': f'Cannot reject request with status: {current_status}'}), 400
+        
+        # Delete the rejected request entirely
+        cursor.execute("DELETE FROM certificate_requests WHERE id = %s", (request_db_id,))
+        conn.commit()
+        
+        cursor.close()
         conn.close()
         
-        # Log download
-        log_certificate_download(request_id, format_type, request.remote_addr)
-        
-        if format_type == 'pem':
-            return Response(
-                cert_data['certificate_pem'],
-                mimetype='application/x-pem-file',
-                headers={'Content-Disposition': f'attachment; filename={cert_data["common_name"]}.pem'}
-            )
-        elif format_type == 'der':
-            # Convert PEM to DER
-            from cryptography import x509
-            from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.backends import default_backend
-            
-            cert = x509.load_pem_x509_certificate(cert_data['certificate_pem'].encode(), default_backend())
-            der_data = cert.public_bytes(serialization.Encoding.DER)
-            
-            return Response(
-                der_data,
-                mimetype='application/x-x509-ca-cert',
-                headers={'Content-Disposition': f'attachment; filename={cert_data["common_name"]}.der'}
-            )
-        elif format_type == 'p12':
-            # Create PKCS12
-            if not cert_data['private_key_pem']:
-                return jsonify({'error': 'Private key not available for P12 format'}), 400
-            
-            from cryptography import x509
-            from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.primitives.serialization import pkcs12
-            from cryptography.hazmat.backends import default_backend
-            
-            cert = x509.load_pem_x509_certificate(cert_data['certificate_pem'].encode(), default_backend())
-            key = serialization.load_pem_private_key(cert_data['private_key_pem'].encode(), password=None, backend=default_backend())
-            
-            p12_data = pkcs12.serialize_key_and_certificates(
-                name=cert_data['common_name'].encode(),
-                key=key,
-                cert=cert,
-                cas=None,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-            
-            return Response(
-                p12_data,
-                mimetype='application/x-pkcs12',
-                headers={'Content-Disposition': f'attachment; filename={cert_data["common_name"]}.p12'}
-            )
-        else:
-            return jsonify({'error': 'Unsupported format'}), 400
-            
-    except Exception as e:
-        logging.error(f"Failed to download certificate: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/certificate-requests/<request_id>/qr')
-def generate_qr_code(request_id):
-    """Generate QR code for mobile certificate installation"""
-    try:
-        # Generate QR code with download URL
-        download_url = f"{request.host_url}api/certificate-requests/{request_id}/download?format=p12"
-        
-        import qrcode
-        import io
-        import base64
-        
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(download_url)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to base64
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        img_data = base64.b64encode(buffer.getvalue()).decode()
+        logging.info(f"Certificate request {request_id} deleted (rejected) by {session.get('username', 'admin')}: {reason}")
         
         return jsonify({
-            'qr_code': f'data:image/png;base64,{img_data}',
-            'download_url': download_url
+            'status': 'success',
+            'message': 'Certificate request rejected and deleted successfully',
+            'request_id': request_id,
+            'reason': reason
         })
         
     except Exception as e:
-        logging.error(f"Failed to generate QR code: {e}")
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Error rejecting certificate request: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
-# Helper functions
-def update_request_status(request_db_id, status, actor_name, comment=None):
+def update_request_status(request_db_id, status, updated_by, notes=None):
     """Update certificate request status"""
     try:
         conn = get_db_connection()
         if not conn:
+            logging.error("Database connection failed")
             return False
-        
-        # Get request data for certificate generation
-        request_data = None
-        if status == 'approved':
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    SELECT request_id, common_name, certificate_type, requester_name, requester_email, 
-                           device_type, purpose, validity_days, san_dns_names, san_ip_addresses
-                    FROM certificate_requests 
-                    WHERE id = %s
-                """, (request_db_id,))
-                
-                result = cursor.fetchone()
-                if result:
-                    if isinstance(result, dict):
-                        request_data = result
-                    else:
-                        # Convert tuple to dict
-                        columns = ['request_id', 'common_name', 'certificate_type', 'requester_name', 
-                                 'requester_email', 'device_type', 'purpose', 'validity_days', 
-                                 'san_dns_names', 'san_ip_addresses']
-                        request_data = dict(zip(columns, result))
-        
-        with conn.cursor() as cursor:
-            # Update request status
-            cursor.execute("""
-                UPDATE certificate_requests 
-                SET status = %s, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (status, request_db_id))
             
-            # Add approval record
-            cursor.execute("""
-                INSERT INTO request_approvals (request_id, action, actor_name, comment)
-                VALUES (%s, %s, %s, %s)
-            """, (request_db_id, status, actor_name, comment))
-            
-            conn.commit()
+        cursor = conn.cursor()
         
+        # Update the request status
+        cursor.execute("""
+            UPDATE certificate_requests 
+            SET status = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (status, request_db_id))
+        
+        conn.commit()
+        cursor.close()
         conn.close()
         
-        # Generate certificate if approved
-        if status == 'approved' and request_data:
-            logging.info(f"Triggering certificate generation for request {request_data['request_id']}")
-            cert_generated = generate_certificate_for_request(request_db_id, request_data['request_id'], request_data)
-            if cert_generated:
-                logging.info(f"Certificate successfully generated for request {request_data['request_id']}")
-            else:
-                logging.error(f"Failed to generate certificate for request {request_data['request_id']}")
-        
+        logging.info(f"Request {request_db_id} status updated to {status} by {updated_by}")
         return True
         
     except Exception as e:
-        logging.error(f"Failed to update request status: {e}")
+        logging.error(f"Error updating request status: {e}")
         return False
 
-def log_certificate_download(request_id, format_type, ip_address, email=None):
-    """Log certificate download for audit"""
+def send_certificate_email_with_data(request_id, recipient_email, recipient_name, common_name, cert_pem, key_pem, ca_cert_pem=""):
+    """Send certificate in P12 format via email using provided certificate data"""
     try:
+        if not cert_pem or not key_pem:
+            logging.error(f"Certificate or private key data missing for {common_name}")
+            return False
+        
+        logging.info(f"Using provided certificate data for {common_name}: cert={len(cert_pem)} chars, key={len(key_pem)} chars")
+        
+        # Create P12 data directly using the certificate generation helper
+        from cryptography.hazmat.primitives import serialization
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+        import base64
+        
+        # Parse the certificate and private key
+        cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+        private_key_obj = serialization.load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
+        
+        # Use provided CA certificate
+        if not ca_cert_pem:
+            logging.error("CA certificate not provided")
+            return False
+        
+        logging.info(f"Using provided CA certificate: {len(ca_cert_pem)} chars")
+        ca_cert_obj = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
+        
+        # Create P12 with password protection - use full email as friendly name
+        # Convert to bytes properly without length prefixes
+        friendly_name_bytes = bytes(common_name, 'utf-8')
+        logging.info(f"P12 friendly name bytes: {friendly_name_bytes} (length: {len(friendly_name_bytes)})")
+        
+        # Use a simple default password for P12 protection
+        p12_password = "certificate"
+        p12_data = serialization.pkcs12.serialize_key_and_certificates(
+            name=friendly_name_bytes,
+            key=private_key_obj,
+            cert=cert_obj,
+            cas=[ca_cert_obj],
+            encryption_algorithm=serialization.BestAvailableEncryption(p12_password.encode())
+        )
+        
+        # Get SMTP configuration
         conn = get_db_connection()
         if not conn:
-            return
+            logging.error("Database connection failed while getting SMTP config for certificate email")
+            return False
         
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT id FROM certificate_requests WHERE request_id = %s
-            """, (request_id,))
-            result = cursor.fetchone()
-            
-            if result:
-                cursor.execute("""
-                    INSERT INTO certificate_downloads (
-                        request_id, download_format, download_ip, download_method, downloaded_by_email
-                    ) VALUES (%s, %s, %s, %s, %s)
-                """, (result['id'], format_type, ip_address, 'web', email))
-                conn.commit()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT smtp_server, smtp_port, smtp_username, smtp_password, 
+                   sender_email, sender_name, use_tls
+            FROM smtp_config ORDER BY id DESC LIMIT 1
+        """)
         
+        config_row = cursor.fetchone()
+        cursor.close()
         conn.close()
         
-    except Exception as e:
-        logging.error(f"Failed to log certificate download: {e}")
+        if not config_row:
+            logging.error("No SMTP configuration found for sending certificate")
+            return False
+        
+        # Access as dictionary since config_row is a RealDictRow
+        smtp_server = config_row['smtp_server']
+        smtp_port = config_row['smtp_port']
+        smtp_username = config_row['smtp_username']
+        smtp_password = config_row['smtp_password']
+        sender_email = config_row['sender_email']
+        sender_name = config_row['sender_name']
+        use_tls = config_row['use_tls']
+        
+        # Create email message
+        msg = MIMEMultipart()
+        msg['Subject'] = f'Your 802.1X Certificate - {common_name}'
+        msg['From'] = f"{sender_name} <{sender_email}>" if sender_name else sender_email
+        msg['To'] = recipient_email
+        
+        # Create email body
+        body = f"""
+Hello {recipient_name or 'User'},
 
-def generate_certificate_for_request(request_db_id, request_id, request_data):
-    """Generate actual certificate using EasyRSA"""
+Your 802.1X certificate has been approved and is ready for use!
+
+Certificate Details:
+- Common Name: {common_name}
+- Request ID: {request_id}
+- Format: PKCS#12 (.p12)
+- Password: certificate
+
+Installation Instructions:
+1. Download the attached certificate file ({common_name}.p12)
+2. Double-click the file to install it on Windows/macOS
+3. When prompted for a password, enter: certificate
+4. For mobile devices, email the file to yourself and open on the device
+5. The certificate will be used for 802.1X wireless network authentication
+
+IMPORTANT: The P12 file is protected with the password "certificate" (without quotes).
+
+If you need assistance with installation, please contact your IT administrator.
+
+Best regards,
+PKI Certificate Authority
+"""
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Attach P12 certificate
+        attachment = MIMEApplication(p12_data, _subtype='x-pkcs12')
+        attachment.add_header('Content-Disposition', 'attachment', filename=f'{common_name}.p12')
+        msg.attach(attachment)
+        
+        # Send email
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        if use_tls:
+            server.starttls()
+        
+        if smtp_username and smtp_password:
+            server.login(smtp_username, smtp_password)
+        
+        server.send_message(msg)
+        server.quit()
+        
+        logging.info(f"Certificate email sent successfully to {recipient_email}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to send certificate email: {e}")
+        return False
+
+@app.route('/api/verify-email', methods=['POST'])
+def verify_email_code():
+    """Verify email with code"""
     try:
-        common_name = request_data['common_name']
-        cert_type = request_data['certificate_type']
-        validity_days = request_data.get('validity_days', 365)
+        data = request.json
+        token = data.get('token')
+        code = data.get('code')
         
-        # Map certificate types to EasyRSA types
-        easyrsa_type_map = {
-            'server': 'server',
-            'client': 'client',
-            'email': 'client',
-            'code_signing': 'client'
-        }
-        easyrsa_type = easyrsa_type_map.get(cert_type, 'client')
+        if not token or not code:
+            return jsonify({'error': 'Token and code are required'}), 400
         
-        # Generate certificate via EasyRSA API using the correct pattern
-        operation = 'build-client-full' if easyrsa_type == 'client' else 'build-server-full'
-        result = make_easyrsa_request(operation, {'name': common_name})
-        
-        if result.get('status') == 'error':
-            logging.error(f"Failed to generate certificate: {result.get('message')}")
-            return False
-        
-        # Get the certificate and key content from the generated files
-        files_result = make_easyrsa_request('get-cert-files', {'name': common_name})
-        
-        if files_result.get('status') == 'error':
-            logging.error(f"Failed to retrieve certificate files for {common_name}: {files_result.get('message')}")
-            return False
-        
-        # Extract just the PEM certificate from the response (it includes text and PEM)
-        cert_response_text = files_result.get('certificate', '')
-        if '-----BEGIN CERTIFICATE-----' in cert_response_text:
-            cert_start = cert_response_text.find('-----BEGIN CERTIFICATE-----')
-            cert_end = cert_response_text.find('-----END CERTIFICATE-----') + len('-----END CERTIFICATE-----')
-            cert_pem = cert_response_text[cert_start:cert_end]
-        else:
-            cert_pem = cert_response_text
-        key_pem = files_result.get('private_key', '')
-        ca_cert = files_result.get('ca_certificate', '')
-        
-        # Update database with generated certificate
         conn = get_db_connection()
         if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Check verification
+        cursor.execute("""
+            SELECT * FROM email_verifications 
+            WHERE token = %s AND verification_code = %s 
+            AND expires_at > CURRENT_TIMESTAMP
+        """, (token, code))
+        
+        verification = cursor.fetchone()
+        
+        if not verification:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Invalid or expired verification code'}), 400
+        
+        # Mark as verified
+        cursor.execute("""
+            UPDATE email_verifications 
+            SET verified_at = CURRENT_TIMESTAMP 
+            WHERE token = %s
+        """, (token,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'status': 'verified',
+            'message': 'Email verified successfully',
+            'email': verification['email']
+        })
+        
+    except Exception as e:
+        logging.error(f"Error verifying email: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/verify-email')
+def verify_email_page():
+    """Email verification page (URL from email)"""
+    token = request.args.get('token')
+    if not token:
+        return "Invalid verification link", 400
+    
+    return render_template('email_verification.html', token=token)
+
+# ================================
+# Email Domain Management APIs
+# ================================
+
+@app.route('/api/email-domains', methods=['GET'])
+def list_email_domains():
+    """List allowed email domains"""
+    logging.info("Email domains endpoint called")
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT domain, description, allow_subdomains, enabled, created_at, created_by
+            FROM allowed_email_domains 
+            ORDER BY domain
+        """)
+        
+        domains = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'status': 'success',
+            'domains': [dict(domain) for domain in domains]
+        })
+        
+    except Exception as e:
+        logging.error(f"Error listing email domains: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/email-domains', methods=['POST'])
+def add_email_domain():
+    """Add allowed email domain"""
+    try:
+        data = request.json
+        domain = data.get('domain', '').lower().strip()
+        
+        if not domain:
+            return jsonify({'error': 'Domain is required'}), 400
+        
+        # Basic domain validation
+        if not re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', domain):
+            return jsonify({'error': 'Invalid domain format'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                INSERT INTO allowed_email_domains (
+                    domain, description, allow_subdomains, enabled, created_by
+                ) VALUES (%s, %s, %s, %s, %s)
+            """, (
+                domain,
+                data.get('description', ''),
+                data.get('allow_subdomains', False),
+                data.get('enabled', True),
+                session.get('username', 'system')
+            ))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Domain {domain} added successfully'
+            })
+            
+        except psycopg2.IntegrityError:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': f'Domain {domain} already exists'}), 409
+        
+    except Exception as e:
+        logging.error(f"Error adding email domain: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/email-domains/<domain>', methods=['DELETE'])
+def delete_email_domain(domain):
+    """Delete allowed email domain"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM allowed_email_domains WHERE domain = %s", (domain.lower(),))
+        
+        if cursor.rowcount == 0:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Domain not found'}), 404
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Domain {domain} deleted successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error deleting email domain: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ================================
+# SMTP Configuration Endpoints
+# ================================
+
+@app.route('/api/smtp-config', methods=['GET'])
+def get_smtp_config():
+    """Get SMTP configuration"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT smtp_server, smtp_port, smtp_username, smtp_password, 
+                   sender_email, sender_name, use_tls, last_test_status, last_test_message
+            FROM smtp_config ORDER BY id DESC LIMIT 1
+        """)
+        
+        config_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if config_row:
+            config = {
+                'smtp_server': config_row['smtp_server'] or '',
+                'smtp_port': config_row['smtp_port'] or 587,
+                'smtp_username': config_row['smtp_username'] or '',
+                'smtp_password': '****' if config_row['smtp_password'] else '',
+                'sender_email': config_row['sender_email'] or '',
+                'sender_name': config_row['sender_name'] or '',
+                'use_tls': config_row['use_tls'] if config_row['use_tls'] is not None else True,
+                'last_test_status': config_row['last_test_status'],
+                'last_test_message': config_row['last_test_message']
+            }
+        else:
+            config = {}
+        
+        return jsonify({
+            'status': 'success',
+            'config': config
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting SMTP config: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/smtp-config', methods=['POST'])
+def save_smtp_config():
+    """Save SMTP configuration"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['smtp_server', 'sender_email']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Create table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS smtp_config (
+                id SERIAL PRIMARY KEY,
+                smtp_server VARCHAR(255) NOT NULL,
+                smtp_port INTEGER DEFAULT 587,
+                smtp_username VARCHAR(255),
+                smtp_password VARCHAR(255),
+                sender_email VARCHAR(255) NOT NULL,
+                sender_name VARCHAR(255),
+                use_tls BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_test_status VARCHAR(20),
+                last_test_message TEXT
+            )
+        """)
+        
+        # Get existing password if not provided in request
+        existing_password = None
+        if 'smtp_password' not in data:
+            cursor.execute("SELECT smtp_password FROM smtp_config ORDER BY id DESC LIMIT 1")
+            existing_row = cursor.fetchone()
+            if existing_row:
+                existing_password = existing_row['smtp_password']
+        
+        # Clear existing config (single config system)
+        cursor.execute("DELETE FROM smtp_config")
+        
+        # Insert new config, preserving existing password if not provided
+        password_to_use = data.get('smtp_password') if 'smtp_password' in data else existing_password
+        
+        cursor.execute("""
+            INSERT INTO smtp_config 
+            (smtp_server, smtp_port, smtp_username, smtp_password, sender_email, sender_name, use_tls)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            data['smtp_server'],
+            data.get('smtp_port', 587),
+            data.get('smtp_username'),
+            password_to_use,
+            data['sender_email'],
+            data.get('sender_name'),
+            data.get('use_tls', True)
+        ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'SMTP configuration saved successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error saving SMTP config: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/smtp-test', methods=['POST'])
+def test_smtp_connection():
+    """Test SMTP connection by sending a test email"""
+    try:
+        data = request.get_json()
+        test_email = data.get('test_email')
+        
+        if not test_email:
+            return jsonify({'error': 'Test email address is required'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT smtp_server, smtp_port, smtp_username, smtp_password, 
+                   sender_email, sender_name, use_tls
+            FROM smtp_config ORDER BY id DESC LIMIT 1
+        """)
+        
+        config_row = cursor.fetchone()
+        
+        if not config_row:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'SMTP configuration not found'}), 404
+        
+        # Test the SMTP connection
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        smtp_server = config_row['smtp_server']
+        smtp_port = config_row['smtp_port']
+        smtp_username = config_row['smtp_username']
+        smtp_password = config_row['smtp_password']
+        sender_email = config_row['sender_email']
+        sender_name = config_row['sender_name']
+        use_tls = config_row['use_tls']
+        
+        try:
+            # Create message
+            msg = MIMEMultipart()
+            msg['From'] = f"{sender_name} <{sender_email}>" if sender_name else sender_email
+            msg['To'] = test_email
+            msg['Subject'] = "CA Manager SMTP Test"
+            
+            body = """
+            This is a test email from CA Manager to verify SMTP configuration.
+            
+            If you received this email, your SMTP settings are working correctly.
+            
+            CA Manager Email Verification System
+            """
+            
+            msg.attach(MIMEText(body, 'plain'))
+            
+            # Connect to SMTP server
+            logging.info(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            logging.info(f"Connected to SMTP server")
+            
+            if use_tls:
+                logging.info("Starting TLS...")
+                server.starttls()
+                logging.info("TLS started successfully")
+            else:
+                logging.info("TLS not enabled")
+            
+            if smtp_username and smtp_password:
+                logging.info(f"Attempting login with username: {smtp_username}")
+                server.login(smtp_username, smtp_password)
+                logging.info("Login successful")
+            
+            # Send email
+            server.send_message(msg)
+            server.quit()
+            
+            # Update test status in database
+            cursor.execute("""
+                UPDATE smtp_config SET 
+                last_test_status = 'success',
+                last_test_message = 'Test email sent successfully'
+                WHERE id = (SELECT id FROM smtp_config ORDER BY id DESC LIMIT 1)
+            """)
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Test email sent successfully'
+            })
+            
+        except Exception as smtp_error:
+            # Update test status in database
+            error_msg = str(smtp_error)
+            cursor.execute("""
+                UPDATE smtp_config SET 
+                last_test_status = 'error',
+                last_test_message = %s
+                WHERE id = (SELECT id FROM smtp_config ORDER BY id DESC LIMIT 1)
+            """, (error_msg[:255],))  # Truncate error message
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'error',
+                'error': f'SMTP test failed: {error_msg}'
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"Error testing SMTP: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ================================
+# Certificate Generation Functions  
+# ================================
+
+def generate_certificate_for_request(request_db_id, request_id, request_data):
+    """Generate certificate for the given request"""
+    try:
+        logging.info(f"Generating certificate for request {request_id}")
+        
+        conn = get_db_connection()
+        if not conn:
+            return False
+        
+        # Get the request details
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM certificate_requests WHERE id = %s", (request_db_id,))
+        request_row = cursor.fetchone()
+        
+        if not request_row:
+            logging.error(f"Certificate request {request_db_id} not found")
+            return False
+        
+        # Extract certificate details
+        common_name = request_row["common_name"]
+        san_dns_names = request_row.get("san_dns_names", [])
+        san_emails = request_row.get("san_emails", [])
+        key_algorithm = request_row.get("key_algorithm", "RSA")
+        key_size = request_row.get("key_size", 2048)
+        validity_days = request_row.get("validity_days", 365)
+        
+        # Generate certificate using the existing helper function
+        cert_params = {
+            "name": common_name,
+            "san_dns": san_dns_names,
+            "san_email": san_emails,
+            "key_size": key_size,
+            "validity": validity_days
+        }
+        
+        logging.info(f"Sending certificate generation request to EasyRSA: {cert_params}")
+        result = make_easyrsa_request("build-client-full", cert_params)
+        
+        logging.info(f"EasyRSA certificate creation response: {result}")
+        
+        if result.get("status") != "success":
+            logging.error(f"Certificate generation failed: {result.get('message', 'Unknown error')}")
+            return False
+        
+        # Now get the certificate files after creation
+        logging.info(f"Retrieving certificate files for {common_name}")
+        files_result = make_easyrsa_request("get-cert-files", {"name": common_name, "include_key": True})
+        
+        logging.info(f"EasyRSA get-cert-files response: {files_result}")
+        
+        if files_result.get("status") != "success":
+            logging.error(f"Failed to retrieve certificate files: {files_result.get('message', 'Unknown error')}")
+            return False
+        
+        # Extract certificate and private key from files response
+        cert_pem = files_result.get("certificate", "")
+        key_pem = files_result.get("private_key", "")
+        
+        logging.info(f"Certificate data length: {len(cert_pem)}, Private key data length: {len(key_pem)}")
+        
+        if not cert_pem or not key_pem:
+            logging.error(f"Certificate or private key not returned by get-cert-files. Full result: {files_result}")
             return False
         
         with conn.cursor() as cursor:
@@ -2631,3 +3552,4 @@ if __name__ == '__main__':
     
     # In production, use a proper WSGI server like gunicorn
     app.run(host='0.0.0.0', port=5000, debug=False)
+
