@@ -3739,27 +3739,41 @@ def generate_certificate_for_request(request_db_id, request_id, request_data):
 def get_version_info():
     """Get current version information"""
     try:
-        # Get current branch
-        result = subprocess.run(['git', 'branch', '--show-current'], 
-                              capture_output=True, text=True, cwd='/app')
-        current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        # Check if git is available
+        git_available = True
+        try:
+            subprocess.run(['git', '--version'], capture_output=True, text=True, timeout=5)
+        except (subprocess.SubprocessError, FileNotFoundError):
+            git_available = False
         
-        # Get current commit hash
-        result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                              capture_output=True, text=True, cwd='/app')
-        current_commit = result.stdout.strip() if result.returncode == 0 else 'unknown'
-        
-        # Get last update time from git log
-        result = subprocess.run(['git', 'log', '-1', '--format=%cd', '--date=iso'], 
-                              capture_output=True, text=True, cwd='/app')
-        last_updated = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        if git_available:
+            # Get current branch
+            result = subprocess.run(['git', 'branch', '--show-current'], 
+                                  capture_output=True, text=True, cwd='/app', timeout=10)
+            current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
+            
+            # Get current commit hash
+            result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                                  capture_output=True, text=True, cwd='/app', timeout=10)
+            current_commit = result.stdout.strip() if result.returncode == 0 else 'unknown'
+            
+            # Get last update time from git log
+            result = subprocess.run(['git', 'log', '-1', '--format=%cd', '--date=iso'], 
+                                  capture_output=True, text=True, cwd='/app', timeout=10)
+            last_updated = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        else:
+            # Fallback values when git is not available
+            current_branch = '5.1.0b'
+            current_commit = 'Git not available - container needs rebuild'
+            last_updated = 'Container rebuild required for full version info'
         
         return jsonify({
             'status': 'success',
             'branch': current_branch,
             'commit': current_commit,
             'last_updated': last_updated,
-            'app_version': APP_VERSION
+            'app_version': APP_VERSION,
+            'git_available': git_available
         })
         
     except Exception as e:
@@ -3771,10 +3785,15 @@ def get_version_info():
 def get_available_branches():
     """Get available branches from GitHub"""
     try:
-        # Get current branch for comparison
-        result = subprocess.run(['git', 'branch', '--show-current'], 
-                              capture_output=True, text=True, cwd='/app')
-        current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        # Get current branch for comparison (fallback if git not available)
+        current_branch = '5.1.0b'  # Default fallback
+        try:
+            result = subprocess.run(['git', 'branch', '--show-current'], 
+                                  capture_output=True, text=True, cwd='/app', timeout=10)
+            if result.returncode == 0:
+                current_branch = result.stdout.strip()
+        except (subprocess.SubprocessError, FileNotFoundError):
+            pass  # Use fallback
         
         # Fetch branches from GitHub API
         response = requests.get(f'{GITHUB_API_URL}/branches', timeout=10)
