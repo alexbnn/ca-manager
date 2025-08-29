@@ -646,6 +646,105 @@
         .shepherd-theme-arrows .shepherd-button:hover {
             background: var(--dark-blue);
         }
+
+        /* Tab Navigation Styles */
+        .tab-navigation {
+            background: var(--text-light);
+            border-bottom: 2px solid var(--light-gray);
+            padding: 0 2rem;
+            overflow-x: auto;
+            position: sticky;
+            top: 80px;
+            z-index: 90;
+        }
+
+        .tab-list {
+            display: flex;
+            gap: 0;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            min-width: max-content;
+        }
+
+        .tab-item {
+            background: transparent;
+            border: none;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-family: var(--font-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--medium-gray);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-item:hover {
+            color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.05);
+        }
+
+        .tab-item.active {
+            color: var(--primary-purple);
+            border-bottom-color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.1);
+        }
+
+        .tab-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-purple);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .tab-item:not(.active) .tab-icon {
+            background: var(--medium-gray);
+        }
+
+        /* Tab Content Styles */
+        .tab-content {
+            display: none;
+            padding: 2rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive tabs */
+        @media (max-width: 768px) {
+            .tab-navigation {
+                padding: 0 1rem;
+            }
+            
+            .tab-item {
+                padding: 0.75rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .tab-icon {
+                width: 18px;
+                height: 18px;
+                font-size: 0.7rem;
+            }
+        }
         
         .tour-trigger-btn {
             position: fixed;
@@ -1310,6 +1409,50 @@
             </div>
         </header>
         
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+                {% if user.is_admin %}
+                <li><button class="tab-item active" onclick="switchTab('pki-init')" id="tab-pki-init">
+                    <span class="tab-icon">1</span>PKI Setup
+                </button></li>
+                {% endif %}
+                {% if 'admin' in user.roles or 'operator' in user.roles %}
+                <li><button class="tab-item" onclick="switchTab('ca-management')" id="tab-ca-management">
+                    <span class="tab-icon">2</span>Certificate Authority
+                </button></li>
+                <li><button class="tab-item" onclick="switchTab('cert-management')" id="tab-cert-management">
+                    <span class="tab-icon">3</span>Certificate Management
+                </button></li>
+                {% endif %}
+                <li><button class="tab-item" onclick="switchTab('cert-operations')" id="tab-cert-operations">
+                    <span class="tab-icon">4</span>Certificate Operations
+                </button></li>
+                {% if 'admin' in user.roles or 'operator' in user.roles %}
+                <li><button class="tab-item" onclick="switchTab('scep')" id="tab-scep">
+                    <span class="tab-icon">5</span>SCEP Enrollment
+                </button></li>
+                <li><button class="tab-item" onclick="switchTab('ocsp')" id="tab-ocsp">
+                    <span class="tab-icon">6</span>OCSP Validation
+                </button></li>
+                <li><button class="tab-item" onclick="switchTab('approvals')" id="tab-approvals">
+                    <span class="tab-icon">7</span>Request Approvals
+                </button></li>
+                {% endif %}
+                {% if user.is_admin %}
+                <li><button class="tab-item" onclick="switchTab('domains')" id="tab-domains">
+                    <span class="tab-icon">8</span>Email Domains
+                </button></li>
+                <li><button class="tab-item" onclick="switchTab('smtp')" id="tab-smtp">
+                    <span class="tab-icon">9</span>SMTP Config
+                </button></li>
+                <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
+                    <span class="tab-icon">10</span>User Management
+                </button></li>
+                {% endif %}
+            </ul>
+        </nav>
+
         <main class="main-content">
             <!-- Dashboard Metrics -->
             <div class="metrics-dashboard hidden" id="dashboardMetrics">
@@ -1340,67 +1483,74 @@
                 </div>
             </div>
             
-            <!-- PKI Initialization Section (Admin Only) -->
+            <!-- Tab Content: PKI Initialization -->
             {% if user.is_admin %}
-            <div class="section">
-                <h2><span class="section-icon">1</span>PKI Initialization</h2>
-                <div class="button-grid">
-                    <button class="btn btn-primary" id="initPKI">Initialize PKI</button>
-                    <button class="btn btn-info" id="checkStatus">Check PKI Status</button>
-                    <button class="btn btn-secondary" id="loadDashboard">Load Dashboard</button>
+            <div class="tab-content active" id="pki-init">
+                <div class="section">
+                    <h2><span class="section-icon">1</span>PKI Initialization</h2>
+                    <div class="button-grid">
+                        <button class="btn btn-primary" id="initPKI">Initialize PKI</button>
+                        <button class="btn btn-info" id="checkStatus">Check PKI Status</button>
+                        <button class="btn btn-secondary" id="loadDashboard">Load Dashboard</button>
+                    </div>
                 </div>
             </div>
             {% endif %}
             
-            <!-- Certificate Authority Section (Admin & Operator) -->
+            <!-- Tab Content: Certificate Authority -->
             {% if 'admin' in user.roles or 'operator' in user.roles %}
-            <div class="section">
-                <h2><span class="section-icon">2</span>Certificate Authority</h2>
-                <div class="button-grid">
-                    <button class="btn btn-primary" id="buildCA">Build CA</button>
-                    <button class="btn btn-info" id="generateCRL">Generate CRL</button>
-                    <button class="btn btn-secondary" id="showCA">Show CA Details</button>
+            <div class="tab-content" id="ca-management">
+                <div class="section">
+                    <h2><span class="section-icon">2</span>Certificate Authority</h2>
+                    <div class="button-grid">
+                        <button class="btn btn-primary" id="buildCA">Build CA</button>
+                        <button class="btn btn-info" id="generateCRL">Generate CRL</button>
+                        <button class="btn btn-secondary" id="showCA">Show CA Details</button>
+                    </div>
                 </div>
             </div>
             
-            <!-- Certificate Management Section (Admin & Operator) -->
-            <div class="section">
-                <h2><span class="section-icon">3</span>Certificate Management</h2>
-                <div class="form-group">
-                    <label for="certName">Certificate Name:</label>
-                    <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
-                </div>
-                <div class="form-group">
-                    <label for="certType">Certificate Type:</label>
-                    <select id="certType">
-                        <option value="client">Client Certificate</option>
-                        <option value="server">Server Certificate</option>
-                    </select>
-                </div>
-                <div class="button-grid">
-                    <button class="btn btn-primary" id="createFullCert">Create Full Certificate</button>
-                    <button class="btn btn-secondary" id="generateRequest">Generate Request Only</button>
-                    <button class="btn btn-secondary" id="signRequest">Sign Existing Request</button>
+            <!-- Tab Content: Certificate Management -->
+            <div class="tab-content" id="cert-management">
+                <div class="section">
+                    <h2><span class="section-icon">3</span>Certificate Management</h2>
+                    <div class="form-group">
+                        <label for="certName">Certificate Name:</label>
+                        <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
+                    </div>
+                    <div class="form-group">
+                        <label for="certType">Certificate Type:</label>
+                        <select id="certType">
+                            <option value="client">Client Certificate</option>
+                            <option value="server">Server Certificate</option>
+                        </select>
+                    </div>
+                    <div class="button-grid">
+                        <button class="btn btn-primary" id="createFullCert">Create Full Certificate</button>
+                        <button class="btn btn-secondary" id="generateRequest">Generate Request Only</button>
+                        <button class="btn btn-secondary" id="signRequest">Sign Existing Request</button>
+                    </div>
                 </div>
             </div>
             {% endif %}
             
-            <!-- Certificate Operations Section -->
-            <div class="section">
-                <h2><span class="section-icon">4</span>Certificate Operations</h2>
-                <div class="form-group">
-                    <label for="operationCertName">Certificate Name:</label>
-                    <input type="text" id="operationCertName" placeholder="Enter certificate name">
-                </div>
-                <div class="button-grid">
-                    <button class="btn btn-info" id="showCert">Show Certificate Details</button>
-                    {% if 'admin' in user.roles or 'operator' in user.roles %}
-                    <button class="btn btn-info" id="validateCert">Validate Certificate</button>
-                    {% endif %}
-                    <button class="btn btn-secondary" id="downloadCert">Download Certificate</button>
-                    {% if 'admin' in user.roles or 'operator' in user.roles %}
-                    <button class="btn btn-danger" id="revokeCert">Revoke Certificate</button>
-                    {% endif %}
+            <!-- Tab Content: Certificate Operations -->
+            <div class="tab-content" id="cert-operations">
+                <div class="section">
+                    <h2><span class="section-icon">4</span>Certificate Operations</h2>
+                    <div class="form-group">
+                        <label for="operationCertName">Certificate Name:</label>
+                        <input type="text" id="operationCertName" placeholder="Enter certificate name">
+                    </div>
+                    <div class="button-grid">
+                        <button class="btn btn-info" id="showCert">Show Certificate Details</button>
+                        {% if 'admin' in user.roles or 'operator' in user.roles %}
+                        <button class="btn btn-info" id="validateCert">Validate Certificate</button>
+                        {% endif %}
+                        <button class="btn btn-secondary" id="downloadCert">Download Certificate</button>
+                        {% if 'admin' in user.roles or 'operator' in user.roles %}
+                        <button class="btn btn-danger" id="revokeCert">Revoke Certificate</button>
+                        {% endif %}
                 </div>
             </div>
             
@@ -1943,6 +2093,47 @@
         let isLoading = false;
         let authenticationEnabled = false;
         let currentCertificates = [];
+        
+        // Tab Management
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab items
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            const selectedContent = document.getElementById(tabId);
+            if (selectedContent) {
+                selectedContent.classList.add('active');
+            }
+            
+            // Add active class to corresponding tab button
+            const selectedTab = document.getElementById(`tab-${tabId}`);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            }
+            
+            // Store active tab in localStorage for persistence
+            localStorage.setItem('activeTab', tabId);
+        }
+        
+        // Initialize default tab on page load
+        function initializeTabs() {
+            const savedTab = localStorage.getItem('activeTab');
+            const availableTabs = Array.from(document.querySelectorAll('.tab-content')).map(el => el.id);
+            
+            // Default to first available tab if saved tab doesn't exist
+            const defaultTab = availableTabs.includes(savedTab) ? savedTab : availableTabs[0];
+            
+            if (defaultTab) {
+                switchTab(defaultTab);
+            }
+        }
         
         // Current user information
         let currentUser = {
@@ -4095,6 +4286,9 @@ Dependencies:
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOMContentLoaded - starting initialization');
+            
+            // Initialize tabs
+            initializeTabs();
             
             // Add try-catch to identify which function is breaking
             try {
