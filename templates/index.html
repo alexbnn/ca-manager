@@ -1425,32 +1425,20 @@
                     <span class="tab-icon">3</span>Certificate Management
                 </button></li>
                 {% endif %}
-                <li><button class="tab-item" onclick="switchTab('cert-operations')" id="tab-cert-operations">
-                    <span class="tab-icon">4</span>Certificate Operations
+                <li><button class="tab-item" onclick="switchTab('certificates')" id="tab-certificates">
+                    <span class="tab-icon">4</span>Certificates
                 </button></li>
                 {% if 'admin' in user.roles or 'operator' in user.roles %}
-                <li><button class="tab-item" onclick="switchTab('scep')" id="tab-scep">
-                    <span class="tab-icon">5</span>SCEP Enrollment
-                </button></li>
-                <li><button class="tab-item" onclick="switchTab('ocsp')" id="tab-ocsp">
-                    <span class="tab-icon">6</span>OCSP Validation
+                <li><button class="tab-item" onclick="switchTab('protocols')" id="tab-protocols">
+                    <span class="tab-icon">5</span>Device Protocols
                 </button></li>
                 <li><button class="tab-item" onclick="switchTab('approvals')" id="tab-approvals">
-                    <span class="tab-icon">7</span>Request Approvals
+                    <span class="tab-icon">6</span>Request Approvals
                 </button></li>
                 {% endif %}
-                <li><button class="tab-item" onclick="switchTab('cert-tracking')" id="tab-cert-tracking">
-                    <span class="tab-icon">8</span>Certificate Tracking
-                </button></li>
                 {% if user.is_admin %}
-                <li><button class="tab-item" onclick="switchTab('domains')" id="tab-domains">
-                    <span class="tab-icon">9</span>Email Domains
-                </button></li>
-                <li><button class="tab-item" onclick="switchTab('smtp')" id="tab-smtp">
-                    <span class="tab-icon">10</span>SMTP Config
-                </button></li>
-                <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
-                    <span class="tab-icon">11</span>User Management
+                <li><button class="tab-item" onclick="switchTab('settings')" id="tab-settings">
+                    <span class="tab-icon">7</span>System Settings
                 </button></li>
                 {% endif %}
             </ul>
@@ -1537,8 +1525,8 @@
             </div>
             {% endif %}
             
-            <!-- Tab Content: Certificate Operations -->
-            <div class="tab-content" id="cert-operations">
+            <!-- Tab Content: Certificates (Operations + Tracking) -->
+            <div class="tab-content" id="certificates">
                 <div class="section">
                     <h2><span class="section-icon">4</span>Certificate Operations</h2>
                     <div class="form-group">
@@ -1556,11 +1544,73 @@
                         {% endif %}
                     </div>
                 </div>
+                
+                <!-- Certificate Tracking Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">4</span>Certificate Tracking</h2>
+                    
+                    <!-- Search and Filter Controls -->
+                    <div class="search-controls">
+                        <input type="text" id="searchCerts" placeholder="Search certificates...">
+                        <select id="filterType">
+                            <option value="">All Types</option>
+                            <option value="issued">Issued</option>
+                            <option value="request">Pending</option>
+                            <option value="revoked">Revoked</option>
+                        </select>
+                        <select id="filterExpiry">
+                            <option value="">All Certificates</option>
+                            <option value="7">Expiring in 7 days</option>
+                            <option value="30">Expiring in 30 days</option>
+                            <option value="90">Expiring in 90 days</option>
+                        </select>
+                    </div>
+                    
+                    <div class="button-grid">
+                        <button class="btn btn-info" id="listCertificates">List All Certificates</button>
+                        {% if 'admin' in user.roles or 'operator' in user.roles %}
+                        <button class="btn btn-warning" id="showExpiryDashboard">📊 Expiry Dashboard</button>
+                        <button class="btn btn-secondary" id="checkExpiring">Check Expiring Certs</button>
+                        <button class="btn btn-secondary" id="checkConnection">Check Connection</button>
+                        <button class="btn btn-secondary" id="createBackup">Create Backup</button>
+                        {% endif %}
+                    </div>
+                    <div id="certificatesList" class="certificates-list"></div>
+                    
+                    <!-- Certificate Expiry Dashboard -->
+                    <div id="expiryDashboard" class="expiry-dashboard" style="display: none; margin-top: 2rem;">
+                        <h3 style="margin-bottom: 1rem;">🔒 Certificate Expiry Dashboard</h3>
+                        <div class="dashboard-stats">
+                            <div class="stat-card expired">
+                                <div class="stat-number" id="expiredCount">0</div>
+                                <div class="stat-label">Expired</div>
+                            </div>
+                            <div class="stat-card critical">
+                                <div class="stat-number" id="criticalCount">0</div>
+                                <div class="stat-label">Critical (≤7 days)</div>
+                            </div>
+                            <div class="stat-card warning">
+                                <div class="stat-number" id="warningCount">0</div>
+                                <div class="stat-label">Warning (≤30 days)</div>
+                            </div>
+                            <div class="stat-card normal">
+                                <div class="stat-number" id="normalCount">0</div>
+                                <div class="stat-label">Normal (≤90 days)</div>
+                            </div>
+                            <div class="stat-card healthy">
+                                <div class="stat-number" id="healthyCount">0</div>
+                                <div class="stat-label">Healthy (>90 days)</div>
+                            </div>
+                        </div>
+                        <div id="dashboardRecommendations" class="dashboard-recommendations"></div>
+                        <div id="dashboardDetails" class="dashboard-details"></div>
+                    </div>
+                </div>
             </div>
             
-            <!-- Tab Content: SCEP Enrollment -->
+            <!-- Tab Content: Device Protocols (SCEP + OCSP) -->
             {% if 'admin' in user.roles or 'operator' in user.roles %}
-            <div class="tab-content" id="scep">
+            <div class="tab-content" id="protocols">
                 <div class="section scep-section">
                 <h2><span class="section-icon">5</span>SCEP Device Enrollment</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
@@ -1603,6 +1653,26 @@
                     <button class="btn btn-secondary" id="downloadCASCEP">Download CA via SCEP</button>
                     <button class="btn btn-primary" id="openIOSSimulator">iOS Simulator</button>
                 </div>
+                </div>
+                
+                <!-- OCSP Section -->
+                <div class="section ocsp-section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">5</span>OCSP (Online Certificate Status Protocol)</h2>
+                    <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                        OCSP allows real-time certificate status validation. Use this endpoint to check if certificates are valid, revoked, or unknown.
+                        The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
+                    </p>
+                    <div class="form-group">
+                        <label for="ocspUrl">OCSP Responder URL:</label>
+                        <input type="text" id="ocspUrl" value="Loading..." readonly 
+                               class="ocsp-url-field" onclick="this.select()">
+                    </div>
+                    
+                    <div class="button-grid">
+                        <button class="btn btn-info" id="showOCSPInfo">Show OCSP Details</button>
+                        <button class="btn btn-secondary" id="testOCSPHealth">Test OCSP Health</button>
+                        <button class="btn btn-primary" id="openOCSPSimulator">🔍 OCSP Simulator</button>
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -1653,11 +1723,11 @@
             </div>
             {% endif %}
 
-            <!-- Tab Content: Email Domains -->
+            <!-- Tab Content: System Settings (Email Domains + SMTP + User Management) -->
             {% if user.is_admin %}
-            <div class="tab-content" id="domains">
+            <div class="tab-content" id="settings">
                 <div class="section" id="domains-section">
-                <h2><span class="section-icon">9</span>Email Domain Whitelist</h2>
+                <h2><span class="section-icon">7</span>Email Domain Whitelist</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage which email domains are allowed to request 802.1X certificates.
                 </p>
