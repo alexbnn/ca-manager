@@ -1769,6 +1769,35 @@
         </div>
     </div>
 
+    <!-- Branch Selection Modal -->
+    <div id="branchSelectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Switch Branch</h2>
+                <span class="close" onclick="closeBranchModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="branchSelect">Select Branch:</label>
+                    <select id="branchSelect" class="form-control" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Loading branches...</option>
+                    </select>
+                </div>
+                <div class="branch-info" id="branchInfo" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; display: none;">
+                    <strong>Selected Branch Information:</strong>
+                    <div id="branchDetails" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
+                </div>
+                <div class="warning-message" style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
+                    <strong>⚠️ Warning:</strong> Switching branches will restart the entire application. This process may take a few minutes to complete.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeBranchModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmBranchSwitch" onclick="confirmBranchSwitch()" disabled>Switch Branch</button>
+            </div>
+        </div>
+    </div>
+
     <!-- CA Configuration Modal -->
     <div id="caModal" class="modal">
         <div class="modal-content">
@@ -5355,7 +5384,7 @@ Dependencies:
         }
 
         function switchBranch() {
-            // Get available branches
+            // Get available branches and open modal
             fetch('/api/available-branches')
                 .then(response => response.json())
                 .then(data => {
@@ -5363,19 +5392,28 @@ Dependencies:
                         const branches = data.branches;
                         const currentBranch = document.getElementById('currentBranch').textContent;
                         
-                        // Create branch selection modal
-                        const branchOptions = branches
+                        // Populate dropdown with available branches (excluding current)
+                        const branchSelect = document.getElementById('branchSelect');
+                        branchSelect.innerHTML = '<option value="">-- Select a branch --</option>';
+                        
+                        branches
                             .filter(branch => branch.name !== currentBranch)
-                            .map(branch => `<option value="${branch.name}">${branch.name} (${branch.commit_sha})</option>`)
-                            .join('');
+                            .forEach(branch => {
+                                const option = document.createElement('option');
+                                option.value = branch.name;
+                                option.textContent = `${branch.name} (${branch.commit_sha})`;
+                                option.dataset.sha = branch.commit_sha;
+                                option.dataset.protected = branch.protected;
+                                branchSelect.appendChild(option);
+                            });
                         
-                        const branchSelect = prompt(
-                            `Available branches:\\n${branches.map(b => `${b.name} (${b.commit_sha})`).join('\\n')}\\n\\nEnter branch name to switch to:`
-                        );
+                        // Show the modal
+                        document.getElementById('branchSelectionModal').style.display = 'block';
                         
-                        if (branchSelect && branchSelect !== currentBranch) {
-                            performBranchSwitch(branchSelect);
-                        }
+                        // Store branches data for later use
+                        window.availableBranches = branches;
+                        window.currentBranch = currentBranch;
+                        
                     } else {
                         showError('Failed to get available branches: ' + data.error);
                     }
@@ -5384,6 +5422,20 @@ Dependencies:
                     console.error('Error getting branches:', error);
                     showError('Failed to get available branches');
                 });
+        }
+
+        function closeBranchModal() {
+            document.getElementById('branchSelectionModal').style.display = 'none';
+            document.getElementById('branchInfo').style.display = 'none';
+            document.getElementById('confirmBranchSwitch').disabled = true;
+        }
+
+        function confirmBranchSwitch() {
+            const selectedBranch = document.getElementById('branchSelect').value;
+            if (selectedBranch) {
+                closeBranchModal();
+                performBranchSwitch(selectedBranch);
+            }
         }
 
         function performBranchSwitch(targetBranch) {
@@ -5489,6 +5541,46 @@ Dependencies:
             if (manageBranchesBtn) {
                 manageBranchesBtn.addEventListener('click', switchBranch);
             }
+            
+            // Branch selection dropdown event handler
+            const branchSelect = document.getElementById('branchSelect');
+            if (branchSelect) {
+                branchSelect.addEventListener('change', function() {
+                    const selectedValue = this.value;
+                    const confirmBtn = document.getElementById('confirmBranchSwitch');
+                    const branchInfo = document.getElementById('branchInfo');
+                    const branchDetails = document.getElementById('branchDetails');
+                    
+                    if (selectedValue) {
+                        // Enable confirm button
+                        confirmBtn.disabled = false;
+                        
+                        // Show branch information
+                        const selectedOption = this.options[this.selectedIndex];
+                        const sha = selectedOption.dataset.sha;
+                        const isProtected = selectedOption.dataset.protected === 'true';
+                        
+                        branchDetails.innerHTML = `
+                            <div><strong>Branch:</strong> ${selectedValue}</div>
+                            <div><strong>Commit SHA:</strong> ${sha}</div>
+                            <div><strong>Protected:</strong> ${isProtected ? 'Yes' : 'No'}</div>
+                        `;
+                        branchInfo.style.display = 'block';
+                    } else {
+                        // Disable confirm button and hide info
+                        confirmBtn.disabled = true;
+                        branchInfo.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Close modal when clicking outside of it
+            window.onclick = function(event) {
+                const modal = document.getElementById('branchSelectionModal');
+                if (event.target === modal) {
+                    closeBranchModal();
+                }
+            }
         });
 
         // Make functions globally available
@@ -5506,6 +5598,8 @@ Dependencies:
         window.checkUpdates = checkUpdates;
         window.updateBranch = updateBranch;
         window.switchBranch = switchBranch;
+        window.closeBranchModal = closeBranchModal;
+        window.confirmBranchSwitch = confirmBranchSwitch;
     </script>
 
     <!-- Tour Trigger Button -->
