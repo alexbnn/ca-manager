@@ -5861,7 +5861,26 @@ Dependencies:
                 if (response.ok) {
                     document.getElementById('currentBranch').textContent = data.branch || 'Unknown';
                     document.getElementById('currentCommit').textContent = data.commit ? data.commit.substring(0, 8) : 'Unknown';
-                    document.getElementById('lastUpdated').textContent = data.last_updated || 'Unknown';
+                    
+                    // Format last updated date to local time
+                    let lastUpdatedText = 'Unknown';
+                    if (data.last_updated && data.last_updated !== 'Unknown' && data.last_updated !== 'Container rebuild required for full version info') {
+                        try {
+                            const date = new Date(data.last_updated);
+                            lastUpdatedText = date.toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            });
+                        } catch (e) {
+                            lastUpdatedText = data.last_updated; // Fallback to original if parsing fails
+                        }
+                    }
+                    document.getElementById('lastUpdated').textContent = lastUpdatedText;
                 } else {
                     showStatus('Failed to load version information', 'error');
                 }
@@ -5927,7 +5946,14 @@ Dependencies:
                             <h4>🆕 Updates Available</h4>
                             <p><strong>Latest commit:</strong> ${data.latest_commit.substring(0, 8)}</p>
                             <p><strong>Message:</strong> ${data.commit_message}</p>
-                            <p><strong>Updated:</strong> ${new Date(data.commit_date).toLocaleString()}</p>
+                            <p><strong>Updated:</strong> ${new Date(data.commit_date).toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            })}</p>
                         `;
                         showStatus('Updates are available for the current branch', 'success');
                     } else {
