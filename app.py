@@ -3624,7 +3624,7 @@ def generate_certificate_for_request(request_db_id, request_id, request_data):
 
 # Version Management API Endpoints
 @app.route('/api/version-info')
-@require_auth
+@auth_required()
 def get_version_info():
     """Get current version information"""
     try:
@@ -3676,7 +3676,7 @@ def get_version_info():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/available-branches')
-@require_auth
+@auth_required()
 def get_available_branches():
     """Get available branches from GitHub"""
     try:
@@ -3709,7 +3709,7 @@ def get_available_branches():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/check-updates')
-@require_auth
+@auth_required()
 def check_updates():
     """Check if updates are available for current branch"""
     try:
@@ -3751,7 +3751,7 @@ def check_updates():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/update-branch', methods=['POST'])
-@require_auth
+@auth_required()
 def update_current_branch():
     """Update current branch to latest version"""
     global update_status
@@ -3833,7 +3833,7 @@ def update_current_branch():
     })
 
 @app.route('/api/switch-branch', methods=['POST'])
-@require_auth
+@auth_required()
 def switch_branch():
     """Switch to a different branch"""
     global update_status
@@ -3924,7 +3924,7 @@ def switch_branch():
     })
 
 @app.route('/api/update-status')
-@require_auth
+@auth_required()
 def get_update_status():
     """Get current update status"""
     global update_status
