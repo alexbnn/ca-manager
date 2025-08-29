@@ -2291,6 +2291,116 @@ def delete_user_by_id(user_id):
         logging.error(f"Failed to delete user: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/users', methods=['POST'])
+@auth_required()
+def create_user():
+    """Create a new user"""
+    if not MULTI_USER_MODE:
+        return jsonify({'status': 'error', 'message': 'Multi-user mode not enabled'}), 400
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+        
+        # Extract and validate required fields
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        full_name = data.get('full_name', '').strip()
+        role = data.get('role', '').strip()
+        
+        # Validation
+        if not username or len(username) < 3:
+            return jsonify({'status': 'error', 'message': 'Username must be at least 3 characters long'}), 400
+        
+        if not all(c.isalnum() or c == '_' for c in username):
+            return jsonify({'status': 'error', 'message': 'Username can only contain letters, numbers, and underscores'}), 400
+        
+        if not email or '@' not in email:
+            return jsonify({'status': 'error', 'message': 'Valid email address is required'}), 400
+        
+        if not password or len(password) < 6:
+            return jsonify({'status': 'error', 'message': 'Password must be at least 6 characters long'}), 400
+        
+        if not full_name:
+            return jsonify({'status': 'error', 'message': 'Full name is required'}), 400
+        
+        if role not in ['admin', 'operator', 'viewer']:
+            return jsonify({'status': 'error', 'message': 'Role must be admin, operator, or viewer'}), 400
+        
+        # Hash password
+        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        
+        # Check for existing users
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        with conn.cursor() as cursor:
+            # Check if username exists
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            if cursor.fetchone():
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Username already exists'}), 409
+            
+            # Check if email exists
+            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Email already exists'}), 409
+            
+            # Create user
+            cursor.execute("""
+                INSERT INTO users (username, email, password_hash, full_name, is_admin, is_active)
+                VALUES (%s, %s, %s, %s, %s, true)
+                RETURNING id
+            """, (username, email, password_hash, full_name, role == 'admin'))
+            
+            user_id = cursor.fetchone()['id']
+            
+            # Get or create role
+            cursor.execute("SELECT id FROM roles WHERE name = %s", (role,))
+            role_record = cursor.fetchone()
+            
+            if not role_record:
+                # Create role if it doesn't exist
+                cursor.execute("""
+                    INSERT INTO roles (name, description)
+                    VALUES (%s, %s)
+                    RETURNING id
+                """, (role, f'{role.capitalize()} role'))
+                role_id = cursor.fetchone()['id']
+            else:
+                role_id = role_record['id']
+            
+            # Assign role to user
+            cursor.execute("""
+                INSERT INTO user_roles (user_id, role_id)
+                VALUES (%s, %s)
+            """, (user_id, role_id))
+            
+            conn.commit()
+        
+        conn.close()
+        
+        log_operation('user_created', {
+            'new_user_id': user_id,
+            'username': username,
+            'role': role,
+            'created_by': session.get('username')
+        })
+        
+        return jsonify({
+            'status': 'success', 
+            'message': f'User {username} created successfully',
+            'user_id': user_id
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to create user: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # ================================
 # Certificate Request Portal APIs
 # ================================
