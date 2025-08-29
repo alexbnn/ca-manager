@@ -1,4 +1,4 @@
-# CA Manager v4.0.0 - With OCSP Support and Enhanced Certificate Status Validation
+# CA Manager v5.1.0-beta - With Version Management, Enhanced UI/UX, and Advanced Features
 services:
   web-interface:
     build: .
