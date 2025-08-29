@@ -1439,15 +1439,18 @@
                     <span class="tab-icon">7</span>Request Approvals
                 </button></li>
                 {% endif %}
+                <li><button class="tab-item" onclick="switchTab('cert-tracking')" id="tab-cert-tracking">
+                    <span class="tab-icon">8</span>Certificate Tracking
+                </button></li>
                 {% if user.is_admin %}
                 <li><button class="tab-item" onclick="switchTab('domains')" id="tab-domains">
-                    <span class="tab-icon">8</span>Email Domains
+                    <span class="tab-icon">9</span>Email Domains
                 </button></li>
                 <li><button class="tab-item" onclick="switchTab('smtp')" id="tab-smtp">
-                    <span class="tab-icon">9</span>SMTP Config
+                    <span class="tab-icon">10</span>SMTP Config
                 </button></li>
                 <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
-                    <span class="tab-icon">10</span>User Management
+                    <span class="tab-icon">11</span>User Management
                 </button></li>
                 {% endif %}
             </ul>
@@ -1654,7 +1657,7 @@
             {% if user.is_admin %}
             <div class="tab-content" id="domains">
                 <div class="section" id="domains-section">
-                <h2><span class="section-icon">8</span>Email Domain Whitelist</h2>
+                <h2><span class="section-icon">9</span>Email Domain Whitelist</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage which email domains are allowed to request 802.1X certificates.
                 </p>
@@ -1697,7 +1700,7 @@
             <!-- Tab Content: SMTP Config -->
             <div class="tab-content" id="smtp">
                 <div class="section" id="smtp-section">
-                <h2><span class="section-icon">9</span>SMTP Email Configuration</h2>
+                <h2><span class="section-icon">10</span>SMTP Email Configuration</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Configure SMTP settings for sending email verifications.
                 </p>
@@ -1762,11 +1765,13 @@
                     <h3 style="margin-bottom: 1rem; color: #0c5460;">✅ Live Configuration Active</h3>
                     <p style="color: #0c5460;">SMTP configuration is now managed through the database and takes effect immediately after saving. No container restart required!</p>
                 </div>
+                </div>
             </div>
             {% endif %}
 
-            <!-- Certificate Tracking Section -->
-            <div class="section">
+            <!-- Tab Content: Certificate Tracking -->
+            <div class="tab-content" id="cert-tracking">
+                <div class="section">
                 <h2><span class="section-icon">8</span>Certificate Tracking</h2>
                 
                 <!-- Search and Filter Controls -->
@@ -1825,12 +1830,14 @@
                     <div id="dashboardRecommendations" class="dashboard-recommendations"></div>
                     <div id="dashboardDetails" class="dashboard-details"></div>
                 </div>
+                </div>
             </div>
             
-            <!-- User Management Section (Admin Only) -->
+            <!-- Tab Content: User Management -->
             {% if user.is_admin %}
-            <div class="section" id="userManagementSection">
-                <h2><span class="section-icon">9</span>User Management</h2>
+            <div class="tab-content" id="user-management">
+                <div class="section" id="userManagementSection">
+                <h2><span class="section-icon">11</span>User Management</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage user accounts and permissions for the PKI system.
                 </p>
@@ -1842,6 +1849,7 @@
                 
                 <div id="usersList" class="users-list" style="display: none; margin-top: 1.5rem;">
                     <!-- Users will be populated here -->
+                </div>
                 </div>
             </div>
             {% endif %}
