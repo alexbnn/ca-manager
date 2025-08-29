@@ -6,8 +6,8 @@
 set -e  # Exit on any error
 
 REPO_URL="https://github.com/alexbnn/ca-manager.git"
-WORK_DIR="/app"
-COMPOSE_FILE="docker-compose.yml"
+WORK_DIR="/app/source"
+COMPOSE_FILE="/app/source/docker-compose.yml"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"

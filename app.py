@@ -3749,17 +3749,17 @@ def get_version_info():
         if git_available:
             # Get current branch
             result = subprocess.run(['git', 'branch', '--show-current'], 
-                                  capture_output=True, text=True, cwd='/app', timeout=10)
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
             current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
             
             # Get current commit hash
             result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                                  capture_output=True, text=True, cwd='/app', timeout=10)
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
             current_commit = result.stdout.strip() if result.returncode == 0 else 'unknown'
             
             # Get last update time from git log
             result = subprocess.run(['git', 'log', '-1', '--format=%cd', '--date=iso'], 
-                                  capture_output=True, text=True, cwd='/app', timeout=10)
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
             last_updated = result.stdout.strip() if result.returncode == 0 else 'unknown'
         else:
             # Fallback values when git is not available
@@ -3789,7 +3789,7 @@ def get_available_branches():
         current_branch = '5.1.0b'  # Default fallback
         try:
             result = subprocess.run(['git', 'branch', '--show-current'], 
-                                  capture_output=True, text=True, cwd='/app', timeout=10)
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
             if result.returncode == 0:
                 current_branch = result.stdout.strip()
         except (subprocess.SubprocessError, FileNotFoundError):
@@ -3827,11 +3827,11 @@ def check_updates():
     try:
         # Get current branch and commit
         result = subprocess.run(['git', 'branch', '--show-current'], 
-                              capture_output=True, text=True, cwd='/app')
+                              capture_output=True, text=True, cwd='/app/source')
         current_branch = result.stdout.strip() if result.returncode == 0 else 'main'
         
         result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                              capture_output=True, text=True, cwd='/app')
+                              capture_output=True, text=True, cwd='/app/source')
         current_commit = result.stdout.strip() if result.returncode == 0 else ''
         
         # Get latest commit from GitHub API
@@ -3940,7 +3940,7 @@ def perform_update(target_branch=None):
         # Step 1: Fetch latest changes
         update_status.update({'message': 'Fetching latest changes...', 'progress': 10})
         result = subprocess.run(['git', 'fetch', 'origin'], 
-                              capture_output=True, text=True, cwd='/app', timeout=30)
+                              capture_output=True, text=True, cwd='/app/source', timeout=30)
         if result.returncode != 0:
             raise Exception(f'Git fetch failed: {result.stderr}')
         
@@ -3948,14 +3948,14 @@ def perform_update(target_branch=None):
         if target_branch:
             update_status.update({'message': f'Switching to branch {target_branch}...', 'progress': 30})
             result = subprocess.run(['git', 'checkout', f'origin/{target_branch}'], 
-                                  capture_output=True, text=True, cwd='/app', timeout=30)
+                                  capture_output=True, text=True, cwd='/app/source', timeout=30)
             if result.returncode != 0:
                 raise Exception(f'Branch switch failed: {result.stderr}')
         else:
             # Step 3: Pull latest changes for current branch
             update_status.update({'message': 'Pulling latest changes...', 'progress': 30})
             result = subprocess.run(['git', 'pull', 'origin'], 
-                                  capture_output=True, text=True, cwd='/app', timeout=30)
+                                  capture_output=True, text=True, cwd='/app/source', timeout=30)
             if result.returncode != 0:
                 raise Exception(f'Git pull failed: {result.stderr}')
         
