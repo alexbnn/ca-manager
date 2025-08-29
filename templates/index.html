@@ -1928,67 +1928,6 @@
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Configure SMTP settings for sending email verifications.
                 </p>
-                
-                
-                <div class="smtp-config">
-                    <h3 style="margin-bottom: 1rem;">SMTP Configuration</h3>
-                    <div id="smtp-config-content" class="config-form" style="display: block;">
-                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="smtpServer">SMTP Server *:</label>
-                                <input type="text" id="smtpServer" placeholder="smtp.gmail.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpPort">SMTP Port:</label>
-                                <input type="number" id="smtpPort" placeholder="587" min="1" max="65535" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpUsername">SMTP Username:</label>
-                                <input type="text" id="smtpUsername" placeholder="your-email@domain.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpPassword">SMTP Password:</label>
-                                <input type="password" id="smtpPassword" placeholder="Password" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpSenderEmail">Sender Email *:</label>
-                                <input type="email" id="smtpSenderEmail" placeholder="noreply@yourcompany.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpSenderName">Sender Name:</label>
-                                <input type="text" id="smtpSenderName" placeholder="CA Manager" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top: 1rem;">
-                            <label>
-                                <input type="checkbox" id="smtpUseTLS" checked>
-                                Use TLS/STARTTLS
-                            </label>
-                        </div>
-                        
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-primary" onclick="saveSMTPConfig()">💾 Save Configuration</button>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-top: 1rem;">
-                        <label>Test Email Address:</label>
-                        <input type="email" id="testEmailAddress" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                    
-                    <div class="button-grid" style="margin-top: 1rem;">
-                        <button class="btn btn-info" onclick="loadSMTPConfig()">🔄 Refresh Configuration</button>
-                        <button class="btn btn-warning" onclick="testSMTPConnection()">✉️ Test Email</button>
-                    </div>
-                    
-                    <div id="smtp-status" style="margin-top: 1rem;"></div>
-                </div>
-
-                <div class="config-instructions" style="margin-top: 2rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
-                    <h3 style="margin-bottom: 1rem; color: #0c5460;">✅ Live Configuration Active</h3>
-                    <p style="color: #0c5460;">SMTP configuration is now managed through the database and takes effect immediately after saving. No container restart required!</p>
-                </div>
                 </div>
             </div>
             {% endif %}
@@ -2073,6 +2012,152 @@
                 
                 <div id="usersList" class="users-list" style="display: none; margin-top: 1.5rem;">
                     <!-- Users will be populated here -->
+                </div>
+                </div>
+                
+                <!-- SMTP Configuration Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">📧</span>SMTP Email Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure SMTP settings for sending certificate email notifications.
+                </p>
+                
+                <div class="smtp-config">
+                    <h3 style="margin-bottom: 1rem;">Email Server Settings</h3>
+                    <div id="smtp-config-content" class="config-form" style="display: block;">
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                            <div class="form-group">
+                                <label for="smtpServer">SMTP Server *:</label>
+                                <input type="text" id="smtpServer" placeholder="smtp.gmail.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpPort">SMTP Port:</label>
+                                <input type="number" id="smtpPort" placeholder="587" min="1" max="65535" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpUsername">SMTP Username:</label>
+                                <input type="text" id="smtpUsername" placeholder="your-email@domain.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpPassword">SMTP Password:</label>
+                                <input type="password" id="smtpPassword" placeholder="Password" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpSenderEmail">Sender Email *:</label>
+                                <input type="email" id="smtpSenderEmail" placeholder="noreply@yourcompany.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpSenderName">Sender Name:</label>
+                                <input type="text" id="smtpSenderName" placeholder="CA Manager" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label>
+                                <input type="checkbox" id="smtpUseTLS" checked>
+                                Use TLS/STARTTLS
+                            </label>
+                        </div>
+                        
+                        <div class="button-grid" style="margin-top: 1rem;">
+                            <button class="btn btn-primary" onclick="saveSMTPConfig()">💾 Save Configuration</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--light-gray);">
+                        <h4 style="margin-bottom: 1rem;">Test Email Configuration</h4>
+                        <label>Test Email Address:</label>
+                        <input type="email" id="testEmailAddress" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <div class="button-grid" style="margin-top: 1rem;">
+                            <button class="btn btn-info" onclick="loadSMTPConfig()">🔄 Refresh Configuration</button>
+                            <button class="btn btn-warning" onclick="testSMTPConnection()">✉️ Send Test Email</button>
+                        </div>
+                    </div>
+                    
+                    <div id="smtp-status" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div class="config-instructions" style="margin-top: 2rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
+                    <h3 style="margin-bottom: 1rem; color: #0c5460;">📧 Email Configuration Help</h3>
+                    <p style="color: #0c5460; margin-bottom: 0.5rem;"><strong>Common SMTP Settings:</strong></p>
+                    <ul style="color: #0c5460; margin-left: 1.5rem;">
+                        <li>Gmail: smtp.gmail.com, Port 587 (requires app password)</li>
+                        <li>Outlook: smtp-mail.outlook.com, Port 587</li>
+                        <li>Yahoo: smtp.mail.yahoo.com, Port 587 or 465</li>
+                    </ul>
+                    <p style="color: #0c5460; margin-top: 0.5rem;">✅ Configuration is saved to database and takes effect immediately. No restart required!</p>
+                </div>
+                </div>
+                
+                <!-- Version Management Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔄</span>Version Management</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Manage CA Manager version updates and branch switching directly from the dashboard.
+                </p>
+                
+                <div class="version-management">
+                    <div class="current-version-info" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 0.5rem;">Current Version Information</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div>
+                                <strong>Current Branch:</strong> <span id="currentBranch" style="color: var(--primary-color);">Loading...</span>
+                            </div>
+                            <div>
+                                <strong>Latest Commit:</strong> <span id="currentCommit" style="font-family: monospace;">Loading...</span>
+                            </div>
+                            <div>
+                                <strong>Last Updated:</strong> <span id="lastUpdated">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="update-controls">
+                        <h3 style="margin-bottom: 1rem;">Update Options</h3>
+                        
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="branchSelect">Select Branch:</label>
+                            <select id="branchSelect" style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Loading branches...</option>
+                            </select>
+                            <small style="display: block; margin-top: 0.25rem; color: var(--medium-gray);">
+                                Choose a branch to switch to or update from
+                            </small>
+                        </div>
+                        
+                        <div class="button-grid" style="gap: 1rem; margin-bottom: 1.5rem;">
+                            <button class="btn btn-info" onclick="checkForUpdates()">
+                                🔍 Check for Updates
+                            </button>
+                            <button class="btn btn-warning" onclick="updateCurrentBranch()">
+                                🔄 Update Current Branch
+                            </button>
+                            <button class="btn btn-primary" onclick="switchBranch()" id="switchBranchBtn" disabled>
+                                🔀 Switch to Selected Branch
+                            </button>
+                        </div>
+                        
+                        <div id="updateStatus" style="margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none;"></div>
+                        
+                        <div class="update-progress" id="updateProgress" style="display: none; margin-top: 1rem;">
+                            <h4>Update Progress</h4>
+                            <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 30px; margin: 0.5rem 0;">
+                                <div id="progressBar" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div id="progressText" style="font-family: monospace; font-size: 0.875rem; color: var(--medium-gray); margin-top: 0.5rem;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-instructions" style="margin-top: 2rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 15px;">
+                        <h3 style="margin-bottom: 1rem; color: #856404;">⚠️ Important Notes</h3>
+                        <ul style="color: #856404; margin-left: 1.5rem;">
+                            <li>Updates will restart the CA Manager service temporarily</li>
+                            <li>All configuration and certificates are preserved during updates</li>
+                            <li>Database and persistent data remain intact</li>
+                            <li>The update process typically takes 1-2 minutes</li>
+                            <li>Ensure you have a backup before switching major versions</li>
+                        </ul>
+                    </div>
                 </div>
                 </div>
                 
@@ -2365,6 +2450,16 @@
             
             // Store active tab in localStorage for persistence
             localStorage.setItem('activeTab', tabId);
+            
+            // Load tab-specific data
+            if (tabId === 'user-management') {
+                // Load version information and available branches for General Settings
+                setTimeout(() => {
+                    loadVersionInfo().catch(e => console.error('loadVersionInfo error:', e));
+                    loadAvailableBranches().catch(e => console.error('loadAvailableBranches error:', e));
+                    loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
+                }, 100);
+            }
         }
         
         // Initialize default tab on page load
@@ -5755,6 +5850,213 @@ Dependencies:
             }
         }
 
+        // Version Management Functions
+        async function loadVersionInfo() {
+            try {
+                const response = await fetch('/api/version-info', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('currentBranch').textContent = data.branch || 'Unknown';
+                    document.getElementById('currentCommit').textContent = data.commit ? data.commit.substring(0, 8) : 'Unknown';
+                    document.getElementById('lastUpdated').textContent = data.last_updated || 'Unknown';
+                } else {
+                    showStatus('Failed to load version information', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading version info:', error);
+                showStatus('Error loading version information', 'error');
+            }
+        }
+
+        async function loadAvailableBranches() {
+            try {
+                const response = await fetch('/api/available-branches', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const branchSelect = document.getElementById('branchSelect');
+                    branchSelect.innerHTML = '<option value="">Select a branch...</option>';
+                    
+                    data.branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch.name;
+                        option.textContent = `${branch.name} (${branch.commit.substring(0, 8)})`;
+                        if (branch.current) {
+                            option.textContent += ' - Current';
+                            option.style.fontWeight = 'bold';
+                        }
+                        branchSelect.appendChild(option);
+                    });
+                    
+                    // Enable switch button when selection changes
+                    branchSelect.addEventListener('change', function() {
+                        const switchBtn = document.getElementById('switchBranchBtn');
+                        switchBtn.disabled = !this.value || this.value === data.current_branch;
+                    });
+                } else {
+                    showStatus('Failed to load available branches', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading branches:', error);
+                showStatus('Error loading available branches', 'error');
+            }
+        }
+
+        async function checkForUpdates() {
+            showStatus('Checking for updates...', 'loading');
+            
+            try {
+                const response = await fetch('/api/check-updates', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const statusDiv = document.getElementById('updateStatus');
+                    statusDiv.style.display = 'block';
+                    
+                    if (data.updates_available) {
+                        statusDiv.style.background = '#d1ecf1';
+                        statusDiv.style.color = '#0c5460';
+                        statusDiv.innerHTML = `
+                            <h4>🆕 Updates Available</h4>
+                            <p><strong>Latest commit:</strong> ${data.latest_commit.substring(0, 8)}</p>
+                            <p><strong>Message:</strong> ${data.commit_message}</p>
+                            <p><strong>Updated:</strong> ${new Date(data.commit_date).toLocaleString()}</p>
+                        `;
+                        showStatus('Updates are available for the current branch', 'success');
+                    } else {
+                        statusDiv.style.background = '#d4edda';
+                        statusDiv.style.color = '#155724';
+                        statusDiv.innerHTML = '<h4>✅ Up to Date</h4><p>You are running the latest version of the current branch.</p>';
+                        showStatus('No updates available - you are up to date', 'success');
+                    }
+                } else {
+                    showStatus('Failed to check for updates: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error checking updates:', error);
+                showStatus('Error checking for updates', 'error');
+            }
+        }
+
+        async function updateCurrentBranch() {
+            if (!confirm('Are you sure you want to update to the latest version of the current branch? This will restart the service temporarily.')) {
+                return;
+            }
+            
+            showUpdateProgress('Starting update process...', 0);
+            
+            try {
+                const response = await fetch('/api/update-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    pollUpdateStatus();
+                } else {
+                    const data = await response.json();
+                    showStatus('Failed to start update: ' + data.message, 'error');
+                    hideUpdateProgress();
+                }
+            } catch (error) {
+                console.error('Error starting update:', error);
+                showStatus('Error starting update process', 'error');
+                hideUpdateProgress();
+            }
+        }
+
+        async function switchBranch() {
+            const selectedBranch = document.getElementById('branchSelect').value;
+            if (!selectedBranch) {
+                showStatus('Please select a branch first', 'error');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to switch to branch "${selectedBranch}"? This will restart the service and may include significant changes.`)) {
+                return;
+            }
+            
+            showUpdateProgress(`Switching to branch: ${selectedBranch}...`, 0);
+            
+            try {
+                const response = await fetch('/api/switch-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ branch: selectedBranch })
+                });
+                
+                if (response.ok) {
+                    pollUpdateStatus();
+                } else {
+                    const data = await response.json();
+                    showStatus('Failed to switch branch: ' + data.message, 'error');
+                    hideUpdateProgress();
+                }
+            } catch (error) {
+                console.error('Error switching branch:', error);
+                showStatus('Error switching branch', 'error');
+                hideUpdateProgress();
+            }
+        }
+
+        function showUpdateProgress(text, percentage) {
+            const progressDiv = document.getElementById('updateProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressDiv.style.display = 'block';
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = text;
+        }
+
+        function hideUpdateProgress() {
+            document.getElementById('updateProgress').style.display = 'none';
+        }
+
+        async function pollUpdateStatus() {
+            try {
+                const response = await fetch('/api/update-status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showUpdateProgress(data.message, data.progress);
+                    
+                    if (data.completed) {
+                        if (data.success) {
+                            showStatus('Update completed successfully! Refreshing page...', 'success');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            showStatus('Update failed: ' + data.error, 'error');
+                            hideUpdateProgress();
+                        }
+                    } else {
+                        // Continue polling
+                        setTimeout(pollUpdateStatus, 1000);
+                    }
+                } else {
+                    showStatus('Error checking update status', 'error');
+                    hideUpdateProgress();
+                }
+            } catch (error) {
+                console.error('Error polling update status:', error);
+                showStatus('Error monitoring update progress', 'error');
+                hideUpdateProgress();
+            }
+        }
+
         // Make functions globally available
         window.loadEmailDomains = loadEmailDomains;
         window.addEmailDomain = addEmailDomain;
@@ -5766,6 +6068,11 @@ Dependencies:
         window.hideAddDomainForm = hideAddDomainForm;
         window.showError = showError;
         window.showMessage = showMessage;
+        window.loadVersionInfo = loadVersionInfo;
+        window.loadAvailableBranches = loadAvailableBranches;
+        window.checkForUpdates = checkForUpdates;
+        window.updateCurrentBranch = updateCurrentBranch;
+        window.switchBranch = switchBranch;
     </script>
 
     <!-- Tour Trigger Button -->
