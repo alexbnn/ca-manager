@@ -54,7 +54,7 @@ services:
       - ./templates:/app/templates:ro
       # Enable version management functionality
       - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app/source:ro
+      - .:/app/source
     deploy:
       resources:
         limits:
