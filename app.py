@@ -25,6 +25,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 import psycopg2
 import psycopg2.extras
+import subprocess
+import asyncio
+from threading import Thread
 
 # Disable SSL warnings for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -41,6 +44,20 @@ app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Global flag to ensure database is initialized only once
 _db_initialized = False
+
+# Global variables for update status tracking
+update_status = {
+    'in_progress': False,
+    'completed': False,
+    'success': False,
+    'message': 'Ready',
+    'progress': 0,
+    'error': None
+}
+
+# GitHub repository information
+GITHUB_REPO = 'alexbnn/ca-manager'
+GITHUB_API_URL = f'https://api.github.com/repos/{GITHUB_REPO}'
 
 def ensure_database_initialized():
     """Ensure database is initialized exactly once"""
@@ -3714,6 +3731,245 @@ def generate_certificate_for_request(request_db_id, request_id, request_data):
     except Exception as e:
         logging.error(f"Failed to generate certificate for request {request_id}: {e}")
         return False
+
+# Version Management API Endpoints
+
+@app.route('/api/version-info', methods=['GET'])
+@auth_required()
+def get_version_info():
+    """Get current version information"""
+    try:
+        # Get current branch
+        result = subprocess.run(['git', 'branch', '--show-current'], 
+                              capture_output=True, text=True, cwd='/app')
+        current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        
+        # Get current commit hash
+        result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                              capture_output=True, text=True, cwd='/app')
+        current_commit = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        
+        # Get last update time from git log
+        result = subprocess.run(['git', 'log', '-1', '--format=%cd', '--date=iso'], 
+                              capture_output=True, text=True, cwd='/app')
+        last_updated = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        
+        return jsonify({
+            'status': 'success',
+            'branch': current_branch,
+            'commit': current_commit,
+            'last_updated': last_updated,
+            'app_version': APP_VERSION
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting version info: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/available-branches', methods=['GET'])
+@auth_required()
+def get_available_branches():
+    """Get available branches from GitHub"""
+    try:
+        # Get current branch for comparison
+        result = subprocess.run(['git', 'branch', '--show-current'], 
+                              capture_output=True, text=True, cwd='/app')
+        current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        
+        # Fetch branches from GitHub API
+        response = requests.get(f'{GITHUB_API_URL}/branches', timeout=10)
+        if response.status_code != 200:
+            return jsonify({'status': 'error', 'message': 'Failed to fetch branches from GitHub'}), 500
+        
+        branches_data = response.json()
+        branches = []
+        
+        for branch in branches_data:
+            branches.append({
+                'name': branch['name'],
+                'commit': branch['commit']['sha'],
+                'current': branch['name'] == current_branch
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'branches': branches,
+            'current_branch': current_branch
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting available branches: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/check-updates', methods=['GET'])
+@auth_required()
+def check_updates():
+    """Check if updates are available for the current branch"""
+    try:
+        # Get current branch and commit
+        result = subprocess.run(['git', 'branch', '--show-current'], 
+                              capture_output=True, text=True, cwd='/app')
+        current_branch = result.stdout.strip() if result.returncode == 0 else 'main'
+        
+        result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                              capture_output=True, text=True, cwd='/app')
+        current_commit = result.stdout.strip() if result.returncode == 0 else ''
+        
+        # Get latest commit from GitHub API
+        response = requests.get(f'{GITHUB_API_URL}/branches/{current_branch}', timeout=10)
+        if response.status_code != 200:
+            return jsonify({'status': 'error', 'message': f'Failed to check updates for branch {current_branch}'}), 500
+        
+        branch_data = response.json()
+        latest_commit = branch_data['commit']['sha']
+        
+        # Check if update is available
+        updates_available = current_commit != latest_commit
+        
+        response_data = {
+            'status': 'success',
+            'updates_available': updates_available,
+            'current_commit': current_commit,
+            'latest_commit': latest_commit,
+            'branch': current_branch
+        }
+        
+        if updates_available:
+            response_data.update({
+                'commit_message': branch_data['commit']['commit']['message'],
+                'commit_date': branch_data['commit']['commit']['committer']['date']
+            })
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logging.error(f"Error checking for updates: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/update-branch', methods=['POST'])
+@auth_required()
+def update_current_branch():
+    """Update to the latest version of the current branch"""
+    global update_status
+    
+    if not session.get('is_admin'):
+        return jsonify({'status': 'error', 'message': 'Admin privileges required'}), 403
+    
+    if update_status['in_progress']:
+        return jsonify({'status': 'error', 'message': 'Update already in progress'}), 409
+    
+    # Start update process in background thread
+    thread = Thread(target=perform_update, args=(None,))
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'status': 'success', 'message': 'Update started'})
+
+@app.route('/api/switch-branch', methods=['POST'])
+@auth_required()
+def switch_branch():
+    """Switch to a different branch"""
+    global update_status
+    
+    if not session.get('is_admin'):
+        return jsonify({'status': 'error', 'message': 'Admin privileges required'}), 403
+    
+    if update_status['in_progress']:
+        return jsonify({'status': 'error', 'message': 'Update already in progress'}), 409
+    
+    data = request.get_json()
+    target_branch = data.get('branch')
+    
+    if not target_branch:
+        return jsonify({'status': 'error', 'message': 'Branch name required'}), 400
+    
+    # Start branch switch process in background thread
+    thread = Thread(target=perform_update, args=(target_branch,))
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'status': 'success', 'message': f'Switching to branch {target_branch}'})
+
+@app.route('/api/update-status', methods=['GET'])
+@auth_required()
+def get_update_status():
+    """Get current update status"""
+    return jsonify({
+        'status': 'success',
+        'in_progress': update_status['in_progress'],
+        'completed': update_status['completed'],
+        'success': update_status['success'],
+        'message': update_status['message'],
+        'progress': update_status['progress'],
+        'error': update_status['error']
+    })
+
+def perform_update(target_branch=None):
+    """Perform the actual update/branch switch process"""
+    global update_status
+    
+    try:
+        update_status.update({
+            'in_progress': True,
+            'completed': False,
+            'success': False,
+            'message': 'Starting update process...',
+            'progress': 0,
+            'error': None
+        })
+        
+        # Step 1: Fetch latest changes
+        update_status.update({'message': 'Fetching latest changes...', 'progress': 10})
+        result = subprocess.run(['git', 'fetch', 'origin'], 
+                              capture_output=True, text=True, cwd='/app', timeout=30)
+        if result.returncode != 0:
+            raise Exception(f'Git fetch failed: {result.stderr}')
+        
+        # Step 2: Switch branch if specified
+        if target_branch:
+            update_status.update({'message': f'Switching to branch {target_branch}...', 'progress': 30})
+            result = subprocess.run(['git', 'checkout', f'origin/{target_branch}'], 
+                                  capture_output=True, text=True, cwd='/app', timeout=30)
+            if result.returncode != 0:
+                raise Exception(f'Branch switch failed: {result.stderr}')
+        else:
+            # Step 3: Pull latest changes for current branch
+            update_status.update({'message': 'Pulling latest changes...', 'progress': 30})
+            result = subprocess.run(['git', 'pull', 'origin'], 
+                                  capture_output=True, text=True, cwd='/app', timeout=30)
+            if result.returncode != 0:
+                raise Exception(f'Git pull failed: {result.stderr}')
+        
+        # Step 4: Use the update script for Docker operations
+        update_status.update({'message': 'Executing system update...', 'progress': 50})
+        if target_branch:
+            result = subprocess.run(['/app/update-system.sh', 'switch', target_branch], 
+                                  capture_output=True, text=True, timeout=600)
+        else:
+            result = subprocess.run(['/app/update-system.sh', 'update'], 
+                                  capture_output=True, text=True, timeout=600)
+        
+        if result.returncode != 0:
+            raise Exception(f'System update failed: {result.stderr}')
+        
+        # Success
+        update_status.update({
+            'message': 'Update completed successfully!',
+            'progress': 100,
+            'completed': True,
+            'success': True,
+            'in_progress': False
+        })
+        
+    except Exception as e:
+        logging.error(f"Update failed: {e}")
+        update_status.update({
+            'message': 'Update failed',
+            'error': str(e),
+            'completed': True,
+            'success': False,
+            'in_progress': False
+        })
 
 if __name__ == '__main__':
     # Ensure logs directory exists
