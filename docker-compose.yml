@@ -52,6 +52,9 @@ services:
       # Mount source files for live updates
       - ./app.py:/app/app.py:ro
       - ./templates:/app/templates:ro
+      # Enable version management functionality
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/app/source:ro
     deploy:
       resources:
         limits:

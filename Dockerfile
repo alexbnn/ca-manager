@@ -24,9 +24,11 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install runtime dependencies only
+# Install runtime dependencies including git and docker-cli for version management
 RUN apt-get update && apt-get install -y \
     curl \
+    git \
+    docker.io \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from builder stage
@@ -37,9 +39,11 @@ COPY app.py .
 COPY templates/ templates/
 COPY static/ static/
 COPY database/ database/
+COPY update-system.sh .
 
-# Create logs directory
-RUN mkdir -p /app/logs
+# Create logs directory and make update script executable
+RUN mkdir -p /app/logs && \
+    chmod +x /app/update-system.sh
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \
