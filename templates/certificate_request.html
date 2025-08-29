@@ -13,7 +13,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+            background: linear-gradient(135deg, #101B37 0%, #1a2951 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -27,16 +27,44 @@
             text-align: center;
             color: white;
             margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            justify-content: center;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
+
+        .logo {
+            height: 50px;
+        }
+
+        .logo-section h1 {
+            color: #1a2951;
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
 
         .header p {
             font-size: 1.1rem;
             opacity: 0.9;
+            font-weight: 300;
         }
 
         .card {
@@ -45,6 +73,7 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
             padding: 30px;
             margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .steps {
@@ -89,7 +118,7 @@
         }
 
         .step.active .step-number {
-            background: #6B73FF;
+            background: #5B059C;
             color: white;
         }
 
@@ -167,14 +196,14 @@
         }
 
         .template-card:hover {
-            border-color: #6B73FF;
+            border-color: #5B059C;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(107, 115, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(91, 5, 156, 0.2);
         }
 
         .template-card.selected {
-            border-color: #6B73FF;
-            background: #f0f2ff;
+            border-color: #5B059C;
+            background: rgba(91, 5, 156, 0.1);
         }
 
         .template-card h4 {
@@ -239,12 +268,12 @@
         }
 
         .btn-primary {
-            background: #6B73FF;
+            background: #5B059C;
             color: white;
         }
 
         .btn-primary:hover {
-            background: #5a62ff;
+            background: #4a0485;
         }
 
         .btn-secondary {
@@ -304,7 +333,7 @@
 
         .spinner {
             border: 3px solid #f3f3f3;
-            border-top: 3px solid #6B73FF;
+            border-top: 3px solid #5B059C;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -339,7 +368,7 @@
             padding: 10px 20px;
             border: none;
             border-radius: 6px;
-            background: #6B73FF;
+            background: #5B059C;
             color: white;
             cursor: pointer;
             text-decoration: none;
@@ -349,7 +378,7 @@
         }
 
         .download-btn:hover {
-            background: #5a62ff;
+            background: #4a0485;
         }
 
         .qr-code {
@@ -359,12 +388,67 @@
             border-radius: 8px;
             display: inline-block;
         }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .logo-section {
+                flex-direction: column;
+                gap: 10px;
+                padding: 12px 18px;
+            }
+
+            .logo {
+                height: 40px;
+            }
+
+            .logo-section h1 {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .steps {
+                padding: 0 10px;
+                overflow-x: auto;
+            }
+
+            .step {
+                min-width: 120px;
+            }
+
+            .template-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔒 802.1X Certificate Portal</h1>
+            <div class="logo-section">
+                <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                <h1>PKI Certificate Portal</h1>
+            </div>
             <p>Request network authentication certificates for 802.1X/EAP-TLS</p>
         </div>
 
@@ -429,12 +513,12 @@
                     <input type="hidden" id="keySize" value="2048">
                     <input type="hidden" id="validityDays" value="365">
                     
-                    <div class="info-box" style="background: #e3f2fd; border: 1px solid #2196f3; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                        <h4 style="color: #1976d2; margin: 0 0 0.5rem 0;">🔧 Certificate Configuration</h4>
-                        <p style="margin: 0; color: #1976d2;">
+                    <div class="info-box" style="background: rgba(91, 5, 156, 0.08); border: 1px solid rgba(91, 5, 156, 0.3); padding: 1rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #5B059C;">
+                        <h4 style="color: #5B059C; margin: 0 0 0.5rem 0; font-weight: 600;">🔧 Certificate Configuration</h4>
+                        <p style="margin: 0; color: #4a0485;">
                             <strong>Algorithm:</strong> RSA 2048-bit<br>
                             <strong>Validity:</strong> 365 days (1 year)<br>
-                            <small>Optimized for 802.1X wireless authentication</small>
+                            <small style="color: #6b2d91;">Optimized for 802.1X wireless authentication</small>
                         </p>
                     </div>
 

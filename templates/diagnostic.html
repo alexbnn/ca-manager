@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Diagnostic</title>
+    <style>
+        .test { margin: 10px; padding: 10px; border: 1px solid #ccc; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>JavaScript Diagnostic Test</h1>
+    
+    <div id="results"></div>
+    
+    <h2>Button Tests</h2>
+    <button onclick="testInline()">1. Test Inline onclick</button>
+    <button id="btn2">2. Test addEventListener</button>
+    <button onclick="window.testWindow()">3. Test window.function</button>
+    
+    <script>
+        const results = document.getElementById('results');
+        const tests = [];
+        
+        function addResult(name, passed, details) {
+            tests.push({name, passed, details});
+            const div = document.createElement('div');
+            div.className = 'test ' + (passed ? 'pass' : 'fail');
+            div.innerHTML = '<strong>' + name + '</strong>: ' + (passed ? 'PASSED' : 'FAILED') + 
+                           (details ? ' (' + details + ')' : '');
+            results.appendChild(div);
+        }
+        
+        // Test 1: Basic JavaScript
+        try {
+            const x = 1 + 1;
+            addResult('Basic JavaScript', true, 'Math works: 1 + 1 = ' + x);
+        } catch(e) {
+            addResult('Basic JavaScript', false, e.message);
+        }
+        
+        // Test 2: DOM Manipulation
+        try {
+            document.getElementById('results').style.border = '2px solid green';
+            addResult('DOM Manipulation', true, 'Can modify elements');
+        } catch(e) {
+            addResult('DOM Manipulation', false, e.message);
+        }
+        
+        // Test 3: Function Definition
+        try {
+            function testFunction() { return true; }
+            addResult('Function Definition', testFunction(), 'Functions can be defined');
+        } catch(e) {
+            addResult('Function Definition', false, e.message);
+        }
+        
+        // Test 4: Async Function
+        try {
+            async function testAsync() { return true; }
+            testAsync().then(r => addResult('Async Function', r, 'Async/await works'));
+        } catch(e) {
+            addResult('Async Function', false, e.message);
+        }
+        
+        // Test 5: Event Listener
+        try {
+            document.getElementById('btn2').addEventListener('click', function() {
+                alert('addEventListener works!');
+                addResult('addEventListener', true, 'Event attached and fired');
+            });
+            addResult('Event Listener Setup', true, 'Listener attached to button 2');
+        } catch(e) {
+            addResult('Event Listener Setup', false, e.message);
+        }
+        
+        // Test 6: Window object
+        try {
+            window.testData = 'test';
+            addResult('Window Object', window.testData === 'test', 'Can set window properties');
+        } catch(e) {
+            addResult('Window Object', false, e.message);
+        }
+        
+        // Test 7: Inline onclick functions
+        function testInline() {
+            alert('Inline onclick works!');
+            addResult('Inline onclick', true, 'Function called from onclick');
+        }
+        
+        // Test 8: Window function
+        window.testWindow = function() {
+            alert('Window function works!');
+            addResult('Window Function', true, 'Function called via window');
+        };
+        
+        // Test 9: Check for errors
+        window.onerror = function(msg, url, line) {
+            addResult('JavaScript Error', false, msg + ' at line ' + line);
+            return true;
+        };
+        
+        // Test 10: Fetch API
+        try {
+            if (window.fetch) {
+                addResult('Fetch API', true, 'Fetch is available');
+            } else {
+                addResult('Fetch API', false, 'Fetch not available');
+            }
+        } catch(e) {
+            addResult('Fetch API', false, e.message);
+        }
+        
+        // Summary
+        setTimeout(() => {
+            const passed = tests.filter(t => t.passed).length;
+            const total = tests.length;
+            const summary = document.createElement('div');
+            summary.style.cssText = 'margin-top: 20px; padding: 10px; background: #e7f3ff; border: 2px solid #0066cc;';
+            summary.innerHTML = '<h3>Summary: ' + passed + '/' + total + ' tests passed</h3>';
+            document.body.insertBefore(summary, document.body.firstChild);
+        }, 1000);
+    </script>
+</body>
+</html>

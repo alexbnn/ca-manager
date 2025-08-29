@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Test</title>
+</head>
+<body>
+    <h1>Testing Core Functions</h1>
+    
+    <div id="status"></div>
+    
+    <button onclick="testFormatDate()">Test formatDate</button>
+    <button onclick="testApiRequest()">Test apiRequest</button>
+    <button onclick="testLoadPending()">Test loadPendingRequests</button>
+    
+    <script>
+        const statusDiv = document.getElementById('status');
+        
+        function addStatus(msg, success) {
+            const div = document.createElement('div');
+            div.style.color = success ? 'green' : 'red';
+            div.textContent = msg;
+            statusDiv.appendChild(div);
+        }
+        
+        // Test 1: Basic setup
+        try {
+            let isLoading = false;
+            let currentUser = {
+                username: '{{ user.username if user else "" }}',
+                roles: {{ (user.roles | tojson) if (user and user.roles) else '[]' | safe }},
+                is_admin: {{ (user.is_admin | tojson) if user else 'false' | safe }}
+            };
+            addStatus('✓ Basic variables initialized', true);
+        } catch(e) {
+            addStatus('✗ Basic setup failed: ' + e.message, false);
+        }
+        
+        // Test 2: Helper functions
+        try {
+            function formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleString();
+            }
+            
+            function showStatus(msg, type) {
+                console.log('Status:', msg, type);
+            }
+            
+            function setLoading(state) {
+                isLoading = state;
+            }
+            
+            addStatus('✓ Helper functions defined', true);
+        } catch(e) {
+            addStatus('✗ Helper functions failed: ' + e.message, false);
+        }
+        
+        // Test 3: API Request function
+        try {
+            async function apiRequest(endpoint, method = 'GET', data = null) {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                };
+                
+                if (data && method !== 'GET') {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(endpoint, options);
+                return await response.json();
+            }
+            
+            window.apiRequest = apiRequest;
+            addStatus('✓ apiRequest function defined', true);
+        } catch(e) {
+            addStatus('✗ apiRequest failed: ' + e.message, false);
+        }
+        
+        // Test 4: The problematic function
+        try {
+            window.loadPendingRequests = async function loadPendingRequests() {
+                showStatus('Loading pending certificate requests...', 'loading');
+                
+                try {
+                    const result = await apiRequest('/api/certificate-requests?status=pending');
+                    
+                    if (result && Array.isArray(result)) {
+                        displayPendingRequests(result);
+                        showStatus(`Found ${result.length} pending certificate requests`, 'success');
+                    }
+                } catch (error) {
+                    console.error('Error loading pending requests:', error);
+                    showStatus('Failed to load pending requests: ' + error.message, 'error');
+                }
+            }
+            
+            function displayPendingRequests(requests) {
+                console.log('Displaying requests:', requests);
+            }
+            
+            addStatus('✓ loadPendingRequests defined', true);
+        } catch(e) {
+            addStatus('✗ loadPendingRequests failed: ' + e.message, false);
+        }
+        
+        // Test functions
+        function testFormatDate() {
+            try {
+                const result = formatDate(new Date().toISOString());
+                alert('formatDate works: ' + result);
+            } catch(e) {
+                alert('formatDate failed: ' + e.message);
+            }
+        }
+        
+        function testApiRequest() {
+            apiRequest('/api/pki/status')
+                .then(result => alert('API request works: ' + JSON.stringify(result)))
+                .catch(e => alert('API request failed: ' + e.message));
+        }
+        
+        function testLoadPending() {
+            window.loadPendingRequests()
+                .then(() => alert('loadPendingRequests completed'))
+                .catch(e => alert('loadPendingRequests failed: ' + e.message));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Test</title>
+</head>
+<body>
+    <h1>JavaScript Error Test</h1>
+    <button onclick="alert('Inline onclick works!')">Test Inline Click</button>
+    <button id="testBtn">Test addEventListener</button>
+    <div id="output"></div>
+    
+    <script>
+        console.log('Script started');
+        
+        // Test basic JavaScript
+        try {
+            document.getElementById('output').innerHTML = '<p>Basic DOM manipulation works</p>';
+            console.log('Basic DOM works');
+        } catch(e) {
+            console.error('Basic DOM error:', e);
+        }
+        
+        // Test event listener
+        try {
+            document.getElementById('testBtn').addEventListener('click', function() {
+                alert('addEventListener works!');
+            });
+            console.log('Event listener added');
+        } catch(e) {
+            console.error('Event listener error:', e);
+        }
+        
+        // Test async function
+        try {
+            async function testAsync() {
+                console.log('Async function works');
+                return true;
+            }
+            testAsync();
+        } catch(e) {
+            console.error('Async function error:', e);
+        }
+        
+        console.log('Script completed');
+    </script>
+</body>
+</html>

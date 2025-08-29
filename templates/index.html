@@ -51,6 +51,7 @@
             background: var(--text-light);
             min-height: 100vh;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         
         /* Header Styles */
@@ -58,9 +59,18 @@
             background: var(--text-light);
             border-bottom: 1px solid var(--light-gray);
             padding: 1rem 2rem;
-            position: sticky;
+            position: fixed;
             top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1200px;
             z-index: 100;
+            transition: box-shadow 0.2s ease;
+        }
+        
+        .header.scrolled {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .header-content {
@@ -110,6 +120,7 @@
         /* Main Content */
         .main-content {
             padding: 2rem;
+            padding-top: 280px; /* Account for fixed header (80px) + tab navigation (50px) + metrics dashboard (80px) + 40px gap + padding */
         }
         
         /* Dashboard Metrics */
@@ -323,6 +334,70 @@
         }
         
         /* Status Messages */
+        /* Floating Notifications */
+        .notifications-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        
+        .notification {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border-left: 4px solid;
+            font-weight: 500;
+            font-size: 0.875rem;
+            pointer-events: auto;
+            transform: translateX(420px);
+            transition: all 0.3s ease;
+            opacity: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .notification.closing {
+            transform: translateX(420px);
+            opacity: 0;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .notification-close:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Old status styles (kept for compatibility) */
         .status {
             margin-top: 2rem;
             padding: 1rem 1.5rem;
@@ -337,19 +412,25 @@
             display: block;
         }
         
-        .success {
+        .success, .notification.success {
             background: #f6fef9;
             color: #027a48;
             border-left-color: var(--success-green);
         }
         
-        .error {
+        .error, .notification.error {
             background: #fef3f2;
             color: #b42318;
             border-left-color: var(--error-red);
         }
         
-        .loading {
+        .warning, .notification.warning {
+            background: #fefdf0;
+            color: #7a6c00;
+            border-left-color: #f79009;
+        }
+        
+        .loading, .notification.loading {
             background: #f0f9ff;
             color: #026aa2;
             border-left-color: var(--info-blue);
@@ -653,9 +734,41 @@
             border-bottom: 2px solid var(--light-gray);
             padding: 0 2rem;
             overflow-x: auto;
-            position: sticky;
+            position: fixed;
             top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1200px;
             z-index: 90;
+            transition: box-shadow 0.2s ease;
+        }
+        
+        .tab-navigation.scrolled {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Fixed Metrics Dashboard */
+        .fixed-metrics-dashboard {
+            position: fixed;
+            top: 130px; /* Header (80px) + Tab Navigation (50px) */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            padding: 1rem 2rem;
+            z-index: 80;
+            display: grid !important;
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 1rem;
+            border-bottom: 1px solid var(--light-gray);
+            transition: box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .fixed-metrics-dashboard.scrolled {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .tab-list {
@@ -971,6 +1084,7 @@
         @media (max-width: 768px) {
             .main-content {
                 padding: 1rem;
+                padding-top: 260px; /* Account for header + tabs + metrics + 40px gap on mobile */
             }
             
             .header {
@@ -993,6 +1107,11 @@
             
             .metrics-dashboard {
                 grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .fixed-metrics-dashboard {
+                grid-template-columns: repeat(3, 1fr);
+                padding: 0.75rem 1rem;
             }
             
             .search-controls {
@@ -1019,6 +1138,11 @@
         @media (max-width: 480px) {
             .metrics-dashboard {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .fixed-metrics-dashboard {
+                grid-template-columns: repeat(2, 1fr);
+                padding: 0.5rem 0.75rem;
             }
             
             .logo-section {
@@ -1435,36 +1559,37 @@
                 {% endif %}
             </ul>
         </nav>
+        
+        <!-- Fixed Dashboard Metrics -->
+        <div class="fixed-metrics-dashboard" id="fixedDashboardMetrics">
+            <div class="metric-card" id="totalCertsCardFixed" title="Total number of certificates issued by your PKI">
+                <h3>Total Certificates</h3>
+                <div class="value" id="totalCertsFixed">0</div>
+                <div class="label">Issued</div>
+            </div>
+            <div class="metric-card" id="expiringSoonCardFixed" title="Certificates expiring within the next 30 days">
+                <h3>Expiring Soon</h3>
+                <div class="value" id="expiringSoonFixed">0</div>
+                <div class="label">Within 30 days</div>
+            </div>
+            <div class="metric-card" id="pendingRequestsCardFixed" title="Certificate requests waiting to be signed">
+                <h3>Pending Requests</h3>
+                <div class="value" id="pendingRequestsFixed">0</div>
+                <div class="label">Awaiting signature</div>
+            </div>
+            <div class="metric-card" id="systemHealthCardFixed" title="Overall health of your PKI system">
+                <h3>System Health</h3>
+                <div class="value" id="systemHealthFixed">✅</div>
+                <div class="label" id="systemHealthLabelFixed">PKI Backend</div>
+            </div>
+            <div class="metric-card" id="scepHealthCardFixed" title="Status of SCEP server for automatic device enrollment">
+                <h3>SCEP Server</h3>
+                <div class="value" id="scepHealthFixed">📡</div>
+                <div class="label">Device Enrollment</div>
+            </div>
+        </div>
 
         <main class="main-content">
-            <!-- Dashboard Metrics -->
-            <div class="metrics-dashboard hidden" id="dashboardMetrics">
-                <div class="metric-card" id="totalCertsCard" title="Total number of certificates issued by your PKI">
-                    <h3>Total Certificates</h3>
-                    <div class="value" id="totalCerts">0</div>
-                    <div class="label">Issued</div>
-                </div>
-                <div class="metric-card" id="expiringSoonCard" title="Certificates expiring within the next 30 days">
-                    <h3>Expiring Soon</h3>
-                    <div class="value" id="expiringSoon">0</div>
-                    <div class="label">Within 30 days</div>
-                </div>
-                <div class="metric-card" id="pendingRequestsCard" title="Certificate requests waiting to be signed">
-                    <h3>Pending Requests</h3>
-                    <div class="value" id="pendingRequests">0</div>
-                    <div class="label">Awaiting signature</div>
-                </div>
-                <div class="metric-card" id="systemHealthCard" title="Overall health of your PKI system">
-                    <h3>System Health</h3>
-                    <div class="value" id="systemHealth">✅</div>
-                    <div class="label" id="systemHealthLabel">PKI Backend</div>
-                </div>
-                <div class="metric-card" id="scepHealthCard" title="Status of SCEP server for automatic device enrollment">
-                    <h3>SCEP Server</h3>
-                    <div class="value" id="scepHealth">📡</div>
-                    <div class="label">Device Enrollment</div>
-                </div>
-            </div>
             
             <!-- Tab Content: PKI & Certificate Authority (PKI Setup + CA Management + Certificate Creation) -->
             {% if 'admin' in user.roles or 'operator' in user.roles %}
@@ -1950,12 +2075,15 @@
                     <!-- Users will be populated here -->
                 </div>
                 </div>
+                
             </div>
             {% endif %}
             
-            <!-- Status and Output -->
-            <div id="status" class="status"></div>
+            <!-- Output -->
             <div id="output" class="output"></div>
+        
+        <!-- Floating Notifications Container -->
+        <div id="notifications" class="notifications-container"></div>
         </main>
     </div>
 
@@ -2289,14 +2417,68 @@
         }
 
         function showStatus(message, type = 'loading') {
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = `status ${type} show`;
+            const container = document.getElementById('notifications');
+            
+            // Fallback to console if notifications container doesn't exist
+            if (!container) {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+                return;
+            }
+            
+            // Close any existing loading notification if this isn't loading
+            if (type !== 'loading' && window.currentLoadingNotification) {
+                closeNotification(window.currentLoadingNotification);
+                window.currentLoadingNotification = null;
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            // Create content
+            const content = document.createElement('div');
+            content.className = 'notification-content';
             
             if (type === 'loading') {
-                statusDiv.innerHTML = `<span class="loading-spinner"></span>${message}`;
+                content.innerHTML = `<span class="loading-spinner"></span>${message}`;
             } else {
-                statusDiv.textContent = message;
+                content.innerHTML = message;
             }
+            
+            // Create close button
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'notification-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.onclick = () => closeNotification(notification);
+            
+            // Assemble notification
+            notification.appendChild(content);
+            notification.appendChild(closeBtn);
+            container.appendChild(notification);
+            
+            // Show with animation
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Auto-close non-loading notifications
+            if (type !== 'loading') {
+                setTimeout(() => closeNotification(notification), 5000);
+            }
+            
+            // Store reference for loading notifications
+            if (type === 'loading') {
+                window.currentLoadingNotification = notification;
+            }
+        }
+        
+        function closeNotification(notification) {
+            if (!notification || !notification.parentNode) return;
+            
+            notification.classList.add('closing');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
         }
 
         function showOutput(content, title = 'Information') {
@@ -2387,14 +2569,15 @@
                 if (result && result.status === 'success') {
                     const metrics = result.metrics;
                     
-                    document.getElementById('totalCerts').textContent = metrics.total_certificates || 0;
-                    document.getElementById('expiringSoon').textContent = metrics.expiring_soon || 0;
-                    document.getElementById('pendingRequests').textContent = metrics.pending_requests || 0;
+                    // Update fixed dashboard metrics
+                    document.getElementById('totalCertsFixed').textContent = metrics.total_certificates || 0;
+                    document.getElementById('expiringSoonFixed').textContent = metrics.expiring_soon || 0;
+                    document.getElementById('pendingRequestsFixed').textContent = metrics.pending_requests || 0;
                     
                     // Enhanced system health with tooltips
-                    const systemHealthElement = document.getElementById('systemHealth');
-                    const systemHealthCard = document.getElementById('systemHealthCard');
-                    const systemHealthLabel = document.getElementById('systemHealthLabel');
+                    const systemHealthElement = document.getElementById('systemHealthFixed');
+                    const systemHealthCard = document.getElementById('systemHealthCardFixed');
+                    const systemHealthLabel = document.getElementById('systemHealthLabelFixed');
                     
                     if (metrics.health_status === 'healthy') {
                         systemHealthElement.textContent = '✅';
@@ -2409,27 +2592,25 @@
                     
                     // Enhanced tooltips based on PKI state
                     if (!metrics.pki_initialized) {
-                        document.getElementById('totalCertsCard').title = 'No certificates yet - Initialize PKI first';
-                        document.getElementById('expiringSoonCard').title = 'Certificate monitoring unavailable - PKI not initialized';
-                        document.getElementById('pendingRequestsCard').title = 'Certificate requests unavailable - Initialize PKI first';
+                        document.getElementById('totalCertsCardFixed').title = 'No certificates yet - Initialize PKI first';
+                        document.getElementById('expiringSoonCardFixed').title = 'Certificate monitoring unavailable - PKI not initialized';
+                        document.getElementById('pendingRequestsCardFixed').title = 'Certificate requests unavailable - Initialize PKI first';
                     }
                     
-                    document.getElementById('dashboardMetrics').classList.remove('hidden');
                     showStatus('Dashboard loaded successfully', 'success');
                 } else {
                     // Show dashboard with warning state
-                    document.getElementById('totalCerts').textContent = '0';
-                    document.getElementById('expiringSoon').textContent = '0';
-                    document.getElementById('pendingRequests').textContent = '0';
-                    document.getElementById('systemHealth').textContent = '⚠️';
+                    document.getElementById('totalCertsFixed').textContent = '0';
+                    document.getElementById('expiringSoonFixed').textContent = '0';
+                    document.getElementById('pendingRequestsFixed').textContent = '0';
+                    document.getElementById('systemHealthFixed').textContent = '⚠️';
                     
-                    const systemHealthCard = document.getElementById('systemHealthCard');
-                    const systemHealthLabel = document.getElementById('systemHealthLabel');
+                    const systemHealthCard = document.getElementById('systemHealthCardFixed');
+                    const systemHealthLabel = document.getElementById('systemHealthLabelFixed');
                     systemHealthLabel.textContent = 'Setup Required';
                     systemHealthCard.title = 'PKI system needs setup. Complete the initialization and CA building process';
                     systemHealthCard.style.cursor = 'help';
                     
-                    document.getElementById('dashboardMetrics').classList.remove('hidden');
                     showStatus('Dashboard loaded with warnings - PKI setup may be incomplete', 'warning');
                 }
                 
@@ -2447,7 +2628,7 @@
         async function updateSCEPStatus() {
             try {
                 const result = await apiRequest('/api/scep/health');
-                const scepElement = document.getElementById('scepHealth');
+                const scepElement = document.getElementById('scepHealthFixed');
                 
                 if (result && result.status === 'success' && result.scep_health) {
                     const scepHealth = result.scep_health;
@@ -2463,12 +2644,12 @@
                         scepElement.title = 'SCEP Server: Unhealthy';
                     }
                 } else {
-                    document.getElementById('scepHealth').textContent = '❌';
-                    document.getElementById('scepHealth').title = 'SCEP Server: Connection failed';
+                    scepElement.textContent = '❌';
+                    scepElement.title = 'SCEP Server: Connection failed';
                 }
             } catch (error) {
-                document.getElementById('scepHealth').textContent = '❌';
-                document.getElementById('scepHealth').title = 'SCEP Server: Connection error';
+                scepElement.textContent = '❌';
+                scepElement.title = 'SCEP Server: Connection error';
             }
         }
 
@@ -4407,6 +4588,41 @@ Dependencies:
             // Initialize tabs
             initializeTabs();
             
+            // Initialize sticky header scroll effects
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+            const metricsFixed = document.querySelector('.fixed-metrics-dashboard');
+            
+            let scrollTimeout;
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                
+                // Add shadow to fixed elements when scrolled
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    if (tabNavigation) {
+                        tabNavigation.classList.add('scrolled');
+                    }
+                    if (metricsFixed) {
+                        metricsFixed.classList.add('scrolled');
+                    }
+                } else {
+                    header.classList.remove('scrolled');
+                    if (tabNavigation) {
+                        tabNavigation.classList.remove('scrolled');
+                    }
+                    if (metricsFixed) {
+                        metricsFixed.classList.remove('scrolled');
+                    }
+                }
+                
+                // Clear the existing timeout and set a new one
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    // Additional scroll-end effects could be added here if needed
+                }, 100);
+            });
+            
             // Add try-catch to identify which function is breaking
             try {
                 // Check connection on page load
@@ -4580,17 +4796,7 @@ Dependencies:
             }
         }
 
-        // Auto-hide status messages after 10 seconds (except loading)
-        setInterval(() => {
-            const statusDiv = document.getElementById('status');
-            if (statusDiv.classList.contains('show') && !statusDiv.classList.contains('loading')) {
-                setTimeout(() => {
-                    if (!statusDiv.classList.contains('loading')) {
-                        statusDiv.classList.remove('show');
-                    }
-                }, 10000);
-            }
-        }, 1000);
+        // Auto-hide status messages - now handled by notification system
 
         // Guided Tour Implementation
         let guidedTour = null;
