@@ -3695,6 +3695,9 @@ Dependencies:
                     const validateBtn = cert.type === 'issued' ? 
                         `<button class="btn btn-info btn-small" onclick="validateCertificateFromList('${cert.name}')">✅ Validate</button>` : '';
                     
+                    const resendEmailBtn = cert.type === 'issued' && cert.name.includes('@') ? 
+                        `<button class="btn btn-warning btn-small" onclick="resendCertificateEmail('${cert.name}')">📧 Resend Email</button>` : '';
+                    
                     return `
                         <div class="cert-item">
                             <div class="cert-info">
@@ -3704,6 +3707,7 @@ Dependencies:
                             <div class="cert-actions">
                                 <span class="cert-type ${cert.type}">${cert.type}</span>
                                 ${validateBtn}
+                                ${resendEmailBtn}
                                 ${downloadBtn}
                             </div>
                         </div>
@@ -3722,6 +3726,31 @@ Dependencies:
         async function validateCertificateFromList(name) {
             document.getElementById('operationCertName').value = name;
             await validateCert();
+        }
+
+        async function resendCertificateEmail(name) {
+            if (isLoading) return;
+            
+            if (!confirm(`Resend certificate email for ${name}?`)) {
+                return;
+            }
+            
+            setLoading(true);
+            showStatus(`Resending certificate email for ${name}...`, 'loading');
+            
+            try {
+                const result = await apiRequest(`/api/certificates/${encodeURIComponent(name)}/resend-email`, 'POST');
+                
+                if (result && result.status === 'success') {
+                    showStatus(`Certificate email resent successfully to ${result.recipient}`, 'success');
+                } else {
+                    showStatus('Error: ' + (result?.error || result?.message || 'Failed to resend email'), 'error');
+                }
+            } catch (error) {
+                showStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
         }
 
         function displayPKIStatus(status) {

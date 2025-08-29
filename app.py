@@ -836,6 +836,72 @@ def get_expiring_certificates():
     result = make_easyrsa_request('check-expiring', {'days': int(days)})
     return jsonify(result)
 
+@app.route('/api/certificates/<path:cert_name>/resend-email', methods=['POST'])
+@auth_required()
+def resend_certificate_email(cert_name):
+    """Resend certificate email to the certificate owner"""
+    try:
+        # First, get certificate files from EasyRSA
+        files_result = make_easyrsa_request("get-cert-files", {"name": cert_name, "include_key": True})
+        
+        if files_result.get("status") != "success":
+            return jsonify({'error': 'Certificate not found or could not be retrieved'}), 404
+        
+        cert_pem = files_result.get("certificate")
+        key_pem = files_result.get("private_key")
+        ca_cert_pem = files_result.get("ca_certificate", "")
+        
+        if not cert_pem or not key_pem:
+            return jsonify({'error': 'Certificate or private key data missing'}), 400
+        
+        # Extract email from certificate CN (assuming format: user@domain.com)
+        try:
+            # Parse certificate to get CN
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            
+            # Get the subject common name
+            common_name = None
+            for attribute in cert_obj.subject:
+                if attribute.oid == x509.NameOID.COMMON_NAME:
+                    common_name = attribute.value
+                    break
+            
+            if not common_name or '@' not in common_name:
+                return jsonify({'error': 'Certificate does not contain a valid email address in the common name'}), 400
+            
+            recipient_email = common_name
+            recipient_name = common_name.split('@')[0].title()  # Use username part as name
+            
+        except Exception as e:
+            logging.error(f"Error parsing certificate for {cert_name}: {e}")
+            return jsonify({'error': 'Failed to parse certificate'}), 500
+        
+        # Generate a fake request ID for the email (since this is a resend)
+        request_id = f"resend-{cert_name}-{int(datetime.now().timestamp())}"
+        
+        # Send the certificate email
+        logging.info(f"Resending certificate email for {cert_name} to {recipient_email}")
+        email_sent = send_certificate_email_with_data(
+            request_id, recipient_email, recipient_name, common_name,
+            cert_pem, key_pem, ca_cert_pem
+        )
+        
+        if email_sent:
+            logging.info(f"Certificate email resent successfully for {cert_name} to {recipient_email}")
+            return jsonify({
+                'status': 'success',
+                'message': f'Certificate email resent successfully to {recipient_email}',
+                'recipient': recipient_email
+            })
+        else:
+            return jsonify({'error': 'Failed to send certificate email'}), 500
+            
+    except Exception as e:
+        logging.error(f"Error resending certificate email for {cert_name}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/api/certificates/expiry-dashboard', methods=['GET'])
 @auth_required()
 def get_expiry_dashboard():
