@@ -3664,22 +3664,41 @@ def get_version_info():
             pass
         
         return jsonify({
-            'success': True,
-            'current_branch': current_branch,
-            'version': version,
-            'latest_commit': latest_commit,
-            'update_available': False  # Will be determined by check-updates endpoint
+            'status': 'success',  # For 5.1.0b compatibility
+            'success': True,  # For 5.0.0b compatibility
+            'branch': current_branch,  # For 5.1.0b compatibility
+            'current_branch': current_branch,  # For 5.0.0b compatibility
+            'version': version,  # For both
+            'latest_commit': latest_commit,  # For 5.0.0b compatibility
+            'commit': result.stdout.strip()[:8] if result.returncode == 0 and result.stdout.strip() else 'N/A',  # For 5.1.0b compatibility (truncated)
+            'update_available': False,  # For 5.0.0b compatibility (will be determined by check-updates)
+            'git_available': True  # For 5.1.0b compatibility
         })
         
     except Exception as e:
         logging.error(f"Error getting version info: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'status': 'error',  # For 5.1.0b compatibility
+            'success': False,  # For 5.0.0b compatibility
+            'error': str(e),  # For 5.0.0b compatibility
+            'message': str(e)
+        }), 500
 
 @app.route('/api/available-branches')
 @auth_required()
 def get_available_branches():
     """Get available branches from GitHub"""
     try:
+        # Get current branch for comparison
+        current_branch = '5.0.0b'  # Default fallback
+        try:
+            result = subprocess.run(['git', 'branch', '--show-current'], 
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
+            if result.returncode == 0:
+                current_branch = result.stdout.strip()
+        except (subprocess.SubprocessError, FileNotFoundError):
+            pass  # Use fallback
+        
         import requests
         response = requests.get(f'{GITHUB_API_URL}/branches', timeout=10)
         
@@ -3689,24 +3708,35 @@ def get_available_branches():
             for branch in branches_data:
                 branches.append({
                     'name': branch['name'],
-                    'protected': branch.get('protected', False),
-                    'commit_sha': branch['commit']['sha'][:8],
-                    'commit_url': branch['commit']['url']
+                    'commit': branch['commit']['sha'],  # Full SHA for 5.1.0b compatibility
+                    'commit_sha': branch['commit']['sha'][:8],  # Truncated for 5.0.0b compatibility
+                    'protected': branch.get('protected', False),  # For 5.0.0b compatibility
+                    'commit_url': branch['commit']['url'],  # For 5.0.0b compatibility
+                    'current': branch['name'] == current_branch
                 })
             
             return jsonify({
-                'success': True,
-                'branches': branches
+                'status': 'success',  # For 5.1.0b compatibility
+                'success': True,  # For 5.0.0b compatibility
+                'branches': branches,
+                'current_branch': current_branch
             })
         else:
             return jsonify({
-                'success': False,
-                'error': f'GitHub API error: {response.status_code}'
+                'status': 'error',  # For 5.1.0b compatibility
+                'success': False,  # For 5.0.0b compatibility
+                'error': f'GitHub API error: {response.status_code}',  # For 5.0.0b compatibility
+                'message': 'Failed to fetch branches from GitHub'
             }), 500
             
     except Exception as e:
         logging.error(f"Error fetching branches: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'status': 'error',  # For 5.1.0b compatibility
+            'success': False,  # For 5.0.0b compatibility
+            'error': str(e),  # For 5.0.0b compatibility
+            'message': str(e)
+        }), 500
 
 @app.route('/api/check-updates')
 @auth_required()
@@ -3734,21 +3764,32 @@ def check_updates():
             update_available = current_commit != remote_commit
             
             return jsonify({
-                'success': True,
-                'update_available': update_available,
-                'current_commit': current_commit[:8],
-                'latest_commit': remote_commit[:8],
+                'status': 'success',  # For 5.1.0b compatibility
+                'success': True,  # For 5.0.0b compatibility
+                'updates_available': update_available,  # For 5.1.0b compatibility
+                'update_available': update_available,  # For 5.0.0b compatibility
+                'current_commit': current_commit[:8] if current_commit else '',  # Truncated for 5.0.0b
+                'latest_commit': remote_commit[:8] if remote_commit else '',  # Truncated for 5.0.0b
+                'current_commit_full': current_commit,  # Full for 5.1.0b
+                'latest_commit_full': remote_commit,  # Full for 5.1.0b
                 'branch': current_branch
             })
         else:
             return jsonify({
-                'success': False,
-                'error': f'Unable to check remote branch: {response.status_code}'
+                'status': 'error',  # For 5.1.0b compatibility
+                'success': False,  # For 5.0.0b compatibility
+                'error': f'Unable to check remote branch: {response.status_code}',  # For 5.0.0b compatibility
+                'message': f'Failed to check updates for branch {current_branch}'
             }), 500
             
     except Exception as e:
         logging.error(f"Error checking updates: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'status': 'error',  # For 5.1.0b compatibility
+            'success': False,  # For 5.0.0b compatibility
+            'error': str(e),  # For 5.0.0b compatibility
+            'message': str(e)
+        }), 500
 
 @app.route('/api/update-branch', methods=['POST'])
 @auth_required()
