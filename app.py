@@ -3767,18 +3767,66 @@ def get_version_info():
             current_commit = 'Git not available - container needs rebuild'
             last_updated = 'Container rebuild required for full version info'
         
+        # Get version from manifest.json if available (for 5.0.0b compatibility)
+        version = APP_VERSION  # Default to APP_VERSION
+        try:
+            with open('/app/source/manifest.json', 'r') as f:
+                import json
+                manifest = json.load(f)
+                version = manifest.get('version', APP_VERSION)
+        except:
+            pass
+        
+        # Build latest commit info (for 5.0.0b compatibility)
+        if git_available:
+            result = subprocess.run(['git', 'log', '-1', '--format=%H|%s|%an|%ad', '--date=iso'], 
+                                  cwd='/app/source', capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                commit_parts = result.stdout.strip().split('|', 3)
+                latest_commit = {
+                    'hash': commit_parts[0][:8] if len(commit_parts) > 0 else 'N/A',
+                    'message': commit_parts[1] if len(commit_parts) > 1 else 'N/A',
+                    'author': commit_parts[2] if len(commit_parts) > 2 else 'N/A',
+                    'date': commit_parts[3] if len(commit_parts) > 3 else 'N/A'
+                }
+            else:
+                latest_commit = {
+                    'hash': current_commit[:8] if current_commit != 'unknown' else 'N/A',
+                    'message': 'Git not available',
+                    'author': 'N/A',
+                    'date': last_updated
+                }
+        else:
+            latest_commit = {
+                'hash': 'N/A',
+                'message': 'Git not available',
+                'author': 'N/A',
+                'date': 'N/A'
+            }
+        
         return jsonify({
-            'status': 'success',
-            'branch': current_branch,
-            'commit': current_commit,
-            'last_updated': last_updated,
-            'app_version': APP_VERSION,
-            'git_available': git_available
+            'status': 'success',  # For 5.1.0b compatibility
+            'success': True,  # For 5.0.0b compatibility
+            'branch': current_branch,  # For 5.1.0b compatibility
+            'current_branch': current_branch,  # For 5.0.0b compatibility
+            'commit': current_commit,  # For 5.1.0b compatibility
+            'last_updated': last_updated,  # For 5.1.0b compatibility
+            'app_version': APP_VERSION,  # For 5.1.0b compatibility
+            'version': version,  # For 5.0.0b compatibility
+            'latest_commit': latest_commit,  # For 5.0.0b compatibility
+            'update_available': False,  # For 5.0.0b compatibility (will be determined by check-updates)
+            'git_available': git_available  # For 5.1.0b compatibility
         })
         
     except Exception as e:
         logging.error(f"Error getting version info: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({
+            'status': 'error',  # For 5.1.0b compatibility
+            'success': False,  # For 5.0.0b compatibility
+            'error': str(e),  # For 5.0.0b compatibility
+            'message': str(e)
+        }), 500
 
 @app.route('/api/available-branches', methods=['GET'])
 @auth_required()
@@ -3798,7 +3846,12 @@ def get_available_branches():
         # Fetch branches from GitHub API
         response = requests.get(f'{GITHUB_API_URL}/branches', timeout=10)
         if response.status_code != 200:
-            return jsonify({'status': 'error', 'message': 'Failed to fetch branches from GitHub'}), 500
+            return jsonify({
+                'status': 'error',  # For 5.1.0b compatibility
+                'success': False,  # For 5.0.0b compatibility
+                'error': f'GitHub API error: {response.status_code}',  # For 5.0.0b compatibility
+                'message': 'Failed to fetch branches from GitHub'
+            }), 500
         
         branches_data = response.json()
         branches = []
@@ -3806,19 +3859,28 @@ def get_available_branches():
         for branch in branches_data:
             branches.append({
                 'name': branch['name'],
-                'commit': branch['commit']['sha'],
+                'commit': branch['commit']['sha'],  # Full SHA for 5.1.0b compatibility
+                'commit_sha': branch['commit']['sha'][:8],  # Truncated for 5.0.0b compatibility
+                'protected': branch.get('protected', False),  # For 5.0.0b compatibility
+                'commit_url': branch['commit']['url'],  # For 5.0.0b compatibility
                 'current': branch['name'] == current_branch
             })
         
         return jsonify({
-            'status': 'success',
+            'status': 'success',  # For 5.1.0b compatibility
+            'success': True,  # For 5.0.0b compatibility
             'branches': branches,
             'current_branch': current_branch
         })
         
     except Exception as e:
         logging.error(f"Error getting available branches: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({
+            'status': 'error',  # For 5.1.0b compatibility
+            'success': False,  # For 5.0.0b compatibility
+            'error': str(e),  # For 5.0.0b compatibility
+            'message': str(e)
+        }), 500
 
 @app.route('/api/check-updates', methods=['GET'])
 @auth_required()
@@ -3837,7 +3899,12 @@ def check_updates():
         # Get latest commit from GitHub API
         response = requests.get(f'{GITHUB_API_URL}/branches/{current_branch}', timeout=10)
         if response.status_code != 200:
-            return jsonify({'status': 'error', 'message': f'Failed to check updates for branch {current_branch}'}), 500
+            return jsonify({
+                'status': 'error',  # For 5.1.0b compatibility
+                'success': False,  # For 5.0.0b compatibility
+                'error': f'Unable to check remote branch: {response.status_code}',  # For 5.0.0b compatibility
+                'message': f'Failed to check updates for branch {current_branch}'
+            }), 500
         
         branch_data = response.json()
         latest_commit = branch_data['commit']['sha']
@@ -3846,10 +3913,14 @@ def check_updates():
         updates_available = current_commit != latest_commit
         
         response_data = {
-            'status': 'success',
-            'updates_available': updates_available,
-            'current_commit': current_commit,
-            'latest_commit': latest_commit,
+            'status': 'success',  # For 5.1.0b compatibility
+            'success': True,  # For 5.0.0b compatibility
+            'updates_available': updates_available,  # For 5.1.0b compatibility
+            'update_available': updates_available,  # For 5.0.0b compatibility
+            'current_commit': current_commit[:8] if current_commit else '',  # Truncated for 5.0.0b
+            'latest_commit': latest_commit[:8] if latest_commit else '',  # Truncated for 5.0.0b
+            'current_commit_full': current_commit,  # Full for 5.1.0b
+            'latest_commit_full': latest_commit,  # Full for 5.1.0b
             'branch': current_branch
         }
         
