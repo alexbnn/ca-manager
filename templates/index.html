@@ -5487,6 +5487,22 @@ Dependencies:
                 fetch('/api/update-status')
                     .then(response => response.json())
                     .then(data => {
+                        // Check if update status was reset (container restarted)
+                        if (data.message === 'Ready' && data.progress === 0 && !data.in_progress) {
+                            console.log('Update status reset detected, assuming branch switch completed successfully');
+                            showMessage('Branch switch completed successfully! The application will be available shortly.');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 3000);
+                            // Reset UI
+                            document.getElementById('updateProgress').style.display = 'none';
+                            document.getElementById('updateBranch').disabled = false;
+                            document.getElementById('updateBranch').textContent = 'Update Current Branch';
+                            document.getElementById('manageBranches').disabled = false;
+                            document.getElementById('manageBranches').textContent = 'Switch Branch';
+                            return;
+                        }
+                        
                         progressBar.style.width = data.progress + '%';
                         progressMessage.textContent = data.message;
                         
