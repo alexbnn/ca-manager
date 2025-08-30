@@ -5897,14 +5897,16 @@ Dependencies:
                 });
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (response.ok && data.status === 'success' && data.branches) {
                     const branchSelect = document.getElementById('branchSelect');
                     branchSelect.innerHTML = '<option value="">Select a branch...</option>';
                     
                     data.branches.forEach(branch => {
                         const option = document.createElement('option');
                         option.value = branch.name;
-                        option.textContent = `${branch.name} (${branch.commit.substring(0, 8)})`;
+                        // Handle case where commit might be undefined
+                        const commitHash = branch.commit ? branch.commit.substring(0, 8) : 'unknown';
+                        option.textContent = `${branch.name} (${commitHash})`;
                         if (branch.current) {
                             option.textContent += ' - Current';
                             option.style.fontWeight = 'bold';
@@ -5918,7 +5920,9 @@ Dependencies:
                         switchBtn.disabled = !this.value || this.value === data.current_branch;
                     });
                 } else {
-                    showStatus('Failed to load available branches', 'error');
+                    console.error('API Error:', data);
+                    const errorMsg = data.message || 'Failed to load available branches';
+                    showStatus(errorMsg, 'error');
                 }
             } catch (error) {
                 console.error('Error loading branches:', error);
