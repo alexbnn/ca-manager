@@ -44,17 +44,28 @@ update_to_branch() {
         exit 1
     fi
     
-    # Stop current containers
-    log "Stopping current containers..."
-    docker-compose down || true
+    # Get the current container ID
+    CONTAINER_ID=$(hostname)
+    log "Current container ID: $CONTAINER_ID"
     
-    # Rebuild containers with no cache to ensure latest changes
-    log "Rebuilding Docker containers (this may take a few minutes)..."
-    docker-compose build --no-cache
+    # Use Docker API to restart the container
+    log "Requesting container restart via Docker socket..."
     
-    # Start containers
-    log "Starting updated containers..."
-    docker-compose up -d
+    # Find the web-interface container by name pattern
+    WEB_CONTAINER=$(docker ps --filter "ancestor=ca-manager-f-web-interface" --format "{{.ID}}" | head -1)
+    if [ -n "$WEB_CONTAINER" ]; then
+        log "Found web interface container: $WEB_CONTAINER"
+        log "Restarting container to apply branch changes..."
+        
+        # Restart the container (this will exit our current process)
+        docker restart "$WEB_CONTAINER" &
+        
+        log "Restart command sent. Container will be available shortly."
+        exit 0
+    else
+        log "Warning: Could not find web interface container for restart"
+        log "Branch switch completed, but manual restart may be required"
+    fi
     
     # Wait a moment for services to start
     sleep 5
