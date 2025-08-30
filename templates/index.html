@@ -6060,6 +6060,16 @@ Dependencies:
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Check if update status was reset (container restarted)
+                    if (data.message === 'Ready' && data.progress === 0 && !data.in_progress) {
+                        console.log('Update status reset detected, assuming branch switch completed successfully');
+                        showStatus('Branch switch completed successfully! Refreshing page...', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                        return;
+                    }
+                    
                     showUpdateProgress(data.message, data.progress);
                     
                     if (data.completed) {
@@ -6082,8 +6092,15 @@ Dependencies:
                 }
             } catch (error) {
                 console.error('Error polling update status:', error);
-                showStatus('Error monitoring update progress', 'error');
-                hideUpdateProgress();
+                // During container restart, connection errors are expected
+                // Continue polling with exponential backoff
+                if (error.name === 'TypeError' || error.message.includes('Failed to fetch')) {
+                    console.log('Container likely restarting, retrying in 3 seconds...');
+                    setTimeout(pollUpdateStatus, 3000);
+                } else {
+                    showStatus('Error monitoring update progress', 'error');
+                    hideUpdateProgress();
+                }
             }
         }
 
