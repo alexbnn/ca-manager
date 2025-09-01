@@ -2301,6 +2301,105 @@
         </div>
     </div>
 
+    <!-- CA Choice Modal -->
+    <div id="caChoiceModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Certificate Authority Setup</h2>
+                <span class="close" id="closeCAChoice">&times;</span>
+            </div>
+            
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 25px; color: #666;">Choose how to set up your Certificate Authority:</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="ca-choice-card" style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.3s;" 
+                         onmouseover="this.style.borderColor='#5B059C'; this.style.transform='translateY(-2px)'" 
+                         onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'"
+                         onclick="chooseCAOption('generate')">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">🔐</div>
+                            <h3 style="color: #5B059C; margin-bottom: 10px;">Generate New CA</h3>
+                            <p style="color: #666; font-size: 14px;">Create a brand new Certificate Authority with custom configuration</p>
+                        </div>
+                    </div>
+                    
+                    <div class="ca-choice-card" style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.3s;"
+                         onmouseover="this.style.borderColor='#5B059C'; this.style.transform='translateY(-2px)'" 
+                         onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'"
+                         onclick="chooseCAOption('upload')">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">📤</div>
+                            <h3 style="color: #5B059C; margin-bottom: 10px;">Upload Existing CA</h3>
+                            <p style="color: #666; font-size: 14px;">Import an existing CA certificate and private key</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-box" style="margin-top: 25px; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #5B059C;">
+                    <strong style="color: #5B059C;">ℹ️ Note:</strong>
+                    <ul style="margin: 10px 0 0 20px; color: #666;">
+                        <li><strong>Generate New CA:</strong> Recommended for new deployments</li>
+                        <li><strong>Upload Existing CA:</strong> Use when migrating from another system or restoring from backup</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CA Upload Modal -->
+    <div id="caUploadModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Upload Existing Certificate Authority</h2>
+                <span class="close" id="closeCAUpload">&times;</span>
+            </div>
+            
+            <form id="caUploadForm">
+                <div style="padding: 20px;">
+                    <div class="form-group">
+                        <label for="caCertFile">CA Certificate File (PEM format):</label>
+                        <input type="file" id="caCertFile" accept=".pem,.crt,.cer" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small class="form-help">Upload your CA certificate file (ca.crt or similar)</small>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="caKeyFile">CA Private Key File (PEM format):</label>
+                        <input type="file" id="caKeyFile" accept=".pem,.key" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small class="form-help">Upload your CA private key file (ca.key or similar)</small>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="caKeyPassword">Private Key Password (if encrypted):</label>
+                        <input type="password" id="caKeyPassword" placeholder="Leave blank if key is not encrypted" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small class="form-help">Enter password if your private key is encrypted</small>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="certValidityDaysUpload">Default Certificate Validity (days):</label>
+                        <input type="number" id="certValidityDaysUpload" value="365" min="30" max="3650" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small class="form-help">Default validity period for certificates issued by this CA</small>
+                    </div>
+                    
+                    <div class="info-box" style="margin-top: 25px; background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107;">
+                        <strong style="color: #856404;">⚠️ Important:</strong>
+                        <ul style="margin: 10px 0 0 20px; color: #856404;">
+                            <li>Files must be in PEM format</li>
+                            <li>The private key must match the certificate</li>
+                            <li>Keep your private key secure - it will be stored encrypted</li>
+                            <li>The CA certificate will be validated before import</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons" style="padding: 0 20px 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="hideCAUploadModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload and Import CA</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- User Creation Modal -->
     <div id="userModal" class="modal">
         <div class="modal-content">
@@ -2860,7 +2959,33 @@
             if (buttonText.includes('download')) {
                 await downloadCA();
             } else {
+                // Show the CA choice modal instead of directly showing the build modal
+                showCAChoiceModal();
+            }
+        }
+        
+        function showCAChoiceModal() {
+            document.getElementById('caChoiceModal').style.display = 'block';
+        }
+        
+        function hideCAChoiceModal() {
+            document.getElementById('caChoiceModal').style.display = 'none';
+        }
+        
+        function showCAUploadModal() {
+            document.getElementById('caUploadModal').style.display = 'block';
+        }
+        
+        function hideCAUploadModal() {
+            document.getElementById('caUploadModal').style.display = 'none';
+        }
+        
+        function chooseCAOption(option) {
+            hideCAChoiceModal();
+            if (option === 'generate') {
                 showCAModal();
+            } else if (option === 'upload') {
+                showCAUploadModal();
             }
         }
 
@@ -2902,6 +3027,62 @@
             } finally {
                 setLoading(false);
             }
+        }
+        
+        async function submitCAUploadForm() {
+            if (isLoading) return;
+            
+            const certFile = document.getElementById('caCertFile').files[0];
+            const keyFile = document.getElementById('caKeyFile').files[0];
+            const keyPassword = document.getElementById('caKeyPassword').value;
+            const certValidityDays = parseInt(document.getElementById('certValidityDaysUpload').value);
+            
+            if (!certFile || !keyFile) {
+                showStatus('Please select both certificate and key files', 'error');
+                return;
+            }
+            
+            hideCAUploadModal();
+            setLoading(true);
+            hideOutput();
+            showStatus('Uploading and validating Certificate Authority files...', 'loading');
+            
+            try {
+                // Read files as text
+                const certContent = await readFileAsText(certFile);
+                const keyContent = await readFileAsText(keyFile);
+                
+                const uploadData = {
+                    ca_certificate: certContent,
+                    ca_key: keyContent,
+                    key_password: keyPassword || null,
+                    cert_validity_days: certValidityDays
+                };
+                
+                const result = await apiRequest('/api/ca/upload', 'POST', uploadData);
+                if (result) {
+                    handleOperationResult(result, 'Certificate Authority uploaded successfully');
+                    
+                    if (result.status === 'success') {
+                        setTimeout(updateCAButton, 1000);
+                        // Reload dashboard to reflect CA upload
+                        setTimeout(loadDashboard, 2000);
+                    }
+                }
+            } catch (error) {
+                showStatus('Error uploading CA: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
         }
 
         async function downloadCA() {
@@ -4846,6 +5027,16 @@ Dependencies:
             document.getElementById('caForm').onsubmit = (e) => {
                 e.preventDefault();
                 submitCAForm();
+            };
+            
+            // CA Choice modal listeners
+            document.getElementById('closeCAChoice').onclick = hideCAChoiceModal;
+            
+            // CA Upload modal listeners
+            document.getElementById('closeCAUpload').onclick = hideCAUploadModal;
+            document.getElementById('caUploadForm').onsubmit = (e) => {
+                e.preventDefault();
+                submitCAUploadForm();
             };
             
             // User Modal event listeners

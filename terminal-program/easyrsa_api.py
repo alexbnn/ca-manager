@@ -171,6 +171,8 @@ def execute_easyrsa():
             return import_req(params)
         elif operation == 'get-index':
             return get_index_content()
+        elif operation == 'import-ca':
+            return import_ca(params)
         else:
             return jsonify({
                 "status": "error",
@@ -266,6 +268,89 @@ def init_pki():
         "stderr": result.stderr,
         "message": "PKI initialized successfully" if result.returncode == 0 else "Failed to initialize PKI"
     })
+
+def import_ca(params):
+    """Import existing CA certificate and private key"""
+    try:
+        ca_cert_pem = params.get('ca_certificate', '')
+        ca_key_pem = params.get('ca_key', '')
+        cert_validity_days = params.get('cert_validity_days', 365)
+        ca_info = params.get('ca_info', {})
+        
+        if not ca_cert_pem or not ca_key_pem:
+            return jsonify({
+                "status": "error",
+                "message": "Both CA certificate and private key are required"
+            }), 400
+        
+        # Ensure PKI is initialized
+        if not os.path.exists(PKI_PATH):
+            os.makedirs(PKI_PATH, exist_ok=True)
+        if not os.path.exists(os.path.join(PKI_PATH, 'private')):
+            os.makedirs(os.path.join(PKI_PATH, 'private'), exist_ok=True)
+        if not os.path.exists(os.path.join(PKI_PATH, 'issued')):
+            os.makedirs(os.path.join(PKI_PATH, 'issued'), exist_ok=True)
+        
+        # Write CA certificate
+        ca_cert_path = os.path.join(PKI_PATH, 'ca.crt')
+        with open(ca_cert_path, 'w') as f:
+            f.write(ca_cert_pem)
+        
+        # Write CA private key
+        ca_key_path = os.path.join(PKI_PATH, 'private', 'ca.key')
+        with open(ca_key_path, 'w') as f:
+            f.write(ca_key_pem)
+        
+        # Set proper permissions on private key
+        os.chmod(ca_key_path, 0o600)
+        
+        # Create serial file
+        serial_path = os.path.join(PKI_PATH, 'serial')
+        if not os.path.exists(serial_path):
+            with open(serial_path, 'w') as f:
+                f.write('01\n')
+        
+        # Create index.txt file
+        index_path = os.path.join(PKI_PATH, 'index.txt')
+        if not os.path.exists(index_path):
+            with open(index_path, 'w') as f:
+                f.write('')
+        
+        # Create index.txt.attr file with unique_subject = no
+        index_attr_path = os.path.join(PKI_PATH, 'index.txt.attr')
+        with open(index_attr_path, 'w') as f:
+            f.write('unique_subject = no\n')
+        
+        # Update vars file with cert validity days
+        vars_path = os.path.join(PKI_PATH, 'vars')
+        if os.path.exists('/usr/share/easy-rsa/vars.example'):
+            # Copy example vars if it exists
+            with open('/usr/share/easy-rsa/vars.example', 'r') as f:
+                vars_content = f.read()
+            with open(vars_path, 'w') as f:
+                f.write(vars_content)
+                f.write(f'\nset_var EASYRSA_CERT_EXPIRE {cert_validity_days}\n')
+        else:
+            # Create minimal vars file
+            with open(vars_path, 'w') as f:
+                f.write(f'set_var EASYRSA_CERT_EXPIRE {cert_validity_days}\n')
+                f.write('set_var EASYRSA_BATCH "1"\n')
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Successfully imported CA: {ca_info.get('common_name', 'Unknown')}",
+            "ca_info": ca_info,
+            "stdout": f"CA certificate and key imported successfully\nCA Path: {ca_cert_path}\nKey Path: {ca_key_path}",
+            "stderr": ""
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to import CA: {str(e)}",
+            "stdout": "",
+            "stderr": str(e)
+        }), 500
 
 def build_ca(params):
     """Build Certificate Authority with full configuration"""

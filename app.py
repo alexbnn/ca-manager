@@ -657,6 +657,121 @@ def build_ca():
     result = make_easyrsa_request('build-ca', ca_config)
     return jsonify(result)
 
+@app.route('/api/ca/upload', methods=['POST'])
+@auth_required(permission='ca_build')
+def upload_ca():
+    """Upload existing CA certificate and private key"""
+    import tempfile
+    import ssl
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa, padding
+    
+    data = request.get_json() or {}
+    
+    try:
+        # Get uploaded data
+        ca_cert_pem = data.get('ca_certificate', '')
+        ca_key_pem = data.get('ca_key', '')
+        key_password = data.get('key_password', None)
+        cert_validity_days = data.get('cert_validity_days', 365)
+        
+        if not ca_cert_pem or not ca_key_pem:
+            return jsonify({
+                'status': 'error',
+                'message': 'Both CA certificate and private key are required'
+            }), 400
+        
+        # Validate certificate format and parse it
+        try:
+            cert = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid certificate format: {str(e)}'
+            }), 400
+        
+        # Validate private key format
+        try:
+            if key_password:
+                private_key = serialization.load_pem_private_key(
+                    ca_key_pem.encode(),
+                    password=key_password.encode(),
+                    backend=default_backend()
+                )
+            else:
+                private_key = serialization.load_pem_private_key(
+                    ca_key_pem.encode(),
+                    password=None,
+                    backend=default_backend()
+                )
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid private key format or incorrect password: {str(e)}'
+            }), 400
+        
+        # Verify that the private key matches the certificate
+        try:
+            # Get public key from certificate
+            cert_public_key = cert.public_key()
+            
+            # Get public key from private key
+            private_public_key = private_key.public_key()
+            
+            # Compare public key numbers
+            if hasattr(cert_public_key, 'public_numbers') and hasattr(private_public_key, 'public_numbers'):
+                if cert_public_key.public_numbers() != private_public_key.public_numbers():
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Private key does not match the certificate'
+                    }), 400
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Error validating key-certificate pair: {str(e)}'
+            }), 400
+        
+        # Extract certificate information
+        subject = cert.subject
+        ca_info = {
+            'common_name': subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME) else 'Unknown',
+            'country': subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME) else '',
+            'state': subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME) else '',
+            'city': subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME) else '',
+            'organization': subject.get_attributes_for_oid(x509.NameOID.ORGANIZATION_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.ORGANIZATION_NAME) else '',
+            'organizational_unit': subject.get_attributes_for_oid(x509.NameOID.ORGANIZATIONAL_UNIT_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.ORGANIZATIONAL_UNIT_NAME) else '',
+            'email': subject.get_attributes_for_oid(x509.NameOID.EMAIL_ADDRESS)[0].value if subject.get_attributes_for_oid(x509.NameOID.EMAIL_ADDRESS) else '',
+            'valid_from': cert.not_valid_before.isoformat(),
+            'valid_until': cert.not_valid_after.isoformat(),
+            'serial_number': str(cert.serial_number)
+        }
+        
+        # Send to EasyRSA container to import
+        upload_data = {
+            'ca_certificate': ca_cert_pem,
+            'ca_key': ca_key_pem,
+            'cert_validity_days': cert_validity_days,
+            'ca_info': ca_info
+        }
+        
+        log_operation('upload_ca', {'ca_info': ca_info})
+        result = make_easyrsa_request('import-ca', upload_data)
+        
+        if result.get('status') == 'success':
+            result['ca_info'] = ca_info
+            result['message'] = f"Successfully imported CA: {ca_info['common_name']}"
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error uploading CA: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to upload CA: {str(e)}'
+        }), 500
+
 @app.route('/api/ca/show', methods=['GET'])
 @auth_required(permission='ca_read')
 def show_ca():
