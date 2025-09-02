@@ -33,7 +33,7 @@ from threading import Thread
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Application version - build timestamp
-APP_VERSION = "5.1.0-beta"
+APP_VERSION = "6.0.0-alpha"
 BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 
 # Database connection for multi-user authentication

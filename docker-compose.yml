@@ -1,4 +1,4 @@
-# CA Manager v5.1.0-beta - With Version Management, Enhanced UI/UX, and Advanced Features
+# CA Manager v6.0.0-alpha - With Identity Provider Integration and Automated Certificate Management
 services:
   web-interface:
     build: .
@@ -32,6 +32,34 @@ services:
       
       # SCEP Server URL for external clients (uses actual tenant domain)
       - SCEP_SERVER_URL=${SCEP_SERVER_URL:-https://${DOMAIN:-localhost}}
+      
+      # Identity Provider (IDP) Configuration
+      - IDP_ENABLED=${IDP_ENABLED:-false}
+      - OAUTH_REDIRECT_URI_BASE=${OAUTH_REDIRECT_URI_BASE:-https://${DOMAIN:-localhost}}
+      
+      # Google OAuth2 Settings
+      - GOOGLE_OAUTH_ENABLED=${GOOGLE_OAUTH_ENABLED:-false}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_HOSTED_DOMAIN=${GOOGLE_HOSTED_DOMAIN:-}
+      
+      # Microsoft Entra ID (Azure AD) OAuth2 Settings
+      - MICROSOFT_OAUTH_ENABLED=${MICROSOFT_OAUTH_ENABLED:-false}
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID:-}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET:-}
+      - MICROSOFT_TENANT_ID=${MICROSOFT_TENANT_ID:-common}
+      
+      # IDP Certificate Management Settings
+      - IDP_CERT_AUTO_GENERATE=${IDP_CERT_AUTO_GENERATE:-true}
+      - IDP_CERT_VALIDITY_DAYS=${IDP_CERT_VALIDITY_DAYS:-365}
+      - IDP_CERT_KEY_SIZE=${IDP_CERT_KEY_SIZE:-2048}
+      - IDP_CERT_EMAIL_DELIVERY=${IDP_CERT_EMAIL_DELIVERY:-true}
+      - IDP_SELF_SERVICE_ENABLED=${IDP_SELF_SERVICE_ENABLED:-true}
+      - IDP_SELF_SERVICE_RENEWAL_DAYS=${IDP_SELF_SERVICE_RENEWAL_DAYS:-30}
+      
+      # IDP Session Settings
+      - IDP_SESSION_LIFETIME=${IDP_SESSION_LIFETIME:-3600}
+      - IDP_SESSION_COOKIE_SECURE=${IDP_SESSION_COOKIE_SECURE:-true}
       
       
     depends_on:
