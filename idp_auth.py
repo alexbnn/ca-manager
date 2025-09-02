@@ -101,7 +101,7 @@ class IDPAuthManager:
             kwargs['hd'] = IDPConfig.GOOGLE_HOSTED_DOMAIN
         
         return self.google_client.authorize_redirect(
-            redirect_uri=IDPConfig.GOOGLE_REDIRECT_URI,
+            redirect_uri=IDPConfig.get_google_redirect_uri(),
             state=state,
             **kwargs
         )
@@ -152,7 +152,7 @@ class IDPAuthManager:
         auth_url = self.microsoft_app.get_authorization_request_url(
             scopes=['User.Read', 'email', 'profile'],
             state=state,
-            redirect_uri=IDPConfig.MICROSOFT_REDIRECT_URI
+            redirect_uri=IDPConfig.get_microsoft_redirect_uri()
         )
         
         return redirect(auth_url)
@@ -173,7 +173,7 @@ class IDPAuthManager:
             result = self.microsoft_app.acquire_token_by_authorization_code(
                 code,
                 scopes=['User.Read', 'email', 'profile'],
-                redirect_uri=IDPConfig.MICROSOFT_REDIRECT_URI
+                redirect_uri=IDPConfig.get_microsoft_redirect_uri()
             )
             
             if 'error' in result:

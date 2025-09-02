@@ -48,12 +48,12 @@ class IDPCertManager:
                 }
             
             # Generate new certificate if auto-generation is enabled
-            if IDPConfig.IDP_CERT_AUTO_GENERATE:
+            if IDPConfig.get_cert_auto_generate():
                 logger.info(f"Generating new certificate for {user_data['email']}")
                 new_cert = self._generate_certificate(user_data)
                 
                 # Send certificate via email if enabled
-                if IDPConfig.IDP_CERT_EMAIL_DELIVERY and new_cert.get('status') == 'success':
+                if IDPConfig.get_cert_email_delivery() and new_cert.get('status') == 'success':
                     self._send_certificate_email(user_data, new_cert)
                 
                 return new_cert
@@ -108,7 +108,7 @@ class IDPCertManager:
             if isinstance(valid_until, str):
                 valid_until = datetime.fromisoformat(valid_until)
             
-            renewal_window = timedelta(days=IDPConfig.IDP_SELF_SERVICE_RENEWAL_DAYS)
+            renewal_window = timedelta(days=IDPConfig.get_self_service_renewal_days())
             return valid_until <= (datetime.utcnow() + renewal_window)
             
         except Exception as e:
@@ -277,7 +277,7 @@ class IDPCertManager:
             
             # Create email message
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = IDPConfig.IDP_CERT_EMAIL_SUBJECT
+            msg['Subject'] = IDPConfig.get_cert_email_subject()
             msg['From'] = smtp_from
             msg['To'] = user_data['email']
             
@@ -295,8 +295,8 @@ class IDPCertManager:
                 <ul>
                     <li><strong>Common Name:</strong> {user_data['email']}</li>
                     <li><strong>Valid From:</strong> {datetime.utcnow().strftime('%Y-%m-%d')}</li>
-                    <li><strong>Valid Until:</strong> {(datetime.utcnow() + timedelta(days=IDPConfig.IDP_CERT_VALIDITY_DAYS)).strftime('%Y-%m-%d')}</li>
-                    <li><strong>Key Size:</strong> {IDPConfig.IDP_CERT_KEY_SIZE} bits</li>
+                    <li><strong>Valid Until:</strong> {(datetime.utcnow() + timedelta(days=IDPConfig.get_cert_validity_days())).strftime('%Y-%m-%d')}</li>
+                    <li><strong>Key Size:</strong> {IDPConfig.get_cert_key_size()} bits</li>
                 </ul>
                 
                 <h3>Installation Instructions:</h3>
@@ -308,7 +308,7 @@ class IDPCertManager:
                 </ol>
                 
                 <p>You can also access your certificate anytime by logging into the 
-                <a href="{IDPConfig.OAUTH_REDIRECT_URI_BASE}/portal">Certificate Portal</a>.</p>
+                <a href="{IDPConfig.get_redirect_uri_base()}/portal">Certificate Portal</a>.</p>
                 
                 <p style="color: #666; font-size: 12px; margin-top: 30px;">
                 This is an automated message. Please do not reply to this email.

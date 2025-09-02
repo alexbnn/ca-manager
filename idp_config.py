@@ -1,42 +1,227 @@
 """
 IDP Configuration for CA Manager 6.0.0
 Supports Google Workspace and Microsoft Entra ID (Azure AD)
+Now uses database configuration instead of environment variables for GUI management
 """
 
 import os
-from typing import Dict, Any
+import psycopg2
+from typing import Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 class IDPConfig:
-    """Identity Provider Configuration"""
+    """Identity Provider Configuration - Database-driven"""
     
-    # IDP Feature Enable/Disable
-    IDP_ENABLED = os.getenv('IDP_ENABLED', 'false').lower() == 'true'
+    _db_connection = None
+    _config_cache = {}
+    _cache_timestamp = 0
     
-    # Google OAuth2 Configuration
-    GOOGLE_OAUTH_ENABLED = os.getenv('GOOGLE_OAUTH_ENABLED', 'false').lower() == 'true'
-    GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
-    GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
-    GOOGLE_DISCOVERY_URL = 'https://accounts.google.com/.well-known/openid-configuration'
+    @classmethod
+    def set_db_connection(cls, connection):
+        """Set database connection for configuration retrieval"""
+        cls._db_connection = connection
     
-    # Google Workspace domain restriction (optional)
-    GOOGLE_HOSTED_DOMAIN = os.getenv('GOOGLE_HOSTED_DOMAIN', '')  # e.g., 'company.com'
+    @classmethod
+    def _get_config_from_db(cls, key: str, default: Any = None, config_type: str = 'string') -> Any:
+        """Get configuration value from database"""
+        if not cls._db_connection:
+            logger.warning(f"No database connection available for config key: {key}")
+            return default
+        
+        try:
+            with cls._db_connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT config_value, config_type 
+                    FROM system_config 
+                    WHERE config_key = %s
+                """, (key,))
+                
+                result = cursor.fetchone()
+                if not result:
+                    return default
+                
+                value, db_type = result
+                
+                # Type conversion based on config_type
+                if db_type == 'boolean':
+                    return str(value).lower() in ('true', '1', 'yes', 'on')
+                elif db_type == 'integer':
+                    try:
+                        return int(value)
+                    except (ValueError, TypeError):
+                        return default
+                else:
+                    return value or default
+                    
+        except Exception as e:
+            logger.error(f"Error getting config {key} from database: {str(e)}")
+            return default
     
-    # Microsoft Entra ID (Azure AD) Configuration
-    MICROSOFT_OAUTH_ENABLED = os.getenv('MICROSOFT_OAUTH_ENABLED', 'false').lower() == 'true'
-    MICROSOFT_CLIENT_ID = os.getenv('MICROSOFT_CLIENT_ID', '')
-    MICROSOFT_CLIENT_SECRET = os.getenv('MICROSOFT_CLIENT_SECRET', '')
-    MICROSOFT_TENANT_ID = os.getenv('MICROSOFT_TENANT_ID', '')  # Can be 'common', 'organizations', or specific tenant ID
-    MICROSOFT_AUTHORITY = f'https://login.microsoftonline.com/{MICROSOFT_TENANT_ID}'
+    @classmethod
+    def _set_config_in_db(cls, key: str, value: Any, updated_by: str = 'admin') -> bool:
+        """Set configuration value in database"""
+        if not cls._db_connection:
+            logger.warning(f"No database connection available for setting config key: {key}")
+            return False
+        
+        try:
+            with cls._db_connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO system_config (config_key, config_value, updated_by, updated_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (config_key) 
+                    DO UPDATE SET 
+                        config_value = EXCLUDED.config_value,
+                        updated_by = EXCLUDED.updated_by,
+                        updated_at = EXCLUDED.updated_at
+                """, (key, str(value), updated_by))
+                
+                cls._db_connection.commit()
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error setting config {key} in database: {str(e)}")
+            cls._db_connection.rollback()
+            return False
+    
+    @classmethod
+    def get_all_config(cls) -> Dict[str, Any]:
+        """Get all IDP configuration as a dictionary"""
+        config = {}
+        
+        # IDP General Settings
+        config['idp_enabled'] = cls._get_config_from_db('idp_enabled', False, 'boolean')
+        config['redirect_uri_base'] = cls._get_config_from_db('idp_redirect_uri_base', 'https://localhost')
+        
+        # Google OAuth Settings
+        config['google_enabled'] = cls._get_config_from_db('google_oauth_enabled', False, 'boolean')
+        config['google_client_id'] = cls._get_config_from_db('google_client_id', '')
+        config['google_client_secret'] = cls._get_config_from_db('google_client_secret', '')
+        config['google_hosted_domain'] = cls._get_config_from_db('google_hosted_domain', '')
+        
+        # Microsoft OAuth Settings
+        config['microsoft_enabled'] = cls._get_config_from_db('microsoft_oauth_enabled', False, 'boolean')
+        config['microsoft_client_id'] = cls._get_config_from_db('microsoft_client_id', '')
+        config['microsoft_client_secret'] = cls._get_config_from_db('microsoft_client_secret', '')
+        config['microsoft_tenant_id'] = cls._get_config_from_db('microsoft_tenant_id', 'common')
+        
+        # Certificate Settings
+        config['auto_generate_certs'] = cls._get_config_from_db('idp_cert_auto_generate', True, 'boolean')
+        config['cert_validity_days'] = cls._get_config_from_db('idp_cert_validity_days', 365, 'integer')
+        config['cert_key_size'] = cls._get_config_from_db('idp_cert_key_size', 2048, 'integer')
+        config['email_delivery'] = cls._get_config_from_db('idp_cert_email_delivery', True, 'boolean')
+        config['email_subject'] = cls._get_config_from_db('idp_cert_email_subject', 'Your PKI Certificate is Ready')
+        
+        # Self-Service Settings
+        config['self_service_enabled'] = cls._get_config_from_db('idp_self_service_enabled', True, 'boolean')
+        config['renewal_days'] = cls._get_config_from_db('idp_self_service_renewal_days', 30, 'integer')
+        
+        # Session Settings
+        config['session_lifetime'] = cls._get_config_from_db('idp_session_lifetime', 3600, 'integer')
+        config['session_cookie_secure'] = cls._get_config_from_db('idp_session_cookie_secure', True, 'boolean')
+        
+        return config
+    
+    @classmethod
+    def update_config(cls, config_dict: Dict[str, Any], updated_by: str = 'admin') -> bool:
+        """Update multiple configuration values"""
+        success = True
+        
+        # Map frontend keys to database keys
+        key_mapping = {
+            'idp_enabled': 'idp_enabled',
+            'google_enabled': 'google_oauth_enabled',
+            'google_client_id': 'google_client_id',
+            'google_client_secret': 'google_client_secret',
+            'google_hosted_domain': 'google_hosted_domain',
+            'microsoft_enabled': 'microsoft_oauth_enabled',
+            'microsoft_client_id': 'microsoft_client_id',
+            'microsoft_client_secret': 'microsoft_client_secret',
+            'microsoft_tenant_id': 'microsoft_tenant_id',
+            'auto_generate_certs': 'idp_cert_auto_generate',
+            'cert_validity_days': 'idp_cert_validity_days',
+            'email_delivery': 'idp_cert_email_delivery',
+            'renewal_days': 'idp_self_service_renewal_days'
+        }
+        
+        for frontend_key, value in config_dict.items():
+            db_key = key_mapping.get(frontend_key)
+            if db_key:
+                if not cls._set_config_in_db(db_key, value, updated_by):
+                    success = False
+                    logger.error(f"Failed to update config: {frontend_key}")
+        
+        return success
+    
+    # Properties for backward compatibility
+    @property
+    def IDP_ENABLED(cls):
+        return cls._get_config_from_db('idp_enabled', False, 'boolean')
+    
+    @property
+    def GOOGLE_OAUTH_ENABLED(cls):
+        return cls._get_config_from_db('google_oauth_enabled', False, 'boolean')
+    
+    @property
+    def GOOGLE_CLIENT_ID(cls):
+        return cls._get_config_from_db('google_client_id', '')
+    
+    @property
+    def GOOGLE_CLIENT_SECRET(cls):
+        return cls._get_config_from_db('google_client_secret', '')
+    
+    @property
+    def GOOGLE_HOSTED_DOMAIN(cls):
+        return cls._get_config_from_db('google_hosted_domain', '')
+    
+    @property
+    def MICROSOFT_OAUTH_ENABLED(cls):
+        return cls._get_config_from_db('microsoft_oauth_enabled', False, 'boolean')
+    
+    @property
+    def MICROSOFT_CLIENT_ID(cls):
+        return cls._get_config_from_db('microsoft_client_id', '')
+    
+    @property
+    def MICROSOFT_CLIENT_SECRET(cls):
+        return cls._get_config_from_db('microsoft_client_secret', '')
+    
+    @property
+    def MICROSOFT_TENANT_ID(cls):
+        return cls._get_config_from_db('microsoft_tenant_id', 'common')
+    
+    @property
+    def MICROSOFT_AUTHORITY(cls):
+        tenant_id = cls.MICROSOFT_TENANT_ID
+        return f'https://login.microsoftonline.com/{tenant_id}'
     
     # OAuth2 Redirect URIs (must be registered with IDP)
-    OAUTH_REDIRECT_URI_BASE = os.getenv('OAUTH_REDIRECT_URI_BASE', 'https://localhost')
-    GOOGLE_REDIRECT_URI = f'{OAUTH_REDIRECT_URI_BASE}/auth/google/callback'
-    MICROSOFT_REDIRECT_URI = f'{OAUTH_REDIRECT_URI_BASE}/auth/microsoft/callback'
+    @classmethod
+    def get_redirect_uri_base(cls):
+        return cls._get_config_from_db('idp_redirect_uri_base', 'https://localhost')
     
-    # Certificate Generation Settings for IDP Users
-    IDP_CERT_AUTO_GENERATE = os.getenv('IDP_CERT_AUTO_GENERATE', 'true').lower() == 'true'
-    IDP_CERT_VALIDITY_DAYS = int(os.getenv('IDP_CERT_VALIDITY_DAYS', '365'))
-    IDP_CERT_KEY_SIZE = int(os.getenv('IDP_CERT_KEY_SIZE', '2048'))
+    @classmethod  
+    def get_google_redirect_uri(cls):
+        return f'{cls.get_redirect_uri_base()}/auth/google/callback'
+    
+    @classmethod
+    def get_microsoft_redirect_uri(cls):
+        return f'{cls.get_redirect_uri_base()}/auth/microsoft/callback'
+    
+    # Certificate Generation Settings for IDP Users - Database-driven
+    @classmethod
+    def get_cert_auto_generate(cls):
+        return cls._get_config_from_db('idp_cert_auto_generate', True, 'boolean')
+    
+    @classmethod
+    def get_cert_validity_days(cls):
+        return cls._get_config_from_db('idp_cert_validity_days', 365, 'integer')
+    
+    @classmethod
+    def get_cert_key_size(cls):
+        return cls._get_config_from_db('idp_cert_key_size', 2048, 'integer')
     
     # Certificate Template Mapping based on IDP groups/roles
     IDP_CERT_TEMPLATE_MAPPING = {
@@ -63,15 +248,31 @@ class IDPConfig:
         }
     }
     
-    # Email Delivery Settings
-    IDP_CERT_EMAIL_DELIVERY = os.getenv('IDP_CERT_EMAIL_DELIVERY', 'true').lower() == 'true'
-    IDP_CERT_EMAIL_SUBJECT = os.getenv('IDP_CERT_EMAIL_SUBJECT', 'Your PKI Certificate is Ready')
-    IDP_CERT_EMAIL_TEMPLATE = os.getenv('IDP_CERT_EMAIL_TEMPLATE', 'cert_delivery')
+    # Email Delivery Settings - Database-driven
+    @classmethod
+    def get_cert_email_delivery(cls):
+        return cls._get_config_from_db('idp_cert_email_delivery', True, 'boolean')
     
-    # Self-Service Portal Settings
-    IDP_SELF_SERVICE_ENABLED = os.getenv('IDP_SELF_SERVICE_ENABLED', 'true').lower() == 'true'
-    IDP_SELF_SERVICE_ALLOW_RENEWAL = os.getenv('IDP_SELF_SERVICE_ALLOW_RENEWAL', 'true').lower() == 'true'
-    IDP_SELF_SERVICE_RENEWAL_DAYS = int(os.getenv('IDP_SELF_SERVICE_RENEWAL_DAYS', '30'))  # Days before expiry
+    @classmethod
+    def get_cert_email_subject(cls):
+        return cls._get_config_from_db('idp_cert_email_subject', 'Your PKI Certificate is Ready')
+    
+    # Email template configuration (static for now)
+    IDP_CERT_EMAIL_TEMPLATE = 'cert_delivery'
+    
+    # Self-Service Portal Settings - Database-driven
+    @classmethod
+    def get_self_service_enabled(cls):
+        return cls._get_config_from_db('idp_self_service_enabled', True, 'boolean')
+    
+    @classmethod
+    def get_self_service_renewal_days(cls):
+        return cls._get_config_from_db('idp_self_service_renewal_days', 30, 'integer')
+    
+    # Self-service renewal is enabled by default when self-service is enabled
+    @classmethod
+    def get_self_service_allow_renewal(cls):
+        return cls.get_self_service_enabled()
     
     # User Attribute Mapping
     IDP_USER_ATTRIBUTE_MAPPING = {
@@ -95,9 +296,16 @@ class IDPConfig:
         }
     }
     
-    # Session Configuration
-    IDP_SESSION_LIFETIME = int(os.getenv('IDP_SESSION_LIFETIME', '3600'))  # 1 hour
-    IDP_SESSION_COOKIE_SECURE = os.getenv('IDP_SESSION_COOKIE_SECURE', 'true').lower() == 'true'
+    # Session Configuration - Database-driven
+    @classmethod
+    def get_session_lifetime(cls):
+        return cls._get_config_from_db('idp_session_lifetime', 3600, 'integer')
+    
+    @classmethod
+    def get_session_cookie_secure(cls):
+        return cls._get_config_from_db('idp_session_cookie_secure', True, 'boolean')
+    
+    # Static session settings
     IDP_SESSION_COOKIE_HTTPONLY = True
     IDP_SESSION_COOKIE_SAMESITE = 'Lax'
     

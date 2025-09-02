@@ -3742,6 +3742,197 @@ def test_smtp_connection():
         logging.error(f"Error testing SMTP: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+# ================================
+# IDP Configuration API  
+# ================================
+
+@app.route('/api/idp/config', methods=['GET'])
+def get_idp_config():
+    """Get IDP configuration for GUI"""
+    try:
+        from idp_config import IDPConfig
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Get all configuration
+        config = IDPConfig.get_all_config()
+        
+        # Add computed fields
+        config['providers'] = []
+        if config.get('google_enabled'):
+            config['providers'].append('google')
+        if config.get('microsoft_enabled'):
+            config['providers'].append('microsoft')
+        
+        conn.close()
+        
+        return jsonify(config)
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP config: {str(e)}")
+        return jsonify({'error': 'Failed to load IDP configuration'}), 500
+
+@app.route('/api/idp/config', methods=['POST'])
+@auth_required()
+def save_idp_config():
+    """Save IDP configuration from GUI"""
+    try:
+        from idp_config import IDPConfig
+        
+        data = request.get_json() or {}
+        
+        # Get current user for audit
+        current_user = session.get('user', {})
+        username = current_user.get('username', 'admin')
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Update configuration
+        success = IDPConfig.update_config(data, username)
+        
+        if success:
+            # Log configuration change
+            logger.info(f"IDP configuration updated by user: {username}")
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'IDP configuration saved successfully'
+            })
+        else:
+            return jsonify({
+                'status': 'error', 
+                'message': 'Failed to save IDP configuration'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error saving IDP config: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to save IDP configuration: {str(e)}'
+        }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/idp/status')
+def get_idp_status():
+    """Get IDP status and statistics"""
+    try:
+        from idp_config import IDPConfig
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        config = IDPConfig.get_all_config()
+        
+        # Get IDP user statistics
+        with conn.cursor() as cursor:
+            # Count total IDP users
+            cursor.execute("SELECT COUNT(*) FROM idp_users")
+            total_users = cursor.fetchone()[0]
+            
+            # Count active certificates
+            cursor.execute("SELECT COUNT(*) FROM idp_certificates WHERE status = 'active'")
+            active_certificates = cursor.fetchone()[0]
+            
+            # Count certificates expiring in 30 days
+            cursor.execute("""
+                SELECT COUNT(*) FROM idp_certificates 
+                WHERE status = 'active' AND valid_until <= CURRENT_TIMESTAMP + INTERVAL '30 days'
+            """)
+            expiring_certificates = cursor.fetchone()[0]
+        
+        status = {
+            'idp_enabled': config.get('idp_enabled', False),
+            'google_enabled': config.get('google_enabled', False),
+            'microsoft_enabled': config.get('microsoft_enabled', False),
+            'auto_generate': config.get('auto_generate_certs', False),
+            'total_users': total_users,
+            'active_certificates': active_certificates,
+            'expiring_certificates': expiring_certificates,
+            'providers': []
+        }
+        
+        if config.get('google_enabled'):
+            status['providers'].append('google')
+        if config.get('microsoft_enabled'):
+            status['providers'].append('microsoft')
+        
+        conn.close()
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP status: {str(e)}")
+        return jsonify({
+            'idp_enabled': False,
+            'google_enabled': False,
+            'microsoft_enabled': False,
+            'total_users': 0,
+            'active_certificates': 0,
+            'error': 'Failed to load IDP status'
+        })
+
+@app.route('/api/idp/test-connection', methods=['POST'])
+@auth_required()
+def test_idp_connection():
+    """Test IDP OAuth2 connections"""
+    try:
+        from idp_config import IDPConfig
+        import requests
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        config = IDPConfig.get_all_config()
+        results = {'status': 'success'}
+        
+        # Test Google connection
+        if config.get('google_enabled') and config.get('google_client_id'):
+            try:
+                response = requests.get(
+                    'https://accounts.google.com/.well-known/openid-configuration',
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    results['google'] = {'status': '✅ Google OAuth configuration accessible'}
+                else:
+                    results['google'] = {'status': '❌ Google OAuth configuration not accessible'}
+            except Exception as e:
+                results['google'] = {'status': f'❌ Google OAuth test failed: {str(e)[:100]}'}
+        
+        # Test Microsoft connection
+        if config.get('microsoft_enabled') and config.get('microsoft_client_id'):
+            tenant_id = config.get('microsoft_tenant_id', 'common')
+            try:
+                response = requests.get(
+                    f'https://login.microsoftonline.com/{tenant_id}/v2.0/.well-known/openid_configuration',
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    results['microsoft'] = {'status': '✅ Microsoft OAuth configuration accessible'}
+                else:
+                    results['microsoft'] = {'status': '❌ Microsoft OAuth configuration not accessible'}
+            except Exception as e:
+                results['microsoft'] = {'status': f'❌ Microsoft OAuth test failed: {str(e)[:100]}'}
+        
+        conn.close()
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        logger.error(f"Error testing IDP connection: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to test IDP connections: {str(e)}'
+        }), 500
+
 
 # ================================
 # Certificate Generation Functions  
