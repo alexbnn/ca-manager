@@ -3747,6 +3747,7 @@ def test_smtp_connection():
 # ================================
 
 @app.route('/api/idp/config', methods=['GET'])
+@auth_required()
 def get_idp_config():
     """Get IDP configuration for GUI"""
     try:
