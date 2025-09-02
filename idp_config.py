@@ -60,7 +60,7 @@ class IDPConfig:
             return default
     
     @classmethod
-    def _set_config_in_db(cls, key: str, value: Any, updated_by: str = 'admin') -> bool:
+    def _set_config_in_db(cls, key: str, value: Any, updated_by: int = 1) -> bool:
         """Set configuration value in database"""
         if not cls._db_connection:
             logger.warning(f"No database connection available for setting config key: {key}")
@@ -77,15 +77,14 @@ class IDPConfig:
             
             with cls._db_connection.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO system_config (config_key, config_value, config_type, updated_by, updated_at)
-                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    INSERT INTO system_config (config_key, config_value, config_type, updated_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                     ON CONFLICT (config_key) 
                     DO UPDATE SET 
                         config_value = EXCLUDED.config_value,
                         config_type = EXCLUDED.config_type,
-                        updated_by = EXCLUDED.updated_by,
                         updated_at = EXCLUDED.updated_at
-                """, (key, str(value), config_type, updated_by))
+                """, (key, str(value), config_type))
                 
                 cls._db_connection.commit()
                 return True
@@ -134,7 +133,7 @@ class IDPConfig:
         return config
     
     @classmethod
-    def update_config(cls, config_dict: Dict[str, Any], updated_by: str = 'admin') -> bool:
+    def update_config(cls, config_dict: Dict[str, Any], updated_by: int = 1) -> bool:
         """Update multiple configuration values"""
         success = True
         

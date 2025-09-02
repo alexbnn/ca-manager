@@ -3788,19 +3788,18 @@ def save_idp_config():
         data = request.get_json() or {}
         
         # Get current user for audit
-        current_user = session.get('user', {})
-        username = current_user.get('username', 'admin')
+        user_id = session.get('user_id', 1)  # Default to admin user ID
         
         # Set database connection
         conn = get_db_connection()
         IDPConfig.set_db_connection(conn)
         
         # Update configuration
-        success = IDPConfig.update_config(data, username)
+        success = IDPConfig.update_config(data, user_id)
         
         if success:
             # Log configuration change
-            logger.info(f"IDP configuration updated by user: {username}")
+            logger.info(f"IDP configuration updated by user ID: {user_id}")
             
             return jsonify({
                 'status': 'success',
