@@ -42,6 +42,9 @@ BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 # Global flag to ensure database is initialized only once
 _db_initialized = False
 

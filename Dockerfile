@@ -36,6 +36,9 @@ COPY --from=builder /root/.local /root/.local
 
 # Copy application files
 COPY app.py .
+COPY idp_config.py .
+COPY idp_auth.py .
+COPY idp_cert_manager.py .
 COPY templates/ templates/
 COPY static/ static/
 COPY database/ database/
