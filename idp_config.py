@@ -67,16 +67,25 @@ class IDPConfig:
             return False
         
         try:
+            # Determine config type based on value
+            if isinstance(value, bool):
+                config_type = 'boolean'
+            elif isinstance(value, int):
+                config_type = 'integer'
+            else:
+                config_type = 'string'
+            
             with cls._db_connection.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO system_config (config_key, config_value, updated_by, updated_at)
-                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    INSERT INTO system_config (config_key, config_value, config_type, updated_by, updated_at)
+                    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                     ON CONFLICT (config_key) 
                     DO UPDATE SET 
                         config_value = EXCLUDED.config_value,
+                        config_type = EXCLUDED.config_type,
                         updated_by = EXCLUDED.updated_by,
                         updated_at = EXCLUDED.updated_at
-                """, (key, str(value), updated_by))
+                """, (key, str(value), config_type, updated_by))
                 
                 cls._db_connection.commit()
                 return True
