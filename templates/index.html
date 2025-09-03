@@ -2578,7 +2578,10 @@
                         
                         <div class="form-group">
                             <label for="googleClientSecret">Client Secret:</label>
-                            <input type="password" id="googleClientSecret" placeholder="YOUR_CLIENT_SECRET">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="googleClientSecret" placeholder="YOUR_CLIENT_SECRET" style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleSecretVisibility('googleClientSecret')" style="padding: 8px 12px; min-width: 60px;">👁️</button>
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -2615,7 +2618,10 @@
                         
                         <div class="form-group">
                             <label for="microsoftClientSecret">Client Secret:</label>
-                            <input type="password" id="microsoftClientSecret" placeholder="YOUR_CLIENT_SECRET">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="microsoftClientSecret" placeholder="YOUR_CLIENT_SECRET" style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleSecretVisibility('microsoftClientSecret')" style="padding: 8px 12px; min-width: 60px;">👁️</button>
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -6250,6 +6256,21 @@ Dependencies:
         
         function closeIDPConfigModal() {
             document.getElementById('idpConfigModal').style.display = 'none';
+        }
+        
+        function toggleSecretVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide secret';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show secret';
+            }
         }
         
         async function testIDPConnection() {

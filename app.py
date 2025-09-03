@@ -45,6 +45,15 @@ app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Initialize IDP Authentication Manager
+idp_auth_manager = None
+try:
+    from idp_auth import IDPAuthManager
+    idp_auth_manager = IDPAuthManager()
+    logger.info("IDP Authentication Manager initialized")
+except Exception as e:
+    logger.warning(f"Could not initialize IDP Authentication Manager: {str(e)}")
+
 # Global flag to ensure database is initialized only once
 _db_initialized = False
 
@@ -437,7 +446,12 @@ def index():
             if 'authenticated' not in session:
                 return render_template('login.html', version=BUILD_TIMESTAMP)
     
-    # Get user info for template
+    # Check if user logged in via IDP - serve specialized portal
+    if session.get('idp_user'):
+        logger.info(f"IDP user detected: {session.get('username')}, serving IDP portal")
+        return render_template('idp_portal.html')
+    
+    # Get user info for template (regular admin users)
     user_info = {
         'username': session.get('username', 'guest'),
         'is_admin': session.get('is_admin', False),
@@ -583,6 +597,239 @@ def logout_page():
     log_operation('logout', {'username': username})
     session.clear()
     return redirect('/login')
+
+# ================================
+# IDP OAuth Routes
+# ================================
+
+@app.route('/auth/microsoft/login')
+def microsoft_login():
+    """Initiate Microsoft OAuth login"""
+    try:
+        # Direct database approach - bypass IDPConfig class issues
+        import msal
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get Microsoft configuration directly from database
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_oauth_enabled',))
+        enabled_result = cursor.fetchone()
+        logger.info(f"DEBUG RAW RESULT - enabled_result: {enabled_result}, type: {type(enabled_result)}")
+        
+        # Handle RealDictRow results properly
+        enabled = enabled_result['config_value'] if enabled_result else 'False'
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_id',))
+        client_id_result = cursor.fetchone()
+        client_id = client_id_result['config_value'] if client_id_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_secret',))
+        client_secret_result = cursor.fetchone()
+        client_secret = client_secret_result['config_value'] if client_secret_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_tenant_id',))
+        tenant_id_result = cursor.fetchone()
+        tenant_id = tenant_id_result['config_value'] if tenant_id_result else 'common'
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('idp_redirect_uri_base',))
+        redirect_base_result = cursor.fetchone()
+        redirect_base = redirect_base_result['config_value'] if redirect_base_result else 'https://ca.bonner.com'
+        
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"DEBUG DIRECT - enabled: {enabled}, client_id: {client_id}, tenant_id: {tenant_id}")
+        
+        # Check if Microsoft OAuth is enabled
+        if str(enabled).lower() not in ('true', '1', 'yes', 'on'):
+            return jsonify({'error': 'Microsoft OAuth is not enabled'}), 400
+        
+        if not client_id or not client_secret:
+            return jsonify({'error': 'Microsoft OAuth not properly configured'}), 400
+        
+        # Create MSAL app directly
+        authority = f'https://login.microsoftonline.com/{tenant_id}'
+        redirect_uri = f'{redirect_base}/auth/microsoft/callback'
+        
+        app_msal = msal.ConfidentialClientApplication(
+            client_id=client_id,
+            client_credential=client_secret,
+            authority=authority
+        )
+        
+        # Generate state and store in session
+        import secrets
+        state = secrets.token_urlsafe(32)
+        session['oauth_state'] = state
+        
+        # Get authorization URL - use only the scopes that Microsoft Graph accepts
+        auth_url = app_msal.get_authorization_request_url(
+            scopes=['User.Read'],  # Only use User.Read scope - other claims come automatically
+            state=state,
+            redirect_uri=redirect_uri
+        )
+        
+        from flask import redirect
+        return redirect(auth_url)
+        
+    except Exception as e:
+        logger.error(f"Microsoft login error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': f'Failed to initiate Microsoft login: {str(e)}'}), 500
+
+@app.route('/auth/microsoft/callback')
+def microsoft_callback():
+    """Handle Microsoft OAuth callback"""
+    try:
+        import msal
+        import requests
+        
+        # Get Microsoft configuration directly from database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_id',))
+        client_id_result = cursor.fetchone()
+        client_id = client_id_result['config_value'] if client_id_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_secret',))
+        client_secret_result = cursor.fetchone()
+        client_secret = client_secret_result['config_value'] if client_secret_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_tenant_id',))
+        tenant_id_result = cursor.fetchone()
+        tenant_id = tenant_id_result['config_value'] if tenant_id_result else 'common'
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('idp_redirect_uri_base',))
+        redirect_base_result = cursor.fetchone()
+        redirect_base = redirect_base_result['config_value'] if redirect_base_result else 'https://ca.bonner.com'
+        
+        cursor.close()
+        
+        # Verify state for CSRF protection
+        if request.args.get('state') != session.pop('oauth_state', None):
+            conn.close()
+            return jsonify({'error': 'Invalid state parameter'}), 400
+        
+        # Get authorization code
+        code = request.args.get('code')
+        if not code:
+            conn.close()
+            return jsonify({'error': 'No authorization code received'}), 400
+        
+        # Create MSAL app and exchange code for token
+        authority = f'https://login.microsoftonline.com/{tenant_id}'
+        redirect_uri = f'{redirect_base}/auth/microsoft/callback'
+        
+        app_msal = msal.ConfidentialClientApplication(
+            client_id,
+            authority=authority,
+            client_credential=client_secret
+        )
+        
+        # Exchange authorization code for token
+        result = app_msal.acquire_token_by_authorization_code(
+            code,
+            scopes=['User.Read'],
+            redirect_uri=redirect_uri
+        )
+        
+        if 'error' in result:
+            logger.error(f"Microsoft token error: {result.get('error_description')}")
+            conn.close()
+            return jsonify({'error': 'Authentication failed'}), 500
+        
+        # Get user info using the access token
+        if 'access_token' in result:
+            # Call Microsoft Graph API to get user details
+            graph_response = requests.get(
+                'https://graph.microsoft.com/v1.0/me',
+                headers={'Authorization': f"Bearer {result['access_token']}"}
+            )
+            
+            if graph_response.status_code == 200:
+                user_info = graph_response.json()
+                
+                # Create user session
+                session['authenticated'] = True
+                session['username'] = user_info.get('userPrincipalName') or user_info.get('mail')
+                session['idp_user'] = True
+                session['user_id'] = 0  # IDP users don't have local user IDs yet
+                session['user_display_name'] = user_info.get('displayName')
+                
+                logger.info(f"Microsoft OAuth login successful for user: {session['username']}")
+                conn.close()
+                return redirect('/')
+            else:
+                logger.error(f"Failed to get user info from Microsoft Graph: {graph_response.text}")
+                conn.close()
+                return jsonify({'error': 'Failed to get user information'}), 500
+        
+        conn.close()
+        return jsonify({'error': 'Authentication failed'}), 500
+        
+    except Exception as e:
+        logger.error(f"Microsoft callback error: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
+
+@app.route('/auth/google/login')
+def google_login():
+    """Initiate Google OAuth login"""
+    try:
+        # Set database connection for IDPConfig FIRST
+        from idp_config import IDPConfig
+        from idp_auth import IDPAuthManager
+        
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Now initialize the auth manager with the database config loaded
+        auth_manager = IDPAuthManager(app)
+        
+        # Initiate Google login
+        redirect_response = auth_manager.initiate_google_login()
+        conn.close()
+        return redirect_response
+    except Exception as e:
+        logger.error(f"Google login error: {str(e)}")
+        return jsonify({'error': f'Failed to initiate Google login: {str(e)}'}), 500
+
+@app.route('/auth/google/callback')
+def google_callback():
+    """Handle Google OAuth callback"""
+    try:
+        # Set database connection for IDPConfig FIRST
+        from idp_config import IDPConfig
+        from idp_auth import IDPAuthManager
+        
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Now initialize the auth manager with the database config loaded
+        auth_manager = IDPAuthManager(app)
+        
+        # Handle the callback
+        result = auth_manager.handle_google_callback()
+        
+        # If successful, create a regular session
+        if isinstance(result, dict) and result.get('status') == 'success':
+            user_data = result.get('user', {})
+            session['authenticated'] = True
+            session['username'] = user_data.get('email', 'idp_user')
+            session['idp_user'] = True
+            session['user_id'] = 0  # IDP users don't have local user IDs yet
+            
+            logger.info(f"IDP login successful for user: {session['username']}")
+            conn.close()
+            return redirect('/')
+        
+        conn.close()
+        return result
+    except Exception as e:
+        logger.error(f"Google callback error: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
 
 def make_easyrsa_request(operation, params=None):
     """Helper function to make requests to EasyRSA container"""
@@ -3881,6 +4128,63 @@ def get_idp_status():
             'error': 'Failed to load IDP status'
         })
 
+@app.route('/api/idp/login-config')
+def get_idp_login_config():
+    """Get basic IDP configuration for login page (no auth required)"""
+    try:
+        # Use direct database queries instead of IDPConfig class
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get required configuration values directly from database
+        config_keys = ['idp_enabled', 'microsoft_oauth_enabled', 'google_oauth_enabled']
+        config_values = {}
+        
+        for key in config_keys:
+            cursor.execute(
+                "SELECT config_value FROM system_config WHERE config_key = %s",
+                (key,)
+            )
+            result = cursor.fetchone()
+            if result:
+                # Handle boolean conversion for database values
+                value = result['config_value']
+                if isinstance(value, str):
+                    config_values[key] = value.lower() in ('true', '1', 'yes', 'on')
+                elif isinstance(value, bool):
+                    config_values[key] = value
+                else:
+                    config_values[key] = bool(value)
+            else:
+                config_values[key] = False
+        
+        cursor.close()
+        conn.close()
+        
+        # Return only what's needed for login page
+        result = {
+            'idp_enabled': config_values.get('idp_enabled', False),
+            'google_enabled': config_values.get('google_oauth_enabled', False),
+            'microsoft_enabled': config_values.get('microsoft_oauth_enabled', False),
+            'providers': []
+        }
+        
+        if config_values.get('google_oauth_enabled'):
+            result['providers'].append('google')
+        if config_values.get('microsoft_oauth_enabled'):
+            result['providers'].append('microsoft')
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP login config: {str(e)}")
+        return jsonify({
+            'idp_enabled': False,
+            'google_enabled': False,
+            'microsoft_enabled': False,
+            'providers': []
+        })
+
 @app.route('/api/idp/test-connection', methods=['POST'])
 @auth_required()
 def test_idp_connection():
@@ -3913,17 +4217,28 @@ def test_idp_connection():
         # Test Microsoft connection
         if config.get('microsoft_enabled') and config.get('microsoft_client_id'):
             tenant_id = config.get('microsoft_tenant_id', 'common')
-            try:
-                response = requests.get(
-                    f'https://login.microsoftonline.com/{tenant_id}/v2.0/.well-known/openid_configuration',
-                    timeout=10
-                )
-                if response.status_code == 200:
-                    results['microsoft'] = {'status': '✅ Microsoft OAuth configuration accessible'}
-                else:
-                    results['microsoft'] = {'status': '❌ Microsoft OAuth configuration not accessible'}
-            except Exception as e:
-                results['microsoft'] = {'status': f'❌ Microsoft OAuth test failed: {str(e)[:100]}'}
+            client_secret = config.get('microsoft_client_secret', '')
+            
+            # Validate required configuration
+            if not client_secret:
+                results['microsoft'] = {'status': '❌ Microsoft client secret not configured'}
+            elif len(tenant_id) < 10:  # Basic tenant ID validation
+                results['microsoft'] = {'status': '❌ Microsoft tenant ID appears invalid'}
+            else:
+                try:
+                    # Try to connect to Microsoft's OAuth endpoint
+                    response = requests.get(
+                        f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize',
+                        timeout=5,
+                        allow_redirects=False
+                    )
+                    # We expect a redirect or 4xx response for GET without params, not 5xx
+                    if response.status_code < 500:
+                        results['microsoft'] = {'status': '✅ Microsoft OAuth configuration accessible'}
+                    else:
+                        results['microsoft'] = {'status': f'❌ Microsoft OAuth endpoint error: {response.status_code}'}
+                except Exception as e:
+                    results['microsoft'] = {'status': f'❌ Microsoft OAuth test failed: {str(e)[:100]}'}
         
         conn.close()
         
@@ -3935,6 +4250,535 @@ def test_idp_connection():
             'status': 'error',
             'message': f'Failed to test IDP connections: {str(e)}'
         }), 500
+
+
+# ================================
+# IDP Self-Service Portal APIs
+# ================================
+
+@app.route('/api/idp/current-user')
+def get_current_idp_user():
+    """Get current IDP user information"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    return jsonify({
+        'status': 'success',
+        'user': {
+            'email': session.get('username'),
+            'name': session.get('user_display_name') or session.get('username'),
+            'provider': 'microsoft',  # TODO: Store actual provider in session
+            'picture': None  # TODO: Store profile picture if available
+        }
+    })
+
+@app.route('/api/idp/certificate-status')
+def get_idp_certificate_status():
+    """Get current certificate status for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get the most recent active certificate for this user
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (session.get('username'),))
+        
+        cert_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if cert_row:
+            # Check if certificate is expiring soon (within 30 days)
+            from datetime import datetime, timedelta
+            expiry_date = cert_row['valid_until']
+            expiring_soon = (expiry_date - datetime.now()) < timedelta(days=30)
+            
+            return jsonify({
+                'status': 'success',
+                'certificate': {
+                    'id': cert_row['id'],
+                    'common_name': cert_row['common_name'],
+                    'serial_number': cert_row['serial_number'],
+                    'valid_from': cert_row['valid_from'].isoformat(),
+                    'valid_until': cert_row['valid_until'].isoformat(),
+                    'status': cert_row['status'],
+                    'created_at': cert_row['created_at'].isoformat()
+                },
+                'expiring_soon': expiring_soon
+            })
+        else:
+            return jsonify({
+                'status': 'success',
+                'certificate': None,
+                'expiring_soon': False
+            })
+            
+    except Exception as e:
+        logger.error(f"Error getting certificate status: {str(e)}")
+        return jsonify({'error': 'Failed to get certificate status'}), 500
+
+@app.route('/api/idp/certificate-history')
+def get_idp_certificate_history():
+    """Get certificate history for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get all certificates for this user
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s 
+            ORDER BY created_at DESC
+        """, (session.get('username'),))
+        
+        cert_rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        certificates = []
+        for row in cert_rows:
+            certificates.append({
+                'id': row['id'],
+                'common_name': row['common_name'],
+                'serial_number': row['serial_number'],
+                'valid_from': row['valid_from'].isoformat(),
+                'valid_until': row['valid_until'].isoformat(),
+                'status': row['status'],
+                'created_at': row['created_at'].isoformat()
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'certificates': certificates
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting certificate history: {str(e)}")
+        return jsonify({'error': 'Failed to get certificate history'}), 500
+
+@app.route('/api/idp/generate-certificate', methods=['POST'])
+def generate_idp_certificate():
+    """Generate a new certificate for IDP user using existing certificate request system"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        user_name = session.get('user_display_name') or email
+        
+        logger.info(f"Generating certificate for IDP user: {email}")
+        
+        # First, revoke any existing active certificates for this user
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE idp_certificates 
+            SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revocation_reason = 'superseded'
+            WHERE email = %s AND status = 'active'
+        """, (email,))
+        
+        # Create certificate request using the existing system
+        import uuid
+        import json
+        from datetime import datetime
+        request_id = str(uuid.uuid4())
+        
+        # Insert certificate request - use email as common name for proper certificate
+        cursor.execute("""
+            INSERT INTO certificate_requests (
+                request_id, requester_name, requester_email, department,
+                common_name, san_dns_names, san_ip_addresses, san_emails,
+                certificate_type, key_algorithm, key_size, validity_days,
+                certificate_template, approval_required, status,
+                request_metadata, email_verified, verification_token,
+                verification_completed_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            request_id,
+            user_name,
+            email,
+            'IDP User',
+            email,  # Use email as common name
+            [],     # san_dns_names
+            [],     # san_ip_addresses
+            [email],  # san_emails
+            'client',
+            'RSA',
+            2048,
+            365,
+            'default',
+            False,   # approval_required - auto-approve for IDP users
+            'approved',  # status
+            json.dumps({'idp_generated': True, 'provider': 'microsoft'}),
+            True,    # email_verified
+            None,    # verification_token
+            datetime.utcnow(),  # verification_completed_at
+        ))
+        
+        # Get the database ID for the request from the INSERT RETURNING
+        request_db_id = cursor.fetchone()['id']
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # First revoke any existing certificate with the same name in EasyRSA
+        logger.info(f"Checking for existing certificate with name: {email}")
+        revoke_result = make_easyrsa_request("revoke", {"name": email})
+        if revoke_result.get("status") == "success":
+            logger.info(f"Revoked existing certificate for {email}")
+        else:
+            logger.info(f"No existing certificate found for {email} (or revocation not needed)")
+        
+        # Use existing certificate generation function
+        logger.info(f"Using existing certificate generation for request {request_id}")
+        cert_generated = generate_certificate_for_request(request_db_id, request_id, {
+            'common_name': email,
+            'san_emails': [email]
+        })
+        
+        if not cert_generated:
+            return jsonify({'error': 'Certificate generation failed'}), 500
+        
+        # Get the generated certificate info and store in IDP tables
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT certificate_pem, private_key_pem 
+            FROM certificate_requests WHERE request_id = %s AND status = 'issued'
+        """, (request_id,))
+        cert_row = cursor.fetchone()
+        
+        if cert_row and cert_row['certificate_pem'] and cert_row['private_key_pem']:
+            # Parse certificate to get details
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+            
+            try:
+                cert_obj = x509.load_pem_x509_certificate(cert_row['certificate_pem'].encode(), default_backend())
+                serial_number = format(cert_obj.serial_number, 'X')
+                valid_from = cert_obj.not_valid_before
+                valid_until = cert_obj.not_valid_after
+            except Exception as e:
+                logger.error(f"Failed to parse certificate: {e}")
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Failed to parse generated certificate'}), 500
+            
+            # First create/update entry in idp_users table
+            cursor.execute("""
+                INSERT INTO idp_users (email, idp_provider, idp_user_id, name, last_login)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (email) DO UPDATE SET 
+                    name = EXCLUDED.name,
+                    last_login = CURRENT_TIMESTAMP
+            """, (email, 'microsoft', email, user_name))
+            
+            # Store in idp_certificates table for IDP portal display
+            cursor.execute("""
+                INSERT INTO idp_certificates (
+                    email, common_name, idp_provider, certificate_pem, private_key_pem,
+                    serial_number, valid_from, valid_until, status, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """, (
+                email, email, 'microsoft', cert_row['certificate_pem'], 
+                cert_row['private_key_pem'], serial_number, 
+                valid_from, valid_until, 'active'
+            ))
+            conn.commit()
+        else:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Certificate generation completed but certificate not found'}), 500
+        
+        cursor.close()
+        conn.close()
+        
+        # Send certificate via email
+        try:
+            # Get CA certificate for the email
+            ca_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": False})
+            ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
+            
+            # Send the certificate email
+            email_sent = send_certificate_email_with_data(
+                request_id=request_id,
+                recipient_email=email,
+                recipient_name=user_name,
+                common_name=email,
+                cert_pem=cert_row['certificate_pem'],
+                key_pem=cert_row['private_key_pem'],
+                ca_cert_pem=ca_cert_pem
+            )
+            
+            if not email_sent:
+                logger.warning(f"Certificate generated but email delivery failed for {email}")
+                # Don't fail the request if email fails, certificate is still generated
+        except Exception as e:
+            logger.error(f"Error sending certificate email: {e}")
+            # Don't fail the request if email fails, certificate is still generated
+        
+        logger.info(f"Successfully generated certificate for IDP user {email} with serial {serial_number}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Certificate generated successfully! Check your email for the certificate file.',
+            'serial_number': serial_number
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to generate certificate'}), 500
+
+@app.route('/api/idp/renew-certificate', methods=['POST'])
+def renew_idp_certificate():
+    """Renew certificate for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Renewing certificate for IDP user: {email}")
+        
+        # Check if user has an existing certificate
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        existing_cert = cursor.fetchone()
+        
+        if not existing_cert:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'No active certificate found to renew'}), 404
+        
+        # Check if certificate is eligible for renewal (within 30 days of expiry)
+        from datetime import datetime, timedelta
+        expiry_date = existing_cert['valid_until']
+        days_until_expiry = (expiry_date - datetime.now()).days
+        
+        if days_until_expiry > 30:
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'error': f'Certificate can only be renewed within 30 days of expiry. Current certificate expires in {days_until_expiry} days.'
+            }), 400
+        
+        cursor.close()
+        conn.close()
+        
+        # Use the same generate function which will automatically revoke existing certificates
+        # and create a new one
+        return generate_idp_certificate()
+        
+    except Exception as e:
+        logger.error(f"Error renewing certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to renew certificate'}), 500
+
+@app.route('/api/idp/revoke-certificate', methods=['POST'])
+def revoke_idp_certificate():
+    """Revoke the active certificate for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Revoking certificate for IDP user: {email}")
+        
+        # Get the active certificate from database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        active_cert = cursor.fetchone()
+        
+        if not active_cert:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'No active certificate found to revoke'}), 404
+        
+        # Update certificate status in database
+        cursor.execute("""
+            UPDATE idp_certificates 
+            SET status = 'revoked', 
+                revoked_at = CURRENT_TIMESTAMP, 
+                revocation_reason = 'user_requested'
+            WHERE id = %s
+        """, (active_cert['id'],))
+        
+        # Revoke in EasyRSA PKI
+        revoke_result = make_easyrsa_request("revoke", {"name": email})
+        
+        if revoke_result.get("status") == "success":
+            logger.info(f"Successfully revoked certificate for {email}")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Certificate revoked successfully'
+            })
+        else:
+            # If EasyRSA revocation fails, still commit database changes
+            logger.warning(f"EasyRSA revocation failed for {email}, but database updated")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Certificate marked as revoked'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error revoking certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to revoke certificate'}), 500
+
+@app.route('/api/idp/download-certificate')
+def download_idp_certificate():
+    """Download certificate for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        format_type = request.args.get('format', 'pkcs12')
+        email = session.get('username')
+        
+        # Get the most recent active certificate for this user
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        cert_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not cert_row:
+            return jsonify({'error': 'No active certificate found'}), 404
+        
+        cert_pem = cert_row['certificate_pem']
+        key_pem = cert_row['private_key_pem']
+        common_name = cert_row['common_name']
+        
+        if not cert_pem or not key_pem:
+            return jsonify({'error': 'Certificate data incomplete'}), 500
+        
+        # Prepare certificate data based on format
+        from flask import make_response
+        from cryptography.hazmat.primitives import serialization
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+        
+        if format_type == 'pkcs12':
+            # Get CA certificate using the actual email address as the certificate name
+            # Since we're using the existing certificate request system, the certificate
+            # is stored with the actual email address, not a sanitized version
+            logger.info(f"Attempting to get CA certificate using email: {email}")
+            
+            ca_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": False})
+            logger.info(f"CA cert result from get-cert-files with email: {ca_result}")
+            ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
+            
+            if not ca_cert_pem:
+                logger.error(f"CA certificate not available - get-cert-files returned: {ca_result}")
+                return jsonify({'error': 'CA certificate not available for P12 creation'}), 500
+            
+            # Create P12 bundle
+            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            private_key_obj = serialization.load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
+            ca_cert_obj = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
+            
+            # Use 'certificate' as the password for P12 files
+            p12_data = serialization.pkcs12.serialize_key_and_certificates(
+                name=common_name.encode('utf-8'),
+                key=private_key_obj,
+                cert=cert_obj,
+                cas=[ca_cert_obj],
+                encryption_algorithm=serialization.BestAvailableEncryption(b'certificate')
+            )
+            
+            response = make_response(p12_data)
+            response.headers['Content-Type'] = 'application/x-pkcs12'
+            response.headers['Content-Disposition'] = f'attachment; filename="{email.replace("@", "_")}.p12"'
+            return response
+            
+        elif format_type == 'pem':
+            # Return certificate and private key as PEM bundle
+            pem_bundle = cert_pem + '\n' + key_pem
+            
+            response = make_response(pem_bundle)
+            response.headers['Content-Type'] = 'application/x-pem-file'
+            response.headers['Content-Disposition'] = f'attachment; filename="{email.replace("@", "_")}.pem"'
+            return response
+            
+        elif format_type == 'der':
+            # Convert certificate to DER format
+            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            der_data = cert_obj.public_bytes(serialization.Encoding.DER)
+            
+            response = make_response(der_data)
+            response.headers['Content-Type'] = 'application/x-x509-cert'
+            response.headers['Content-Disposition'] = f'attachment; filename="{email.replace("@", "_")}.der"'
+            return response
+            
+        else:
+            return jsonify({'error': 'Unsupported format'}), 400
+        
+    except Exception as e:
+        logger.error(f"Error downloading certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to download certificate'}), 500
+
+@app.route('/auth/logout')
+def idp_logout():
+    """Logout route for IDP users (and regular users)"""
+    username = session.get('username')
+    is_idp_user = session.get('idp_user')
+    
+    if is_idp_user:
+        logger.info(f"IDP user logout: {username}")
+    
+    log_operation('logout', {'username': username, 'idp_user': is_idp_user})
+    session.clear()
+    return redirect('/login')
 
 
 # ================================

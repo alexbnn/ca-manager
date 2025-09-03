@@ -18,10 +18,37 @@ class IDPConfig:
     _config_cache = {}
     _cache_timestamp = 0
     
+    # Static OAuth Discovery URLs
+    GOOGLE_DISCOVERY_URL = 'https://accounts.google.com/.well-known/openid-configuration'
+    
     @classmethod
     def set_db_connection(cls, connection):
         """Set database connection for configuration retrieval"""
         cls._db_connection = connection
+        cls._load_config_as_attributes()
+    
+    @classmethod
+    def _load_config_as_attributes(cls):
+        """Load configuration as class attributes for compatibility"""
+        if not cls._db_connection:
+            return
+        
+        # Load all config and set as class attributes
+        cls.IDP_ENABLED = cls._get_config_from_db('idp_enabled', False, 'boolean')
+        cls.GOOGLE_OAUTH_ENABLED = cls._get_config_from_db('google_oauth_enabled', False, 'boolean')
+        cls.GOOGLE_CLIENT_ID = cls._get_config_from_db('google_client_id', '')
+        cls.GOOGLE_CLIENT_SECRET = cls._get_config_from_db('google_client_secret', '')
+        cls.GOOGLE_HOSTED_DOMAIN = cls._get_config_from_db('google_hosted_domain', '')
+        cls.GOOGLE_REDIRECT_URI = f'{cls._get_config_from_db("idp_redirect_uri_base", "https://localhost")}/auth/google/callback'
+        
+        cls.MICROSOFT_OAUTH_ENABLED = cls._get_config_from_db('microsoft_oauth_enabled', False, 'boolean')
+        cls.MICROSOFT_CLIENT_ID = cls._get_config_from_db('microsoft_client_id', '')
+        cls.MICROSOFT_CLIENT_SECRET = cls._get_config_from_db('microsoft_client_secret', '')
+        cls.MICROSOFT_TENANT_ID = cls._get_config_from_db('microsoft_tenant_id', 'common')
+        cls.MICROSOFT_AUTHORITY = f'https://login.microsoftonline.com/{cls.MICROSOFT_TENANT_ID}'
+        cls.MICROSOFT_REDIRECT_URI = f'{cls._get_config_from_db("idp_redirect_uri_base", "https://localhost")}/auth/microsoft/callback'
+        
+        cls.IDP_SESSION_LIFETIME = cls._get_config_from_db('idp_session_lifetime', 3600, 'integer')
     
     @classmethod
     def _get_config_from_db(cls, key: str, default: Any = None, config_type: str = 'string') -> Any:
@@ -39,13 +66,17 @@ class IDPConfig:
                 """, (key,))
                 
                 result = cursor.fetchone()
+                
                 if not result:
                     return default
                 
-                value, db_type = result
+                value = result['config_value']
+                db_type = result['config_type']
                 
-                # Type conversion based on config_type
+                # Type conversion based on config_type  
                 if db_type == 'boolean':
+                    if isinstance(value, bool):
+                        return value
                     return str(value).lower() in ('true', '1', 'yes', 'on')
                 elif db_type == 'integer':
                     try:
@@ -57,6 +88,8 @@ class IDPConfig:
                     
         except Exception as e:
             logger.error(f"Error getting config {key} from database: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return default
     
     @classmethod
@@ -163,47 +196,59 @@ class IDPConfig:
         
         return success
     
-    # Properties for backward compatibility
-    @property
-    def IDP_ENABLED(cls):
+    # Properties for backward compatibility - using class-level attributes
+    @classmethod
+    def get_idp_enabled(cls):
         return cls._get_config_from_db('idp_enabled', False, 'boolean')
     
-    @property
-    def GOOGLE_OAUTH_ENABLED(cls):
+    @classmethod
+    def get_google_oauth_enabled(cls):
         return cls._get_config_from_db('google_oauth_enabled', False, 'boolean')
     
-    @property
-    def GOOGLE_CLIENT_ID(cls):
+    @classmethod
+    def get_google_client_id(cls):
         return cls._get_config_from_db('google_client_id', '')
     
-    @property
-    def GOOGLE_CLIENT_SECRET(cls):
+    @classmethod
+    def get_google_client_secret(cls):
         return cls._get_config_from_db('google_client_secret', '')
     
-    @property
-    def GOOGLE_HOSTED_DOMAIN(cls):
+    @classmethod
+    def get_google_hosted_domain(cls):
         return cls._get_config_from_db('google_hosted_domain', '')
     
-    @property
-    def MICROSOFT_OAUTH_ENABLED(cls):
+    @classmethod
+    def get_microsoft_oauth_enabled(cls):
         return cls._get_config_from_db('microsoft_oauth_enabled', False, 'boolean')
     
-    @property
-    def MICROSOFT_CLIENT_ID(cls):
+    @classmethod
+    def get_microsoft_client_id(cls):
         return cls._get_config_from_db('microsoft_client_id', '')
     
-    @property
-    def MICROSOFT_CLIENT_SECRET(cls):
+    @classmethod
+    def get_microsoft_client_secret(cls):
         return cls._get_config_from_db('microsoft_client_secret', '')
     
-    @property
-    def MICROSOFT_TENANT_ID(cls):
+    @classmethod
+    def get_microsoft_tenant_id(cls):
         return cls._get_config_from_db('microsoft_tenant_id', 'common')
     
-    @property
-    def MICROSOFT_AUTHORITY(cls):
-        tenant_id = cls.MICROSOFT_TENANT_ID
+    @classmethod
+    def get_microsoft_authority(cls):
+        tenant_id = cls.get_microsoft_tenant_id()
         return f'https://login.microsoftonline.com/{tenant_id}'
+    
+    # Add as class-level attributes for compatibility
+    IDP_ENABLED = property(lambda self: self.__class__.get_idp_enabled())
+    GOOGLE_OAUTH_ENABLED = property(lambda self: self.__class__.get_google_oauth_enabled())
+    GOOGLE_CLIENT_ID = property(lambda self: self.__class__.get_google_client_id())
+    GOOGLE_CLIENT_SECRET = property(lambda self: self.__class__.get_google_client_secret())
+    GOOGLE_HOSTED_DOMAIN = property(lambda self: self.__class__.get_google_hosted_domain())
+    MICROSOFT_OAUTH_ENABLED = property(lambda self: self.__class__.get_microsoft_oauth_enabled())
+    MICROSOFT_CLIENT_ID = property(lambda self: self.__class__.get_microsoft_client_id())
+    MICROSOFT_CLIENT_SECRET = property(lambda self: self.__class__.get_microsoft_client_secret())
+    MICROSOFT_TENANT_ID = property(lambda self: self.__class__.get_microsoft_tenant_id())
+    MICROSOFT_AUTHORITY = property(lambda self: self.__class__.get_microsoft_authority())
     
     # OAuth2 Redirect URIs (must be registered with IDP)
     @classmethod
@@ -217,6 +262,10 @@ class IDPConfig:
     @classmethod
     def get_microsoft_redirect_uri(cls):
         return f'{cls.get_redirect_uri_base()}/auth/microsoft/callback'
+    
+    # Add class-level attributes for redirect URIs
+    GOOGLE_REDIRECT_URI = property(lambda self: self.__class__.get_google_redirect_uri())
+    MICROSOFT_REDIRECT_URI = property(lambda self: self.__class__.get_microsoft_redirect_uri())
     
     # Certificate Generation Settings for IDP Users - Database-driven
     @classmethod
@@ -321,9 +370,9 @@ class IDPConfig:
     def get_enabled_providers(cls) -> list:
         """Get list of enabled IDP providers"""
         providers = []
-        if cls.GOOGLE_OAUTH_ENABLED:
+        if cls.get_google_oauth_enabled():
             providers.append('google')
-        if cls.MICROSOFT_OAUTH_ENABLED:
+        if cls.get_microsoft_oauth_enabled():
             providers.append('microsoft')
         return providers
     
@@ -332,23 +381,23 @@ class IDPConfig:
         """Get configuration for specific provider"""
         if provider == 'google':
             return {
-                'enabled': cls.GOOGLE_OAUTH_ENABLED,
-                'client_id': cls.GOOGLE_CLIENT_ID,
-                'client_secret': cls.GOOGLE_CLIENT_SECRET,
-                'redirect_uri': cls.GOOGLE_REDIRECT_URI,
+                'enabled': cls.get_google_oauth_enabled(),
+                'client_id': cls.get_google_client_id(),
+                'client_secret': cls.get_google_client_secret(),
+                'redirect_uri': cls.get_google_redirect_uri(),
                 'discovery_url': cls.GOOGLE_DISCOVERY_URL,
-                'hosted_domain': cls.GOOGLE_HOSTED_DOMAIN,
+                'hosted_domain': cls.get_google_hosted_domain(),
                 'scope': ['openid', 'email', 'profile'],
                 'attribute_mapping': cls.IDP_USER_ATTRIBUTE_MAPPING['google']
             }
         elif provider == 'microsoft':
             return {
-                'enabled': cls.MICROSOFT_OAUTH_ENABLED,
-                'client_id': cls.MICROSOFT_CLIENT_ID,
-                'client_secret': cls.MICROSOFT_CLIENT_SECRET,
-                'redirect_uri': cls.MICROSOFT_REDIRECT_URI,
-                'authority': cls.MICROSOFT_AUTHORITY,
-                'tenant_id': cls.MICROSOFT_TENANT_ID,
+                'enabled': cls.get_microsoft_oauth_enabled(),
+                'client_id': cls.get_microsoft_client_id(),
+                'client_secret': cls.get_microsoft_client_secret(),
+                'redirect_uri': cls.get_microsoft_redirect_uri(),
+                'authority': cls.get_microsoft_authority(),
+                'tenant_id': cls.get_microsoft_tenant_id(),
                 'scope': ['User.Read', 'email', 'profile', 'openid'],
                 'attribute_mapping': cls.IDP_USER_ATTRIBUTE_MAPPING['microsoft']
             }
@@ -360,20 +409,20 @@ class IDPConfig:
         errors = []
         warnings = []
         
-        if cls.IDP_ENABLED:
-            if not cls.GOOGLE_OAUTH_ENABLED and not cls.MICROSOFT_OAUTH_ENABLED:
+        if cls.get_idp_enabled():
+            if not cls.get_google_oauth_enabled() and not cls.get_microsoft_oauth_enabled():
                 errors.append("IDP is enabled but no providers are configured")
             
-            if cls.GOOGLE_OAUTH_ENABLED:
-                if not cls.GOOGLE_CLIENT_ID or not cls.GOOGLE_CLIENT_SECRET:
+            if cls.get_google_oauth_enabled():
+                if not cls.get_google_client_id() or not cls.get_google_client_secret():
                     errors.append("Google OAuth enabled but client ID/secret not configured")
-                if cls.GOOGLE_HOSTED_DOMAIN:
-                    warnings.append(f"Google login restricted to domain: {cls.GOOGLE_HOSTED_DOMAIN}")
+                if cls.get_google_hosted_domain():
+                    warnings.append(f"Google login restricted to domain: {cls.get_google_hosted_domain()}")
             
-            if cls.MICROSOFT_OAUTH_ENABLED:
-                if not cls.MICROSOFT_CLIENT_ID or not cls.MICROSOFT_CLIENT_SECRET:
+            if cls.get_microsoft_oauth_enabled():
+                if not cls.get_microsoft_client_id() or not cls.get_microsoft_client_secret():
                     errors.append("Microsoft OAuth enabled but client ID/secret not configured")
-                if not cls.MICROSOFT_TENANT_ID:
+                if not cls.get_microsoft_tenant_id():
                     errors.append("Microsoft OAuth enabled but tenant ID not configured")
         
         return {

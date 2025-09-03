@@ -38,9 +38,6 @@ CREATE TABLE IF NOT EXISTS idp_certificates (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     renewed_from_id INTEGER REFERENCES idp_certificates(id),
     metadata JSONB,
-    INDEX idx_idp_cert_email (email),
-    INDEX idx_idp_cert_status (status),
-    INDEX idx_idp_cert_valid_until (valid_until),
     FOREIGN KEY (email) REFERENCES idp_users(email) ON DELETE CASCADE
 );
 
@@ -66,9 +63,7 @@ CREATE TABLE IF NOT EXISTS idp_sessions (
     expires_at TIMESTAMP NOT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
-    metadata JSONB,
-    INDEX idx_idp_session_email (email),
-    INDEX idx_idp_session_expires (expires_at)
+    metadata JSONB
 );
 
 -- Table for certificate templates
@@ -135,8 +130,13 @@ $$ LANGUAGE plpgsql;
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_idp_users_email ON idp_users(email);
 CREATE INDEX IF NOT EXISTS idx_idp_users_provider ON idp_users(idp_provider);
+CREATE INDEX IF NOT EXISTS idx_idp_cert_email ON idp_certificates(email);
+CREATE INDEX IF NOT EXISTS idx_idp_cert_status ON idp_certificates(status);
+CREATE INDEX IF NOT EXISTS idx_idp_cert_valid_until ON idp_certificates(valid_until);
 CREATE INDEX IF NOT EXISTS idx_idp_cert_email_status ON idp_certificates(email, status);
 CREATE INDEX IF NOT EXISTS idx_idp_cert_expiry ON idp_certificates(valid_until) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_idp_session_email ON idp_sessions(email);
+CREATE INDEX IF NOT EXISTS idx_idp_session_expires ON idp_sessions(expires_at);
 
 -- Grant permissions
 GRANT SELECT, INSERT, UPDATE ON idp_users TO ca_manager_user;

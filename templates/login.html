@@ -445,7 +445,7 @@
         }, 1000);
         
         // Check if IDP is enabled and show appropriate buttons
-        fetch('/api/idp/config')
+        fetch('/api/idp/login-config')
             .then(response => response.json())
             .then(data => {
                 if (data.idp_enabled) {
