@@ -40,10 +40,13 @@ services:
     depends_on:
       easyrsa-container:
         condition: service_started
+        timeout: 300s
       redis:
         condition: service_started
+        timeout: 300s
       postgres:
         condition: service_healthy
+        timeout: 300s
     networks:
       - easyrsa-network
     restart: unless-stopped
