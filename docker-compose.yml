@@ -1,4 +1,4 @@
-# CA Manager v6.0.0-alpha - With Identity Provider Integration and Automated Certificate Management
+# CA Manager v6.0.0 - With Identity Provider Integration and Automated Certificate Management
 services:
   web-interface:
     build: .
