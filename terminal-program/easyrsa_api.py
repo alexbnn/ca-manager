@@ -43,6 +43,29 @@ def health():
         "timestamp": datetime.now().isoformat()
     }), 200
 
+@app.route('/test-restore-debug')
+def test_restore_debug():
+    """Test restore debug functionality"""
+    print("TEST RESTORE DEBUG: This is a test print statement")
+    logger.info("TEST RESTORE DEBUG: This is a test logger statement")
+    
+    # Test the same imports as restore function
+    try:
+        import base64
+        import binascii
+        import json
+        print("TEST RESTORE DEBUG: All imports successful")
+        
+        # Test base64 decode
+        test_data = base64.b64encode(b'{"test": "data"}').decode('utf-8')
+        decoded = base64.b64decode(test_data)
+        print(f"TEST RESTORE DEBUG: Base64 decode test successful: {decoded}")
+        
+        return jsonify({"status": "debug test complete", "imports": "success"})
+    except Exception as e:
+        print(f"TEST RESTORE DEBUG ERROR: {e}")
+        return jsonify({"status": "debug test failed", "error": str(e)}), 500
+
 @app.route('/debug')
 def debug_pki():
     """Debug endpoint to see PKI directory contents"""
@@ -163,8 +186,6 @@ def execute_easyrsa():
             return pki_status()
         elif operation == 'get-metrics':
             return get_metrics()
-        elif operation == 'create-backup':
-            return create_backup()
         elif operation == 'get-ca-key':
             return get_ca_private_key()
         elif operation == 'import-req':
@@ -173,6 +194,10 @@ def execute_easyrsa():
             return get_index_content()
         elif operation == 'import-ca':
             return import_ca(params)
+        elif operation == 'create-backup':
+            return create_pki_backup(params)
+        elif operation == 'restore-backup':
+            return restore_pki_backup(params)
         else:
             return jsonify({
                 "status": "error",
@@ -283,13 +308,25 @@ def import_ca(params):
                 "message": "Both CA certificate and private key are required"
             }), 400
         
-        # Ensure PKI is initialized
-        if not os.path.exists(PKI_PATH):
-            os.makedirs(PKI_PATH, exist_ok=True)
-        if not os.path.exists(os.path.join(PKI_PATH, 'private')):
-            os.makedirs(os.path.join(PKI_PATH, 'private'), exist_ok=True)
-        if not os.path.exists(os.path.join(PKI_PATH, 'issued')):
-            os.makedirs(os.path.join(PKI_PATH, 'issued'), exist_ok=True)
+        # Ensure PKI is initialized with all required directories
+        required_dirs = [
+            PKI_PATH,
+            os.path.join(PKI_PATH, 'private'),
+            os.path.join(PKI_PATH, 'issued'),
+            os.path.join(PKI_PATH, 'certs_by_serial'),
+            os.path.join(PKI_PATH, 'reqs'),
+            os.path.join(PKI_PATH, 'revoked'),
+            os.path.join(PKI_PATH, 'revoked', 'certs_by_serial'),
+            os.path.join(PKI_PATH, 'revoked', 'private_by_serial'),
+            os.path.join(PKI_PATH, 'revoked', 'reqs_by_serial'),
+            os.path.join(PKI_PATH, 'renewed'),
+            os.path.join(PKI_PATH, 'renewed', 'certs_by_serial'),
+            os.path.join(PKI_PATH, 'renewed', 'private_by_serial'),
+            os.path.join(PKI_PATH, 'renewed', 'reqs_by_serial')
+        ]
+        
+        for dir_path in required_dirs:
+            os.makedirs(dir_path, exist_ok=True)
         
         # Write CA certificate
         ca_cert_path = os.path.join(PKI_PATH, 'ca.crt')
@@ -321,6 +358,41 @@ def import_ca(params):
         with open(index_attr_path, 'w') as f:
             f.write('unique_subject = no\n')
         
+        # Create crlnumber file for CRL generation
+        crlnumber_path = os.path.join(PKI_PATH, 'crlnumber')
+        if not os.path.exists(crlnumber_path):
+            with open(crlnumber_path, 'w') as f:
+                f.write('01\n')
+        
+        # Create OpenSSL config file if it doesn't exist
+        openssl_cnf_path = os.path.join(PKI_PATH, 'openssl-easyrsa.cnf')
+        if not os.path.exists(openssl_cnf_path) and os.path.exists('/usr/share/easy-rsa/openssl-easyrsa.cnf'):
+            shutil.copy('/usr/share/easy-rsa/openssl-easyrsa.cnf', openssl_cnf_path)
+        
+        # Create PKCS#11 config file if template exists
+        pkcs11_cnf_path = os.path.join(PKI_PATH, 'pkcs11-easyrsa.cnf')
+        if not os.path.exists(pkcs11_cnf_path) and os.path.exists('/usr/share/easy-rsa/pkcs11-easyrsa.cnf'):
+            shutil.copy('/usr/share/easy-rsa/pkcs11-easyrsa.cnf', pkcs11_cnf_path)
+        
+        # Create safessl-easyrsa.cnf if template exists
+        safessl_cnf_path = os.path.join(PKI_PATH, 'safessl-easyrsa.cnf')
+        if not os.path.exists(safessl_cnf_path) and os.path.exists('/usr/share/easy-rsa/safessl-easyrsa.cnf'):
+            shutil.copy('/usr/share/easy-rsa/safessl-easyrsa.cnf', safessl_cnf_path)
+        
+        # Extract CA serial from certificate and create certs_by_serial link
+        try:
+            cert = x509.load_pem_x509_certificate(ca_cert_pem.encode('utf-8'), default_backend())
+            serial_hex = format(cert.serial_number, 'X')
+            
+            # Create symlink in certs_by_serial
+            serial_cert_path = os.path.join(PKI_PATH, 'certs_by_serial', f'{serial_hex}.pem')
+            if not os.path.exists(serial_cert_path):
+                # Copy the CA cert to the serial directory
+                with open(serial_cert_path, 'w') as f:
+                    f.write(ca_cert_pem)
+        except Exception as e:
+            logger.warning(f"Could not extract CA serial for certs_by_serial: {e}")
+        
         # Update vars file with cert validity days
         vars_path = os.path.join(PKI_PATH, 'vars')
         if os.path.exists('/usr/share/easy-rsa/vars.example'):
@@ -336,11 +408,29 @@ def import_ca(params):
                 f.write(f'set_var EASYRSA_CERT_EXPIRE {cert_validity_days}\n')
                 f.write('set_var EASYRSA_BATCH "1"\n')
         
+        # Verify the import by checking required files exist
+        import_verification = []
+        required_files = [
+            ('CA Certificate', ca_cert_path),
+            ('CA Private Key', ca_key_path),
+            ('Serial File', serial_path),
+            ('Index File', index_path),
+            ('CRL Number', crlnumber_path)
+        ]
+        
+        for file_desc, file_path in required_files:
+            if os.path.exists(file_path):
+                import_verification.append(f"✓ {file_desc}: {file_path}")
+            else:
+                import_verification.append(f"✗ {file_desc}: Missing")
+        
+        verification_text = '\n'.join(import_verification)
+        
         return jsonify({
             "status": "success",
             "message": f"Successfully imported CA: {ca_info.get('common_name', 'Unknown')}",
             "ca_info": ca_info,
-            "stdout": f"CA certificate and key imported successfully\nCA Path: {ca_cert_path}\nKey Path: {ca_key_path}",
+            "stdout": f"CA certificate and key imported successfully\n\nPKI Structure Created:\n{verification_text}\n\nAll required directories initialized for EasyRSA operations.",
             "stderr": ""
         })
         
@@ -1208,6 +1298,324 @@ def get_certificate(name):
         return jsonify({
             "status": "error",
             "message": str(e)
+        }), 500
+
+def create_pki_backup(params):
+    """Create encrypted backup of entire PKI infrastructure"""
+    try:
+        import base64
+        import json
+        import gzip
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.backends import default_backend
+        import secrets
+        
+        password = params.get('password', '')
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        logger.info("Starting PKI backup creation")
+        
+        # Create backup directory structure
+        backup_data = {
+            'version': '1.0',
+            'created': datetime.now().isoformat(),
+            'files': {}
+        }
+        
+        # PKI files to backup
+        backup_files = [
+            'ca.crt',
+            'private/ca.key',
+            'serial',
+            'index.txt',
+            'index.txt.attr',
+            'crlnumber'
+        ]
+        
+        # Add issued certificates
+        issued_dir = os.path.join(PKI_PATH, 'issued')
+        if os.path.exists(issued_dir):
+            for cert_file in os.listdir(issued_dir):
+                if cert_file.endswith('.crt'):
+                    backup_files.append(f'issued/{cert_file}')
+        
+        # Add private keys
+        private_dir = os.path.join(PKI_PATH, 'private')
+        if os.path.exists(private_dir):
+            for key_file in os.listdir(private_dir):
+                if key_file.endswith('.key'):
+                    backup_files.append(f'private/{key_file}')
+        
+        # Add revoked certificates
+        revoked_dir = os.path.join(PKI_PATH, 'revoked')
+        if os.path.exists(revoked_dir):
+            for revoked_file in os.listdir(revoked_dir):
+                if revoked_file.endswith('.crt'):
+                    backup_files.append(f'revoked/{revoked_file}')
+        
+        # Add CRL files
+        crl_pem = os.path.join(PKI_PATH, 'crl.pem')
+        if os.path.exists(crl_pem):
+            backup_files.append('crl.pem')
+        
+        # Read all files and add to backup data
+        for file_path in backup_files:
+            full_path = os.path.join(PKI_PATH, file_path)
+            if os.path.exists(full_path):
+                try:
+                    with open(full_path, 'r') as f:
+                        backup_data['files'][file_path] = f.read()
+                except Exception as e:
+                    logger.warning(f"Could not read file {file_path}: {e}")
+        
+        # Serialize backup data
+        backup_json = json.dumps(backup_data, indent=2)
+        
+        # Compress data
+        compressed_data = gzip.compress(backup_json.encode('utf-8'))
+        
+        # Encrypt the compressed data
+        # Generate salt for key derivation
+        salt = secrets.token_bytes(32)
+        
+        # Derive key from password
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+            backend=default_backend()
+        )
+        key = kdf.derive(password.encode('utf-8'))
+        
+        # Generate IV
+        iv = secrets.token_bytes(16)
+        
+        # Encrypt data
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        
+        # Pad data to 16-byte boundary
+        padding_length = 16 - (len(compressed_data) % 16)
+        padded_data = compressed_data + bytes([padding_length] * padding_length)
+        
+        encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+        
+        # Create final backup file structure
+        final_backup = {
+            'format': 'PKI_BACKUP_V1',
+            'salt': base64.b64encode(salt).decode('utf-8'),
+            'iv': base64.b64encode(iv).decode('utf-8'),
+            'data': base64.b64encode(encrypted_data).decode('utf-8')
+        }
+        
+        # Convert backup to JSON string (restore expects base64-encoded JSON)
+        backup_json = json.dumps(final_backup)
+        backup_b64 = base64.b64encode(backup_json.encode('utf-8')).decode('utf-8')
+        
+        logger.info(f"PKI backup created successfully with {len(backup_data['files'])} files")
+        
+        return jsonify({
+            "status": "success",
+            "message": f"PKI backup created with {len(backup_data['files'])} files",
+            "backup_data": backup_b64
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating PKI backup: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to create PKI backup: {str(e)}"
+        }), 500
+
+def restore_pki_backup(params):
+    """Restore PKI infrastructure from encrypted backup"""
+    try:
+        import base64
+        import binascii
+        import json
+        import gzip
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.backends import default_backend
+        
+        logger.info(f"Restore request received with params keys: {list(params.keys())}")
+        print(f"RESTORE DEBUG: Restore request received with params keys: {list(params.keys())}")
+        
+        password = params.get('password', '')
+        backup_data_b64 = params.get('backup_data', '')
+        
+        logger.info(f"Password provided: {bool(password)}, Backup data size: {len(backup_data_b64) if backup_data_b64 else 0}")
+        print(f"RESTORE DEBUG: Password provided: {bool(password)}, Backup data size: {len(backup_data_b64) if backup_data_b64 else 0}")
+        
+        if not password or not backup_data_b64:
+            logger.error(f"Missing required parameters. Password: {bool(password)}, Backup data: {bool(backup_data_b64)}")
+            print(f"RESTORE DEBUG ERROR: Missing required parameters. Password: {bool(password)}, Backup data: {bool(backup_data_b64)}")
+            return jsonify({
+                "status": "error",
+                "message": "Backup password and data are required"
+            }), 400
+        
+        logger.info("Starting PKI backup restoration")
+        print("RESTORE DEBUG: Starting PKI backup restoration")
+        
+        try:
+            # Decode backup data
+            logger.info(f"Attempting to decode backup data, length: {len(backup_data_b64)}")
+            print(f"RESTORE DEBUG: Attempting to decode backup data, length: {len(backup_data_b64)}")
+            backup_bytes = base64.b64decode(backup_data_b64)
+            logger.info(f"Decoded backup bytes, length: {len(backup_bytes)}")
+            print(f"RESTORE DEBUG: Decoded backup bytes, length: {len(backup_bytes)}")
+            
+            backup_json = json.loads(backup_bytes.decode('utf-8'))
+            logger.info(f"Parsed JSON successfully, keys: {list(backup_json.keys())}")
+            print(f"RESTORE DEBUG: Parsed JSON successfully, keys: {list(backup_json.keys())}")
+            
+            # Verify backup format
+            format_version = backup_json.get('format')
+            logger.info(f"Backup format: {format_version}")
+            print(f"RESTORE DEBUG: Backup format: {format_version}")
+            
+            if format_version != 'PKI_BACKUP_V1':
+                logger.error(f"Invalid backup format: {format_version}, expected: PKI_BACKUP_V1")
+                print(f"RESTORE DEBUG ERROR: Invalid backup format: {format_version}, expected: PKI_BACKUP_V1")
+                return jsonify({
+                    "status": "error",
+                    "message": f"Invalid backup file format. Expected PKI_BACKUP_V1, got: {format_version}"
+                }), 400
+            
+            # Extract encryption components
+            salt = base64.b64decode(backup_json['salt'])
+            iv = base64.b64decode(backup_json['iv'])
+            encrypted_data = base64.b64decode(backup_json['data'])
+            
+            logger.info("Successfully extracted encryption components")
+            print("RESTORE DEBUG: Successfully extracted encryption components")
+            
+        except binascii.Error as e:
+            logger.error(f"Base64 decode error: {e}")
+            return jsonify({
+                "status": "error",
+                "message": "Invalid base64 encoding in backup file"
+            }), 400
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}")
+            return jsonify({
+                "status": "error",
+                "message": "Invalid JSON format in backup file"
+            }), 400
+        except KeyError as e:
+            logger.error(f"Missing required field in backup: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Missing required field in backup file: {e}"
+            }), 400
+        except Exception as e:
+            logger.error(f"Backup parsing error: {e}")
+            print(f"RESTORE DEBUG FINAL ERROR: Backup parsing error: {e}")
+            print(f"RESTORE DEBUG FINAL ERROR: Exception type: {type(e).__name__}")
+            import traceback
+            print(f"RESTORE DEBUG FINAL ERROR: Traceback: {traceback.format_exc()}")
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid backup file format or corrupted data: {str(e)}"
+            }), 400
+        
+        try:
+            # Derive key from password
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+                backend=default_backend()
+            )
+            key = kdf.derive(password.encode('utf-8'))
+            
+            # Decrypt data
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+            padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
+            
+            # Remove padding
+            padding_length = padded_data[-1]
+            compressed_data = padded_data[:-padding_length]
+            
+            # Decompress data
+            backup_json = gzip.decompress(compressed_data).decode('utf-8')
+            backup_data = json.loads(backup_json)
+            
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid password or corrupted backup data"
+            }), 400
+        
+        # Backup existing PKI (in case restore fails)
+        backup_dir = f"{PKI_PATH}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        if os.path.exists(PKI_PATH):
+            shutil.move(PKI_PATH, backup_dir)
+            logger.info(f"Existing PKI backed up to {backup_dir}")
+        
+        try:
+            # Recreate PKI directory structure
+            os.makedirs(PKI_PATH, exist_ok=True)
+            os.makedirs(os.path.join(PKI_PATH, 'private'), exist_ok=True)
+            os.makedirs(os.path.join(PKI_PATH, 'issued'), exist_ok=True)
+            os.makedirs(os.path.join(PKI_PATH, 'revoked'), exist_ok=True)
+            
+            # Restore all files
+            files_restored = 0
+            for file_path, content in backup_data.get('files', {}).items():
+                full_path = os.path.join(PKI_PATH, file_path)
+                
+                # Create directory if needed
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                
+                # Write file content
+                with open(full_path, 'w') as f:
+                    f.write(content)
+                
+                # Set appropriate permissions for private keys
+                if 'private' in file_path or file_path.endswith('.key'):
+                    os.chmod(full_path, 0o600)
+                
+                files_restored += 1
+            
+            logger.info(f"PKI restoration completed successfully with {files_restored} files restored")
+            
+            return jsonify({
+                "status": "success",
+                "message": f"PKI restored successfully from backup. {files_restored} files restored.",
+                "backup_version": backup_data.get('version'),
+                "backup_date": backup_data.get('created')
+            })
+            
+        except Exception as e:
+            # Restore failed, try to restore original PKI
+            if os.path.exists(backup_dir):
+                if os.path.exists(PKI_PATH):
+                    shutil.rmtree(PKI_PATH)
+                shutil.move(backup_dir, PKI_PATH)
+                logger.error(f"Restore failed, original PKI restored from {backup_dir}")
+            
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to restore PKI backup: {str(e)}"
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error restoring PKI backup: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to restore PKI backup: {str(e)}"
         }), 500
 
 if __name__ == '__main__':

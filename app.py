@@ -868,9 +868,61 @@ def make_easyrsa_request(operation, params=None):
 @auth_required(permission='pki_init')
 # @limiter.limit("5 per minute")
 def init_pki():
-    """Initialize PKI"""
+    """Initialize PKI and clear all certificate data"""
     log_operation('init_pki')
+    
+    # First initialize the PKI structure
     result = make_easyrsa_request('init-pki')
+    
+    # If PKI initialization was successful, also clear the database
+    if result.get('status') == 'success':
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Clear all certificate-related data (in dependency order)
+            tables_cleared = {}
+            
+            # Clear download tracking
+            cursor.execute("DELETE FROM certificate_downloads")
+            tables_cleared['certificate_downloads'] = cursor.rowcount
+            
+            # Clear approval history
+            cursor.execute("DELETE FROM request_approvals")
+            tables_cleared['request_approvals'] = cursor.rowcount
+            
+            # Clear certificate requests
+            cursor.execute("DELETE FROM certificate_requests")
+            tables_cleared['certificate_requests'] = cursor.rowcount
+            
+            # Clear CA chains
+            cursor.execute("DELETE FROM ca_chains")
+            tables_cleared['ca_chains'] = cursor.rowcount
+            
+            # Clear intermediate CAs
+            cursor.execute("DELETE FROM intermediate_cas")
+            tables_cleared['intermediate_cas'] = cursor.rowcount
+            
+            # Clear IDP certificates
+            cursor.execute("DELETE FROM idp_certificates")
+            tables_cleared['idp_certificates'] = cursor.rowcount
+            
+            conn.commit()
+            conn.close()
+            
+            total_cleared = sum(tables_cleared.values())
+            
+            # Update the result message to include database cleanup info
+            original_message = result.get('message', 'PKI initialized successfully')
+            result['message'] = f"{original_message}. Cleared {total_cleared} total certificate records from database ({', '.join([f'{count} {table}' for table, count in tables_cleared.items() if count > 0])})."
+            
+            logger.info(f"PKI reset completed: cleared certificate data - {tables_cleared}")
+            
+        except Exception as e:
+            logger.error(f"Error clearing database during PKI reset: {e}")
+            # Don't fail the entire operation if database cleanup fails
+            result['message'] = result.get('message', '') + f" (Warning: Could not clear database records: {str(e)})"
+    
     return jsonify(result)
 
 @app.route('/api/pki/status', methods=['GET'])
@@ -1010,8 +1062,53 @@ def upload_ca():
         result = make_easyrsa_request('import-ca', upload_data)
         
         if result.get('status') == 'success':
-            result['ca_info'] = ca_info
-            result['message'] = f"Successfully imported CA: {ca_info['common_name']}"
+            # CA import successful - also clear all certificate database records
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Clear all certificate-related data (in dependency order)
+                tables_cleared = {}
+                
+                # Clear download tracking
+                cursor.execute("DELETE FROM certificate_downloads")
+                tables_cleared['certificate_downloads'] = cursor.rowcount
+                
+                # Clear approval history
+                cursor.execute("DELETE FROM request_approvals")
+                tables_cleared['request_approvals'] = cursor.rowcount
+                
+                # Clear certificate requests
+                cursor.execute("DELETE FROM certificate_requests")
+                tables_cleared['certificate_requests'] = cursor.rowcount
+                
+                # Clear CA chains
+                cursor.execute("DELETE FROM ca_chains")
+                tables_cleared['ca_chains'] = cursor.rowcount
+                
+                # Clear intermediate CAs
+                cursor.execute("DELETE FROM intermediate_cas")
+                tables_cleared['intermediate_cas'] = cursor.rowcount
+                
+                # Clear IDP certificates
+                cursor.execute("DELETE FROM idp_certificates")
+                tables_cleared['idp_certificates'] = cursor.rowcount
+                
+                conn.commit()
+                conn.close()
+                
+                total_cleared = sum(tables_cleared.values())
+                
+                result['ca_info'] = ca_info
+                result['message'] = f"Successfully imported CA: {ca_info['common_name']}. Cleared {total_cleared} certificate records from database."
+                
+                logger.info(f"CA import completed with database cleanup - cleared: {tables_cleared}")
+                
+            except Exception as e:
+                logger.error(f"Error clearing database during CA import: {e}")
+                # Don't fail the entire operation if database cleanup fails
+                result['ca_info'] = ca_info
+                result['message'] = f"Successfully imported CA: {ca_info['common_name']} (Warning: Could not clear database records: {str(e)})"
         
         return jsonify(result)
         
@@ -1032,26 +1129,68 @@ def show_ca():
 @app.route('/api/ca/download', methods=['GET'])
 @auth_required(permission='ca_read')
 def download_ca():
-    """Download CA certificate"""
+    """Download CA certificate (with private key for admin users)"""
     try:
         log_operation('download_ca')
-        response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
         
-        if response.status_code == 200:
-            ca_content = response.content
-            file_obj = io.BytesIO(ca_content)
-            
-            return send_file(
-                file_obj,
-                as_attachment=True,
-                download_name='ca.pem',
-                mimetype='application/x-pem-file'
-            )
-        else:
+        # Check if user is admin
+        is_admin = session.get('is_admin', False)
+        
+        # Get CA certificate
+        cert_response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
+        
+        if cert_response.status_code != 200:
             return jsonify({
                 "status": "error", 
-                "message": f"CA certificate not found. Container response: {response.status_code}"
+                "message": f"CA certificate not found. Container response: {cert_response.status_code}"
             }), 404
+        
+        ca_cert_content = cert_response.text
+        
+        if is_admin:
+            # Admin users get combined certificate + private key
+            try:
+                # Get CA private key
+                key_response = requests.post(
+                    f"{TERMINAL_CONTAINER_URL}/execute",
+                    json={"operation": "get-ca-key"},
+                    timeout=REQUEST_TIMEOUT
+                )
+                
+                if key_response.status_code == 200:
+                    key_data = key_response.json()
+                    if key_data.get('status') == 'success':
+                        ca_key_content = key_data.get('private_key', '')
+                        
+                        # Combine certificate and private key
+                        combined_content = f"{ca_cert_content.strip()}\n{ca_key_content.strip()}\n"
+                        file_obj = io.BytesIO(combined_content.encode('utf-8'))
+                        
+                        return send_file(
+                            file_obj,
+                            as_attachment=True,
+                            download_name='ca-combined.pem',
+                            mimetype='application/x-pem-file'
+                        )
+                    else:
+                        # Fall back to certificate only if key retrieval fails
+                        app.logger.warning(f"Could not retrieve CA private key for admin: {key_data.get('message')}")
+                else:
+                    app.logger.warning(f"CA private key request failed with status: {key_response.status_code}")
+                    
+            except Exception as key_error:
+                app.logger.warning(f"Failed to retrieve CA private key: {str(key_error)}")
+                # Continue to provide certificate-only download
+        
+        # Regular users or fallback: certificate only
+        file_obj = io.BytesIO(ca_cert_content.encode('utf-8'))
+        
+        return send_file(
+            file_obj,
+            as_attachment=True,
+            download_name='ca.pem',
+            mimetype='application/x-pem-file'
+        )
             
     except requests.exceptions.ConnectionError:
         return jsonify({
@@ -1389,15 +1528,18 @@ def create_backup():
     result = make_easyrsa_request('create-backup')
     
     if result.get('status') == 'success' and 'backup_data' in result:
-        # Decode base64-encoded backup data
-        backup_data = base64.b64decode(result['backup_data'])
-        backup_filename = f"pki-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.tar.gz"
+        # The backup_data is already in the correct format (base64-encoded JSON)
+        # Save it directly as a .pki file without additional encoding/decoding
+        backup_filename = f"pki-backup-{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.pki"
+        
+        # Convert the base64 string to bytes for file download
+        backup_bytes = result['backup_data'].encode('utf-8')
         
         return send_file(
-            io.BytesIO(backup_data),
+            io.BytesIO(backup_bytes),
             as_attachment=True,
             download_name=backup_filename,
-            mimetype='application/gzip'
+            mimetype='application/octet-stream'
         )
     
     return jsonify(result)
@@ -5213,6 +5355,212 @@ def perform_update(target_branch=None):
             'success': False,
             'in_progress': False
         })
+
+# PKI Backup and Restore Endpoints
+@app.route('/api/pki/backup', methods=['POST'])
+@auth_required(permission='admin')
+def create_pki_backup():
+    """Create encrypted backup of the entire PKI infrastructure"""
+    try:
+        data = request.get_json() or {}
+        password = data.get('password')
+        
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        if len(password) < 8:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password must be at least 8 characters long"
+            }), 400
+        
+        log_operation('create_pki_backup')
+        
+        # Request backup from EasyRSA container
+        backup_data = {
+            'password': password,
+            'include_private_keys': True,
+            'compression': True
+        }
+        
+        response = requests.post(
+            f"{TERMINAL_CONTAINER_URL}/execute",
+            json={"operation": "create-backup", "params": backup_data},
+            timeout=300  # 5 minutes for backup
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('status') == 'success':
+                # Get the backup content
+                backup_content = result.get('backup_data')
+                if backup_content:
+                    # Create file-like object from backup data (already base64 encoded JSON)
+                    backup_bytes = backup_content.encode('utf-8')
+                    file_obj = io.BytesIO(backup_bytes)
+                    
+                    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+                    filename = f'pki-backup-{timestamp}.pki'
+                    
+                    return send_file(
+                        file_obj,
+                        as_attachment=True,
+                        download_name=filename,
+                        mimetype='application/octet-stream'
+                    )
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "No backup data received from container"
+                    }), 500
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": result.get('message', 'Backup creation failed')
+                }), 500
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"EasyRSA container error: {response.status_code}"
+            }), 500
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "status": "error",
+            "message": "Backup operation timed out. Please try again."
+        }), 408
+    except Exception as e:
+        logging.error(f"Error creating PKI backup: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to create PKI backup: {str(e)}"
+        }), 500
+
+@app.route('/api/pki/restore', methods=['POST'])
+@auth_required(permission='admin')
+def restore_pki_backup():
+    """Restore PKI infrastructure from encrypted backup"""
+    try:
+        logger.info(f"Restore request received. Files: {list(request.files.keys())}")
+        logger.info(f"Form data: {list(request.form.keys())}")
+        
+        if 'backup_file' not in request.files:
+            logger.error("No backup_file found in request.files")
+            return jsonify({
+                "status": "error",
+                "message": "No backup file provided"
+            }), 400
+        
+        file = request.files['backup_file']
+        password = request.form.get('password')
+        
+        logger.info(f"File received: {file.filename}, Password provided: {bool(password)}")
+        
+        if not file or not file.filename:
+            return jsonify({
+                "status": "error",
+                "message": "No file selected or empty filename"
+            }), 400
+        
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        # More flexible file extension check
+        if not file.filename.lower().endswith('.pki'):
+            logger.warning(f"File extension check failed: {file.filename}")
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid file format. Only .pki files are supported. Received: {file.filename}"
+            }), 400
+        
+        log_operation('restore_pki_backup', {'filename': file.filename})
+        
+        # Read and validate file content
+        try:
+            file_content = file.read()
+            if not file_content:
+                return jsonify({
+                    "status": "error",
+                    "message": "Backup file is empty"
+                }), 400
+            
+            logger.info(f"File content size: {len(file_content)} bytes")
+            
+            # File content is already base64-encoded JSON from .pki file
+            backup_data_b64 = file_content.decode('utf-8')
+            
+        except Exception as e:
+            logger.error(f"Error reading backup file: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Error reading backup file: {str(e)}"
+            }), 400
+        
+        # Send restore request to EasyRSA container
+        restore_data = {
+            'password': password,
+            'backup_data': backup_data_b64,
+            'verify_password': True
+        }
+        
+        logger.info("Sending restore request to EasyRSA container")
+        
+        try:
+            response = requests.post(
+                f"{TERMINAL_CONTAINER_URL}/execute",
+                json={"operation": "restore-backup", "params": restore_data},
+                timeout=300  # 5 minutes for restore
+            )
+            
+            logger.info(f"EasyRSA response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"EasyRSA response: {result}")
+                
+                if result.get('status') == 'success':
+                    return jsonify({
+                        "status": "success",
+                        "message": "PKI restored successfully from backup",
+                        "details": result.get('message', '')
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": result.get('message', 'Backup restore failed')
+                    }), 500
+            else:
+                response_text = response.text if hasattr(response, 'text') else 'Unknown error'
+                logger.error(f"EasyRSA container error {response.status_code}: {response_text}")
+                return jsonify({
+                    "status": "error",
+                    "message": f"EasyRSA container error: {response.status_code} - {response_text}"
+                }), 500
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request to EasyRSA container failed: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to communicate with EasyRSA container: {str(e)}"
+            }), 500
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "status": "error",
+            "message": "Restore operation timed out. Please try again."
+        }), 408
+    except Exception as e:
+        logging.error(f"Error restoring PKI backup: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to restore PKI backup: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     # Ensure logs directory exists

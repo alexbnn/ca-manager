@@ -1613,9 +1613,15 @@
                     </div>
                 </div>
                 
+            </div>
+            {% endif %}
+            
+            <!-- Tab Content: Certificates (Operations + Tracking) -->
+            <div class="tab-content" id="certificates">
+                {% if 'admin' in user.roles or 'operator' in user.roles %}
                 <!-- Certificate Creation Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">1</span>Certificate Creation</h2>
+                <div class="section">
+                    <h2><span class="section-icon">2</span>Certificate Creation</h2>
                     <div class="form-group">
                         <label for="certName">Certificate Name:</label>
                         <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
@@ -1633,13 +1639,10 @@
                         <button class="btn btn-secondary" id="signRequest">Sign Existing Request</button>
                     </div>
                 </div>
-            </div>
-            {% endif %}
-            
-            <!-- Tab Content: Certificates (Operations + Tracking) -->
-            <div class="tab-content" id="certificates">
-                <div class="section">
-                    <h2><span class="section-icon">3</span>Certificate Operations</h2>
+                {% endif %}
+                
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">2</span>Certificate Operations</h2>
                     <div class="form-group">
                         <label for="operationCertName">Certificate Name:</label>
                         <input type="text" id="operationCertName" placeholder="Enter certificate name">
@@ -1658,7 +1661,7 @@
                 
                 <!-- Certificate Tracking Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">3</span>Certificate Tracking</h2>
+                    <h2><span class="section-icon">2</span>Certificate Tracking</h2>
                     
                     <!-- Search and Filter Controls -->
                     <div class="search-controls">
@@ -2188,6 +2191,123 @@
                 </div>
                 </div>
                 
+                <!-- PKI Backup & Restore Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">💾</span>PKI Backup & Restore</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Create encrypted backups of your entire PKI infrastructure or restore from existing backups. Backups include all certificates, private keys, and PKI configuration.
+                </p>
+                
+                <div class="pki-backup-section">
+                    <!-- Backup Section -->
+                    <div class="backup-restore-card" style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h3 style="color: #28a745; margin-bottom: 1rem;">🛡️ Create Backup</h3>
+                        <p style="color: var(--medium-gray); font-size: 0.875rem; margin-bottom: 1rem;">
+                            Generate an encrypted backup file containing all PKI data including CA certificates, private keys, issued certificates, and revocation lists.
+                        </p>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="backupPassword" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Backup Password *:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="backupPassword" placeholder="Enter a strong password for encryption" required 
+                                       style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleBackupPasswordVisibility()" 
+                                        style="padding: 8px 12px; min-width: 60px;" title="Toggle password visibility">👁️</button>
+                            </div>
+                            <small style="color: var(--medium-gray); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                                This password will be required to restore the backup. Store it securely.
+                            </small>
+                        </div>
+                        
+                        <div class="button-grid" style="gap: 1rem;">
+                            <button class="btn btn-success" onclick="createPKIBackup()" id="createBackupBtn">
+                                💾 Create Encrypted Backup
+                            </button>
+                            <button class="btn btn-info" onclick="showBackupInfo()" id="backupInfoBtn">
+                                ℹ️ What's Included?
+                            </button>
+                        </div>
+                        
+                        <div id="backupInfoPanel" style="display: none; margin-top: 1rem; background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 4px; padding: 1rem;">
+                            <h4 style="color: #0c5460; margin-bottom: 0.5rem;">Backup Contents:</h4>
+                            <ul style="color: #0c5460; font-size: 0.875rem; margin-left: 1.5rem;">
+                                <li><strong>CA Certificate & Private Key</strong> - Root certificate authority files</li>
+                                <li><strong>Issued Certificates</strong> - All client and server certificates with private keys</li>
+                                <li><strong>Certificate Revocation List (CRL)</strong> - Current revocation status</li>
+                                <li><strong>PKI Database</strong> - Certificate index and serial numbers</li>
+                                <li><strong>Configuration Files</strong> - EasyRSA configuration and vars</li>
+                                <li><strong>Intermediate CAs</strong> - If any intermediate certificates exist</li>
+                            </ul>
+                            <p style="color: #0c5460; font-size: 0.875rem; margin-top: 0.5rem;">
+                                <strong>Encryption:</strong> AES-256 encryption with PBKDF2 key derivation
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Restore Section -->
+                    <div class="backup-restore-card" style="background: #fff3cd; border: 1px solid #ffeeba; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h3 style="color: #856404; margin-bottom: 1rem;">🔄 Restore from Backup</h3>
+                        <p style="color: #856404; font-size: 0.875rem; margin-bottom: 1rem;">
+                            Restore your PKI infrastructure from an encrypted backup file (.pki). This will replace your current PKI configuration.
+                        </p>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="backupFile" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Select Backup File (.pki) *:</label>
+                            <input type="file" id="backupFile" accept=".pki" required 
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            <small style="color: #856404; font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                                Only .pki files created by this system are supported
+                            </small>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="restorePassword" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Backup Password *:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="restorePassword" placeholder="Enter the backup password" required 
+                                       style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleRestorePasswordVisibility()" 
+                                        style="padding: 8px 12px; min-width: 60px;" title="Toggle password visibility">👁️</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 10px; color: #856404;">
+                                <input type="checkbox" id="confirmRestore" style="width: auto;">
+                                <span style="font-size: 0.875rem;">I understand this will replace my current PKI configuration</span>
+                            </label>
+                        </div>
+                        
+                        <div class="button-grid" style="gap: 1rem;">
+                            <button class="btn btn-warning" onclick="restorePKIBackup()" id="restoreBackupBtn">
+                                🔄 Restore from Backup
+                            </button>
+                            <button class="btn btn-danger" onclick="showRestoreWarning()" id="restoreWarningBtn">
+                                ⚠️ Important Warnings
+                            </button>
+                        </div>
+                        
+                        <div id="restoreWarningPanel" style="display: none; margin-top: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 1rem;">
+                            <h4 style="color: #721c24; margin-bottom: 0.5rem;">⚠️ Critical Warnings:</h4>
+                            <ul style="color: #721c24; font-size: 0.875rem; margin-left: 1.5rem;">
+                                <li><strong>Complete Replacement:</strong> All current certificates and keys will be replaced</li>
+                                <li><strong>Service Interruption:</strong> PKI services will be temporarily unavailable during restore</li>
+                                <li><strong>Database Changes:</strong> Certificate database will be completely replaced</li>
+                                <li><strong>Backup Recommended:</strong> Create a backup of your current PKI before restoring</li>
+                                <li><strong>Irreversible:</strong> This operation cannot be undone</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Backup Status -->
+                    <div id="backupStatusPanel" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 8px;">
+                        <div id="backupStatusContent"></div>
+                        <div id="backupProgressBar" style="display: none; background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 20px; margin: 1rem 0;">
+                            <div id="backupProgress" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                
             </div>
             {% endif %}
             
@@ -2376,52 +2496,172 @@
 
     <!-- CA Upload Modal -->
     <div id="caUploadModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header">
-                <h2>Upload Existing Certificate Authority</h2>
-                <span class="close" id="closeCAUpload">&times;</span>
+        <div class="modal-content" style="max-width: 850px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15);">
+            <div class="modal-header" style="background: linear-gradient(135deg, #5B059C 0%, #7B1FA2 100%); color: white; padding: 25px 35px; border-radius: 16px 16px 0 0; position: relative;">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="background: rgba(255,255,255,0.15); padding: 16px; border-radius: 12px; backdrop-filter: blur(10px);">
+                        <span style="font-size: 28px;">📤</span>
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; color: white; font-size: 26px; font-weight: 600;">Upload Certificate Authority</h2>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px;">Import an existing CA certificate and private key to start managing certificates</p>
+                    </div>
+                </div>
+                <span class="close" id="closeCAUpload" style="color: white; font-size: 32px; opacity: 0.8; cursor: pointer; position: absolute; top: 25px; right: 30px; transition: all 0.2s ease;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'" onmouseout="this.style.opacity='0.8'; this.style.transform='scale(1)'">&times;</span>
             </div>
             
             <form id="caUploadForm">
-                <div style="padding: 20px;">
-                    <div class="form-group">
-                        <label for="caCertFile">CA Certificate File (PEM format):</label>
-                        <input type="file" id="caCertFile" accept=".pem,.crt,.cer" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <small class="form-help">Upload your CA certificate file (ca.crt or similar)</small>
+                <div style="padding: 35px;">
+                    <!-- Upload Method Selection -->
+                    <div class="form-section" style="margin-bottom: 35px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">1</div>
+                            <h3 style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">Choose Upload Method</h3>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-left: 44px;">
+                            <label class="upload-method-card" style="display: block; padding: 25px; border: 2px solid #e0e0e0; border-radius: 16px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); position: relative;" 
+                                   onclick="selectUploadMethod('separate')"
+                                   onmouseover="if(!this.querySelector('input').checked) { this.style.borderColor='#5B059C'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(91, 5, 156, 0.15)'; }"
+                                   onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'; this.style.boxShadow='none'; }">
+                                <input type="radio" name="uploadMethod" value="separate" id="separateFiles" checked onchange="toggleUploadMethod()" style="position: absolute; top: 15px; right: 15px; accent-color: #5B059C; transform: scale(1.3);">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 48px; margin-bottom: 15px;">📄</div>
+                                    <div style="font-weight: 600; color: #333; margin-bottom: 8px; font-size: 16px;">Separate Files</div>
+                                    <div style="font-size: 13px; color: #666; line-height: 1.4;">Upload certificate (.crt, .pem) and private key (.key, .pem) as separate files</div>
+                                </div>
+                            </label>
+                            <label class="upload-method-card" style="display: block; padding: 25px; border: 2px solid #e0e0e0; border-radius: 16px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); position: relative;"
+                                   onclick="selectUploadMethod('combined')"
+                                   onmouseover="if(!this.querySelector('input').checked) { this.style.borderColor='#5B059C'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(91, 5, 156, 0.15)'; }"
+                                   onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'; this.style.boxShadow='none'; }">
+                                <input type="radio" name="uploadMethod" value="combined" id="combinedFile" onchange="toggleUploadMethod()" style="position: absolute; top: 15px; right: 15px; accent-color: #5B059C; transform: scale(1.3);">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                                    <div style="font-weight: 600; color: #333; margin-bottom: 8px; font-size: 16px;">Combined PEM</div>
+                                    <div style="font-size: 13px; color: #666; line-height: 1.4;">Upload a single PEM file containing both certificate and private key</div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                     
-                    <div class="form-group" style="margin-top: 20px;">
-                        <label for="caKeyFile">CA Private Key File (PEM format):</label>
-                        <input type="file" id="caKeyFile" accept=".pem,.key" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <small class="form-help">Upload your CA private key file (ca.key or similar)</small>
+                    <!-- File Upload Section -->
+                    <div class="form-section" style="margin-bottom: 35px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">2</div>
+                            <h3 style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">Upload Files</h3>
+                        </div>
+                        
+                        <!-- Separate Files Section -->
+                        <div id="separateFilesSection" style="margin-left: 44px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                                <div class="upload-area" style="border: 2px dashed #ddd; border-radius: 12px; padding: 30px; text-align: center; transition: all 0.3s ease; background: #fafafa;" 
+                                     ondragover="event.preventDefault(); this.style.borderColor='#5B059C'; this.style.background='#f3e5f5';" 
+                                     ondragleave="this.style.borderColor='#ddd'; this.style.background='#fafafa';"
+                                     ondrop="handleFileDrop(event, 'caCertFile')">
+                                    <div style="font-size: 36px; margin-bottom: 12px; color: #5B059C;">🔐</div>
+                                    <label for="caCertFile" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; cursor: pointer;">CA Certificate</label>
+                                    <input type="file" id="caCertFile" accept=".pem,.crt,.cer" style="display: none;" onchange="updateFileLabel(this, 'cert')">
+                                    <div id="certFileLabel" style="font-size: 13px; color: #666; margin-bottom: 12px;">Drag & drop or click to browse</div>
+                                    <button type="button" onclick="document.getElementById('caCertFile').click()" style="background: #5B059C; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">Browse File</button>
+                                    <div style="margin-top: 8px; font-size: 11px; color: #999;">Accepts: .pem, .crt, .cer</div>
+                                </div>
+                                
+                                <div class="upload-area" style="border: 2px dashed #ddd; border-radius: 12px; padding: 30px; text-align: center; transition: all 0.3s ease; background: #fafafa;"
+                                     ondragover="event.preventDefault(); this.style.borderColor='#5B059C'; this.style.background='#f3e5f5';" 
+                                     ondragleave="this.style.borderColor='#ddd'; this.style.background='#fafafa';"
+                                     ondrop="handleFileDrop(event, 'caKeyFile')">
+                                    <div style="font-size: 36px; margin-bottom: 12px; color: #5B059C;">🗝️</div>
+                                    <label for="caKeyFile" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; cursor: pointer;">Private Key</label>
+                                    <input type="file" id="caKeyFile" accept=".pem,.key" style="display: none;" onchange="updateFileLabel(this, 'key')">
+                                    <div id="keyFileLabel" style="font-size: 13px; color: #666; margin-bottom: 12px;">Drag & drop or click to browse</div>
+                                    <button type="button" onclick="document.getElementById('caKeyFile').click()" style="background: #5B059C; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">Browse File</button>
+                                    <div style="margin-top: 8px; font-size: 11px; color: #999;">Accepts: .pem, .key</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Combined File Section -->
+                        <div id="combinedFileSection" style="display: none; margin-left: 44px;">
+                            <div class="upload-area" style="border: 2px dashed #ddd; border-radius: 12px; padding: 40px; text-align: center; transition: all 0.3s ease; background: #fafafa; max-width: 500px;"
+                                 ondragover="event.preventDefault(); this.style.borderColor='#5B059C'; this.style.background='#f3e5f5';" 
+                                 ondragleave="this.style.borderColor='#ddd'; this.style.background='#fafafa';"
+                                 ondrop="handleFileDrop(event, 'caCombinedFile')">
+                                <div style="font-size: 48px; margin-bottom: 15px; color: #5B059C;">📋</div>
+                                <label for="caCombinedFile" style="display: block; font-weight: 600; color: #333; margin-bottom: 10px; cursor: pointer; font-size: 16px;">Combined PEM File</label>
+                                <input type="file" id="caCombinedFile" accept=".pem" style="display: none;" onchange="updateFileLabel(this, 'combined')">
+                                <div id="combinedFileLabel" style="font-size: 14px; color: #666; margin-bottom: 15px;">Drag & drop or click to browse</div>
+                                <button type="button" onclick="document.getElementById('caCombinedFile').click()" style="background: #5B059C; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">Browse PEM File</button>
+                                <div style="margin-top: 10px; font-size: 12px; color: #999;">Must contain both certificate and private key</div>
+                            </div>
+                            
+                            <div style="background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                <h4 style="color: #0c5460; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px;"><span>💡</span>Combined PEM File Format</h4>
+                                <p style="margin: 0 0 15px 0; font-size: 14px; color: #0c5460; line-height: 1.5;">Your PEM file should contain both the certificate and private key in this order:</p>
+                                <div style="background: #fff; border-radius: 8px; padding: 15px; font-family: 'Courier New', monospace; font-size: 12px; color: #333; border-left: 4px solid #5B059C;">
+                                    <div style="margin-bottom: 8px;">-----BEGIN CERTIFICATE-----</div>
+                                    <div style="color: #999; margin-bottom: 8px;">[certificate data]</div>
+                                    <div style="margin-bottom: 12px;">-----END CERTIFICATE-----</div>
+                                    <div style="margin-bottom: 8px;">-----BEGIN PRIVATE KEY-----</div>
+                                    <div style="color: #999; margin-bottom: 8px;">[private key data]</div>
+                                    <div>-----END PRIVATE KEY-----</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="form-group" style="margin-top: 20px;">
-                        <label for="caKeyPassword">Private Key Password (if encrypted):</label>
-                        <input type="password" id="caKeyPassword" placeholder="Leave blank if key is not encrypted" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <small class="form-help">Enter password if your private key is encrypted</small>
+                    <!-- Configuration Section -->
+                    <div class="form-section" style="margin-bottom: 35px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">3</div>
+                            <h3 style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">Configuration</h3>
+                        </div>
+                        
+                        <div style="margin-left: 44px; display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                            <div class="form-group">
+                                <label for="caKeyPassword" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">🔒 Private Key Password</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="caKeyPassword" placeholder="Leave blank if key is not encrypted" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s ease;" onfocus="this.style.borderColor='#5B059C'" onblur="this.style.borderColor='#e0e0e0'">
+                                    <button type="button" onclick="togglePasswordVisibility('caKeyPassword')" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 16px;">👁️</button>
+                                </div>
+                                <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">Only required if your private key is encrypted</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="certValidityDaysUpload" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">📅 Certificate Validity (days)</label>
+                                <input type="number" id="certValidityDaysUpload" value="365" min="30" max="3650" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s ease;" onfocus="this.style.borderColor='#5B059C'" onblur="this.style.borderColor='#e0e0e0'">
+                                <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">Default validity for new certificates (30-3650 days)</small>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="form-group" style="margin-top: 20px;">
-                        <label for="certValidityDaysUpload">Default Certificate Validity (days):</label>
-                        <input type="number" id="certValidityDaysUpload" value="365" min="30" max="3650" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <small class="form-help">Default validity period for certificates issued by this CA</small>
-                    </div>
-                    
-                    <div class="info-box" style="margin-top: 25px; background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107;">
-                        <strong style="color: #856404;">⚠️ Important:</strong>
-                        <ul style="margin: 10px 0 0 20px; color: #856404;">
-                            <li>Files must be in PEM format</li>
-                            <li>The private key must match the certificate</li>
-                            <li>Keep your private key secure - it will be stored encrypted</li>
-                            <li>The CA certificate will be validated before import</li>
-                        </ul>
+                    <!-- Important Notes -->
+                    <div style="background: linear-gradient(145deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid #ffc107; border-radius: 12px; padding: 25px; margin-bottom: 0;">
+                        <div style="display: flex; align-items: flex-start; gap: 15px;">
+                            <div style="background: #ffc107; color: #856404; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; margin-top: 2px;">⚠️</div>
+                            <div>
+                                <h4 style="color: #856404; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">Important Security Notes</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <ul style="margin: 0; padding-left: 18px; color: #856404; font-size: 13px; line-height: 1.6;">
+                                        <li>Files must be in PEM format (Base64 encoded)</li>
+                                        <li>Private key must mathematically match the certificate</li>
+                                        <li>Your private key will be encrypted and stored securely</li>
+                                    </ul>
+                                    <ul style="margin: 0; padding-left: 18px; color: #856404; font-size: 13px; line-height: 1.6;">
+                                        <li>The CA certificate will be validated before import</li>
+                                        <li>This will clear any existing certificate database</li>
+                                        <li>Ensure you have backup of your current PKI if needed</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="modal-buttons" style="padding: 0 20px 20px;">
-                    <button type="button" class="btn btn-secondary" onclick="hideCAUploadModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Upload and Import CA</button>
+                <div style="background: #f8f9fa; padding: 25px 35px; border-radius: 0 0 16px 16px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #e9ecef;">
+                    <button type="button" class="btn btn-secondary" onclick="hideCAUploadModal()" style="padding: 12px 24px; border-radius: 8px; font-weight: 500; min-width: 100px;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #5B059C 0%, #7B1FA2 100%); border: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; min-width: 160px; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(91, 5, 156, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <span>📤</span> Upload & Import CA
+                    </button>
                 </div>
             </form>
         </div>
@@ -3156,6 +3396,124 @@
             document.getElementById('caUploadModal').style.display = 'none';
         }
         
+        function toggleUploadMethod() {
+            const separateMethod = document.getElementById('separateFiles').checked;
+            const separateSection = document.getElementById('separateFilesSection');
+            const combinedSection = document.getElementById('combinedFileSection');
+            const caCertFile = document.getElementById('caCertFile');
+            const caKeyFile = document.getElementById('caKeyFile');
+            const caCombinedFile = document.getElementById('caCombinedFile');
+            
+            if (separateMethod) {
+                separateSection.style.display = 'block';
+                combinedSection.style.display = 'none';
+                caCertFile.required = true;
+                caKeyFile.required = true;
+                caCombinedFile.required = false;
+                caCombinedFile.value = ''; // Clear combined file input
+            } else {
+                separateSection.style.display = 'none';
+                combinedSection.style.display = 'block';
+                caCertFile.required = false;
+                caKeyFile.required = false;
+                caCombinedFile.required = true;
+                caCertFile.value = ''; // Clear separate file inputs
+                caKeyFile.value = '';
+            }
+            
+            // Update radio button card styling
+            updateUploadMethodCards();
+        }
+        
+        function selectUploadMethod(method) {
+            const separateRadio = document.getElementById('separateFiles');
+            const combinedRadio = document.getElementById('combinedFile');
+            
+            if (method === 'separate') {
+                separateRadio.checked = true;
+            } else {
+                combinedRadio.checked = true;
+            }
+            
+            toggleUploadMethod();
+        }
+        
+        function updateUploadMethodCards() {
+            const separateCard = document.querySelector('label[onclick="selectUploadMethod(\'separate\')"]');
+            const combinedCard = document.querySelector('label[onclick="selectUploadMethod(\'combined\')"]');
+            const separateChecked = document.getElementById('separateFiles').checked;
+            const combinedChecked = document.getElementById('combinedFile').checked;
+            
+            // Reset both cards
+            [separateCard, combinedCard].forEach(card => {
+                card.style.borderColor = '#e0e0e0';
+                card.style.transform = 'translateY(0)';
+                card.style.boxShadow = 'none';
+                card.style.background = 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)';
+            });
+            
+            // Highlight selected card
+            if (separateChecked && separateCard) {
+                separateCard.style.borderColor = '#5B059C';
+                separateCard.style.boxShadow = '0 8px 25px rgba(91, 5, 156, 0.2)';
+                separateCard.style.background = 'linear-gradient(145deg, #f3e5f5 0%, #e1bee7 100%)';
+            } else if (combinedChecked && combinedCard) {
+                combinedCard.style.borderColor = '#5B059C';
+                combinedCard.style.boxShadow = '0 8px 25px rgba(91, 5, 156, 0.2)';
+                combinedCard.style.background = 'linear-gradient(145deg, #f3e5f5 0%, #e1bee7 100%)';
+            }
+        }
+        
+        function handleFileDrop(event, inputId) {
+            event.preventDefault();
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const input = document.getElementById(inputId);
+                input.files = files;
+                updateFileLabel(input, inputId.includes('cert') ? 'cert' : inputId.includes('key') ? 'key' : 'combined');
+            }
+            
+            // Reset drag styling
+            event.target.style.borderColor = '#ddd';
+            event.target.style.background = '#fafafa';
+        }
+        
+        function updateFileLabel(input, type) {
+            const file = input.files[0];
+            let labelElement;
+            
+            switch(type) {
+                case 'cert':
+                    labelElement = document.getElementById('certFileLabel');
+                    break;
+                case 'key':
+                    labelElement = document.getElementById('keyFileLabel');
+                    break;
+                case 'combined':
+                    labelElement = document.getElementById('combinedFileLabel');
+                    break;
+            }
+            
+            if (file && labelElement) {
+                labelElement.textContent = `✅ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                labelElement.style.color = '#28a745';
+                labelElement.style.fontWeight = '600';
+            }
+        }
+        
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+            }
+        }
+        
         function chooseCAOption(option) {
             hideCAChoiceModal();
             if (option === 'generate') {
@@ -3208,14 +3566,44 @@
         async function submitCAUploadForm() {
             if (isLoading) return;
             
-            const certFile = document.getElementById('caCertFile').files[0];
-            const keyFile = document.getElementById('caKeyFile').files[0];
+            const separateMethod = document.getElementById('separateFiles').checked;
             const keyPassword = document.getElementById('caKeyPassword').value;
             const certValidityDays = parseInt(document.getElementById('certValidityDaysUpload').value);
             
-            if (!certFile || !keyFile) {
-                showStatus('Please select both certificate and key files', 'error');
-                return;
+            let certContent, keyContent;
+            
+            if (separateMethod) {
+                // Handle separate certificate and key files
+                const certFile = document.getElementById('caCertFile').files[0];
+                const keyFile = document.getElementById('caKeyFile').files[0];
+                
+                if (!certFile || !keyFile) {
+                    showStatus('Please select both certificate and key files', 'error');
+                    return;
+                }
+                
+                certContent = await readFileAsText(certFile);
+                keyContent = await readFileAsText(keyFile);
+            } else {
+                // Handle combined PEM file
+                const combinedFile = document.getElementById('caCombinedFile').files[0];
+                
+                if (!combinedFile) {
+                    showStatus('Please select a combined PEM file', 'error');
+                    return;
+                }
+                
+                const combinedContent = await readFileAsText(combinedFile);
+                
+                // Split the combined PEM content
+                const result = splitCombinedPEM(combinedContent);
+                if (!result.success) {
+                    showStatus('Error: ' + result.error, 'error');
+                    return;
+                }
+                
+                certContent = result.certificate;
+                keyContent = result.privateKey;
             }
             
             hideCAUploadModal();
@@ -3224,10 +3612,6 @@
             showStatus('Uploading and validating Certificate Authority files...', 'loading');
             
             try {
-                // Read files as text
-                const certContent = await readFileAsText(certFile);
-                const keyContent = await readFileAsText(keyFile);
-                
                 const uploadData = {
                     ca_certificate: certContent,
                     ca_key: keyContent,
@@ -3259,6 +3643,64 @@
                 reader.onerror = (e) => reject(new Error('Failed to read file'));
                 reader.readAsText(file);
             });
+        }
+        
+        function splitCombinedPEM(pemContent) {
+            try {
+                // Remove any extra whitespace and normalize line endings
+                const normalizedContent = pemContent.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                
+                // Look for certificate
+                const certStart = normalizedContent.indexOf('-----BEGIN CERTIFICATE-----');
+                const certEnd = normalizedContent.indexOf('-----END CERTIFICATE-----');
+                
+                if (certStart === -1 || certEnd === -1) {
+                    return {
+                        success: false,
+                        error: 'No certificate found in PEM file. Make sure the file contains -----BEGIN CERTIFICATE----- and -----END CERTIFICATE----- blocks.'
+                    };
+                }
+                
+                // Extract certificate
+                const certificate = normalizedContent.substring(certStart, certEnd + '-----END CERTIFICATE-----'.length).trim();
+                
+                // Look for private key (try different formats)
+                const keyPatterns = [
+                    { start: '-----BEGIN PRIVATE KEY-----', end: '-----END PRIVATE KEY-----' },
+                    { start: '-----BEGIN RSA PRIVATE KEY-----', end: '-----END RSA PRIVATE KEY-----' },
+                    { start: '-----BEGIN EC PRIVATE KEY-----', end: '-----END EC PRIVATE KEY-----' }
+                ];
+                
+                let privateKey = null;
+                for (const pattern of keyPatterns) {
+                    const keyStart = normalizedContent.indexOf(pattern.start);
+                    const keyEnd = normalizedContent.indexOf(pattern.end);
+                    
+                    if (keyStart !== -1 && keyEnd !== -1) {
+                        privateKey = normalizedContent.substring(keyStart, keyEnd + pattern.end.length).trim();
+                        break;
+                    }
+                }
+                
+                if (!privateKey) {
+                    return {
+                        success: false,
+                        error: 'No private key found in PEM file. Make sure the file contains a private key block (-----BEGIN PRIVATE KEY-----, -----BEGIN RSA PRIVATE KEY-----, or -----BEGIN EC PRIVATE KEY-----).'
+                    };
+                }
+                
+                return {
+                    success: true,
+                    certificate: certificate,
+                    privateKey: privateKey
+                };
+                
+            } catch (error) {
+                return {
+                    success: false,
+                    error: 'Failed to parse PEM file: ' + error.message
+                };
+            }
         }
 
         async function downloadCA() {
@@ -6624,6 +7066,221 @@ Dependencies:
             }
         }
 
+        // PKI Backup & Restore Functions
+        function toggleBackupPasswordVisibility() {
+            const field = document.getElementById('backupPassword');
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide password';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show password';
+            }
+        }
+
+        function toggleRestorePasswordVisibility() {
+            const field = document.getElementById('restorePassword');
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide password';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show password';
+            }
+        }
+
+        function showBackupInfo() {
+            const panel = document.getElementById('backupInfoPanel');
+            const button = document.getElementById('backupInfoBtn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                button.textContent = '🔼 Hide Details';
+            } else {
+                panel.style.display = 'none';
+                button.textContent = 'ℹ️ What\'s Included?';
+            }
+        }
+
+        function showRestoreWarning() {
+            const panel = document.getElementById('restoreWarningPanel');
+            const button = document.getElementById('restoreWarningBtn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                button.textContent = '🔼 Hide Warnings';
+            } else {
+                panel.style.display = 'none';
+                button.textContent = '⚠️ Important Warnings';
+            }
+        }
+
+        async function createPKIBackup() {
+            const password = document.getElementById('backupPassword').value;
+            const createButton = document.getElementById('createBackupBtn');
+            const statusPanel = document.getElementById('backupStatusPanel');
+            const statusContent = document.getElementById('backupStatusContent');
+            const progressBar = document.getElementById('backupProgressBar');
+            const progress = document.getElementById('backupProgress');
+            
+            if (!password) {
+                showStatus('Please enter a backup password', 'error');
+                return;
+            }
+            
+            if (password.length < 8) {
+                showStatus('Backup password must be at least 8 characters long', 'error');
+                return;
+            }
+            
+            // Disable button and show progress
+            createButton.disabled = true;
+            createButton.textContent = '⏳ Creating Backup...';
+            statusPanel.style.display = 'block';
+            statusPanel.style.background = '#e7f3ff';
+            statusPanel.style.border = '1px solid #bee5eb';
+            statusContent.innerHTML = '<h4 style="color: #0c5460;">Creating encrypted backup...</h4><p style="color: #0c5460;">This may take a few minutes depending on the size of your PKI.</p>';
+            progressBar.style.display = 'block';
+            
+            // Simulate progress
+            let progressValue = 0;
+            const progressInterval = setInterval(() => {
+                progressValue += 10;
+                progress.style.width = `${Math.min(progressValue, 90)}%`;
+            }, 500);
+            
+            try {
+                const response = await fetch('/api/pki/backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ password: password })
+                });
+                
+                clearInterval(progressInterval);
+                progress.style.width = '100%';
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                    a.href = url;
+                    a.download = `pki-backup-${timestamp}.pki`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    statusPanel.style.background = '#d4edda';
+                    statusPanel.style.border = '1px solid #c3e6cb';
+                    statusContent.innerHTML = '<h4 style="color: #155724;">✅ Backup Created Successfully!</h4><p style="color: #155724;">Your encrypted PKI backup has been downloaded. Store the password securely.</p>';
+                    showStatus('PKI backup created and downloaded successfully', 'success');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Backup creation failed');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                statusPanel.style.background = '#f8d7da';
+                statusPanel.style.border = '1px solid #f5c6cb';
+                statusContent.innerHTML = `<h4 style="color: #721c24;">❌ Backup Failed</h4><p style="color: #721c24;">${error.message}</p>`;
+                showStatus('Failed to create PKI backup: ' + error.message, 'error');
+            } finally {
+                createButton.disabled = false;
+                createButton.textContent = '💾 Create Encrypted Backup';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    statusPanel.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        async function restorePKIBackup() {
+            const file = document.getElementById('backupFile').files[0];
+            const password = document.getElementById('restorePassword').value;
+            const confirmed = document.getElementById('confirmRestore').checked;
+            const restoreButton = document.getElementById('restoreBackupBtn');
+            const statusPanel = document.getElementById('backupStatusPanel');
+            const statusContent = document.getElementById('backupStatusContent');
+            
+            if (!file) {
+                showStatus('Please select a backup file', 'error');
+                return;
+            }
+            
+            if (!password) {
+                showStatus('Please enter the backup password', 'error');
+                return;
+            }
+            
+            if (!confirmed) {
+                showStatus('Please confirm that you understand this will replace your current PKI', 'error');
+                return;
+            }
+            
+            if (!file.name.endsWith('.pki')) {
+                showStatus('Please select a valid .pki backup file', 'error');
+                return;
+            }
+            
+            // Final confirmation
+            if (!confirm('⚠️ CRITICAL WARNING ⚠️\n\nThis will COMPLETELY REPLACE your current PKI configuration!\n\n• All current certificates and keys will be lost\n• PKI services will be temporarily unavailable\n• This operation cannot be undone\n\nAre you absolutely sure you want to continue?')) {
+                return;
+            }
+            
+            // Disable button and show progress
+            restoreButton.disabled = true;
+            restoreButton.textContent = '⏳ Restoring PKI...';
+            statusPanel.style.display = 'block';
+            statusPanel.style.background = '#fff3cd';
+            statusPanel.style.border = '1px solid #ffeeba';
+            statusContent.innerHTML = '<h4 style="color: #856404;">Restoring PKI from backup...</h4><p style="color: #856404;">Please wait while the PKI is restored. Do not close this page.</p>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('backup_file', file);
+                formData.append('password', password);
+                
+                const response = await fetch('/api/pki/restore', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    statusPanel.style.background = '#d4edda';
+                    statusPanel.style.border = '1px solid #c3e6cb';
+                    statusContent.innerHTML = '<h4 style="color: #155724;">✅ PKI Restored Successfully!</h4><p style="color: #155724;">Your PKI has been restored from the backup. The page will reload to reflect changes.</p>';
+                    showStatus('PKI restored successfully from backup', 'success');
+                    
+                    // Reload page after successful restore
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Restore operation failed');
+                }
+            } catch (error) {
+                statusPanel.style.background = '#f8d7da';
+                statusPanel.style.border = '1px solid #f5c6cb';
+                statusContent.innerHTML = `<h4 style="color: #721c24;">❌ Restore Failed</h4><p style="color: #721c24;">${error.message}</p>`;
+                showStatus('Failed to restore PKI backup: ' + error.message, 'error');
+                restoreButton.disabled = false;
+                restoreButton.textContent = '🔄 Restore from Backup';
+            }
+        }
+
         // Make functions globally available
         window.loadEmailDomains = loadEmailDomains;
         window.addEmailDomain = addEmailDomain;
@@ -6640,6 +7297,12 @@ Dependencies:
         window.checkForUpdates = checkForUpdates;
         window.updateCurrentBranch = updateCurrentBranch;
         window.switchBranch = switchBranch;
+        window.toggleBackupPasswordVisibility = toggleBackupPasswordVisibility;
+        window.toggleRestorePasswordVisibility = toggleRestorePasswordVisibility;
+        window.showBackupInfo = showBackupInfo;
+        window.showRestoreWarning = showRestoreWarning;
+        window.createPKIBackup = createPKIBackup;
+        window.restorePKIBackup = restorePKIBackup;
     </script>
 
     <!-- Tour Trigger Button -->

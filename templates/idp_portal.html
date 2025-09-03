@@ -484,6 +484,89 @@
             </div>
         </div>
 
+        <!-- Certificate Generation Progress -->
+        <div class="card" id="certProgressCard" style="display: none; padding-bottom: 40px;">
+            <h2>🔧 Generating Certificate</h2>
+            <div class="progress-container">
+                <div class="progress-status" id="progressStatus">
+                    <h3 style="margin-bottom: 10px; color: #007bff;">Preparing to generate your certificate...</h3>
+                    <p id="progressMessage" style="color: #666; margin-bottom: 20px;">This may take a few moments depending on server load.</p>
+                </div>
+                
+                <div class="progress-bar-container" style="background: #f0f0f0; border-radius: 10px; overflow: hidden; height: 30px; margin: 20px 0;">
+                    <div class="progress-bar" id="certProgressBar" style="
+                        background: linear-gradient(45deg, #007bff, #0056b3);
+                        height: 100%;
+                        width: 0%;
+                        transition: width 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 14px;
+                    ">0%</div>
+                </div>
+                
+                <div class="progress-steps" id="progressSteps">
+                    <div class="step" id="step1">
+                        <div class="step-indicator" style="
+                            display: inline-block;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: #dee2e6;
+                            margin-right: 10px;
+                            position: relative;
+                        "></div>
+                        <span class="step-text" style="color: #666;">Validating user credentials...</span>
+                    </div>
+                    <div class="step" id="step2" style="margin-top: 10px;">
+                        <div class="step-indicator" style="
+                            display: inline-block;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: #dee2e6;
+                            margin-right: 10px;
+                            position: relative;
+                        "></div>
+                        <span class="step-text" style="color: #666;">Generating private key...</span>
+                    </div>
+                    <div class="step" id="step3" style="margin-top: 10px;">
+                        <div class="step-indicator" style="
+                            display: inline-block;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: #dee2e6;
+                            margin-right: 10px;
+                            position: relative;
+                        "></div>
+                        <span class="step-text" style="color: #666;">Creating certificate...</span>
+                    </div>
+                    <div class="step" id="step4" style="margin-top: 10px;">
+                        <div class="step-indicator" style="
+                            display: inline-block;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: #dee2e6;
+                            margin-right: 10px;
+                            position: relative;
+                        "></div>
+                        <span class="step-text" style="color: #666;">Finalizing and sending notification...</span>
+                    </div>
+                </div>
+                
+                <div class="progress-actions" style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="cancelCertGeneration()" id="cancelBtn" style="display: none;">
+                        Cancel Generation
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Certificate History -->
         <div class="card">
             <h2>📜 Certificate History</h2>
@@ -737,20 +820,65 @@
         async function generateNewCert() {
             if (confirm('Generate a new certificate? This will revoke any existing certificate.')) {
                 try {
+                    // Show progress card and disable the generate button
+                    const progressCard = document.getElementById('certProgressCard');
+                    const generateButton = document.querySelector('button[onclick="generateNewCert()"]');
+                    
+                    generateButton.disabled = true;
+                    generateButton.textContent = 'Generating...';
+                    progressCard.style.display = 'block';
+                    
+                    // Scroll to progress card
+                    progressCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Start the progress simulation
+                    await simulateCertificateProgress();
+                    
+                    // Make the actual API call
+                    updateProgress(90, 'Finalizing certificate creation...', 4);
+                    
                     const response = await fetch('/api/idp/generate-certificate', {
                         method: 'POST'
                     });
                     const data = await response.json();
                     
                     if (data.status === 'success') {
-                        alert('Certificate generated successfully! Check your email for the certificate.');
-                        await loadCertificateStatus();
-                        await loadCertificateHistory();
+                        // Complete progress
+                        updateProgress(100, 'Certificate generated successfully!', 4, true);
+                        
+                        // Show success state for a moment
+                        setTimeout(async () => {
+                            // Hide progress card and show success message
+                            progressCard.style.display = 'none';
+                            generateButton.disabled = false;
+                            generateButton.innerHTML = '<span>🆕</span> Generate New Certificate';
+                            
+                            showAlert('Certificate generated successfully! Check your email for the certificate.', 'success');
+                            await loadCertificateStatus();
+                            await loadCertificateHistory();
+                        }, 2000);
                     } else {
-                        alert('Error generating certificate: ' + data.message);
+                        // Handle error
+                        updateProgress(0, 'Certificate generation failed', 0, false, true);
+                        setTimeout(() => {
+                            progressCard.style.display = 'none';
+                            generateButton.disabled = false;
+                            generateButton.innerHTML = '<span>🆕</span> Generate New Certificate';
+                            showAlert('Error generating certificate: ' + data.message, 'error');
+                        }, 3000);
                     }
                 } catch (error) {
-                    alert('Error generating certificate: ' + error.message);
+                    // Handle network error
+                    const progressCard = document.getElementById('certProgressCard');
+                    const generateButton = document.querySelector('button[onclick="generateNewCert()"]');
+                    
+                    updateProgress(0, 'Network error occurred', 0, false, true);
+                    setTimeout(() => {
+                        progressCard.style.display = 'none';
+                        generateButton.disabled = false;
+                        generateButton.innerHTML = '<span>🆕</span> Generate New Certificate';
+                        showAlert('Error generating certificate: ' + error.message, 'error');
+                    }, 3000);
                 }
             }
         }
@@ -883,6 +1011,74 @@
                 showAlert('Error downloading CA certificate', 'error');
                 console.error('Download CA error:', error);
             }
+        }
+
+        // Progress bar functions for certificate generation
+        async function simulateCertificateProgress() {
+            // Step 1: Validate request
+            updateProgress(10, 'Validating certificate request...', 1);
+            await delay(800);
+            
+            // Step 2: Generate private key
+            updateProgress(30, 'Generating private key...', 2);
+            await delay(1200);
+            
+            // Step 3: Create certificate signing request
+            updateProgress(50, 'Creating certificate signing request...', 3);
+            await delay(1000);
+            
+            // Step 4: Sign certificate with CA
+            updateProgress(70, 'Signing certificate with Certificate Authority...', 4);
+            await delay(1500);
+        }
+        
+        function updateProgress(percentage, message, step, success = false) {
+            const progressBar = document.getElementById('certProgressBar');
+            const progressMessage = document.getElementById('progressMessage');
+            const progressStatus = document.getElementById('progressStatus').querySelector('h3');
+            
+            // Update progress bar
+            progressBar.style.width = percentage + '%';
+            progressBar.style.transition = 'width 0.5s ease-in-out';
+            progressBar.textContent = percentage + '%';
+            
+            // Update message
+            progressMessage.textContent = message;
+            
+            // Update status title based on progress
+            if (success) {
+                progressStatus.textContent = '✅ Certificate Generated Successfully!';
+                progressStatus.style.color = '#28a745';
+                progressBar.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+            } else if (percentage >= 90) {
+                progressStatus.textContent = '🔧 Finalizing Certificate...';
+                progressStatus.style.color = '#17a2b8';
+            } else if (percentage >= 50) {
+                progressStatus.textContent = '🔐 Processing Certificate...';
+                progressStatus.style.color = '#007bff';
+            } else {
+                progressStatus.textContent = '⚙️ Preparing Certificate...';
+                progressStatus.style.color = '#007bff';
+            }
+            
+            // Update step indicators if they exist
+            const stepIndicators = document.querySelectorAll('.progress-step');
+            stepIndicators.forEach((indicator, index) => {
+                if (index < step) {
+                    indicator.classList.add('completed');
+                    indicator.classList.remove('active');
+                } else if (index === step - 1) {
+                    indicator.classList.add('active');
+                    indicator.classList.remove('completed');
+                } else {
+                    indicator.classList.remove('active', 'completed');
+                }
+            });
+        }
+        
+        // Utility function for delays
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         // Close modals when clicking outside
