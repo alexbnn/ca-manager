@@ -51,6 +51,7 @@
             background: var(--text-light);
             min-height: 100vh;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         
         /* Header Styles */
@@ -58,9 +59,18 @@
             background: var(--text-light);
             border-bottom: 1px solid var(--light-gray);
             padding: 1rem 2rem;
-            position: sticky;
+            position: fixed;
             top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1200px;
             z-index: 100;
+            transition: box-shadow 0.2s ease;
+        }
+        
+        .header.scrolled {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .header-content {
@@ -110,6 +120,7 @@
         /* Main Content */
         .main-content {
             padding: 2rem;
+            padding-top: 280px; /* Account for fixed header (80px) + tab navigation (50px) + metrics dashboard (80px) + 40px gap + padding */
         }
         
         /* Dashboard Metrics */
@@ -323,6 +334,70 @@
         }
         
         /* Status Messages */
+        /* Floating Notifications */
+        .notifications-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        
+        .notification {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border-left: 4px solid;
+            font-weight: 500;
+            font-size: 0.875rem;
+            pointer-events: auto;
+            transform: translateX(420px);
+            transition: all 0.3s ease;
+            opacity: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .notification.closing {
+            transform: translateX(420px);
+            opacity: 0;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .notification-close:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Old status styles (kept for compatibility) */
         .status {
             margin-top: 2rem;
             padding: 1rem 1.5rem;
@@ -337,19 +412,25 @@
             display: block;
         }
         
-        .success {
+        .success, .notification.success {
             background: #f6fef9;
             color: #027a48;
             border-left-color: var(--success-green);
         }
         
-        .error {
+        .error, .notification.error {
             background: #fef3f2;
             color: #b42318;
             border-left-color: var(--error-red);
         }
         
-        .loading {
+        .warning, .notification.warning {
+            background: #fefdf0;
+            color: #7a6c00;
+            border-left-color: #f79009;
+        }
+        
+        .loading, .notification.loading {
             background: #f0f9ff;
             color: #026aa2;
             border-left-color: var(--info-blue);
@@ -646,6 +727,137 @@
         .shepherd-theme-arrows .shepherd-button:hover {
             background: var(--dark-blue);
         }
+
+        /* Tab Navigation Styles */
+        .tab-navigation {
+            background: var(--text-light);
+            border-bottom: 2px solid var(--light-gray);
+            padding: 0 2rem;
+            overflow-x: auto;
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1200px;
+            z-index: 90;
+            transition: box-shadow 0.2s ease;
+        }
+        
+        .tab-navigation.scrolled {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Fixed Metrics Dashboard */
+        .fixed-metrics-dashboard {
+            position: fixed;
+            top: 130px; /* Header (80px) + Tab Navigation (50px) */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            padding: 1rem 2rem;
+            z-index: 80;
+            display: grid !important;
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 1rem;
+            border-bottom: 1px solid var(--light-gray);
+            transition: box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .fixed-metrics-dashboard.scrolled {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-list {
+            display: flex;
+            gap: 0;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            min-width: max-content;
+        }
+
+        .tab-item {
+            background: transparent;
+            border: none;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-family: var(--font-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--medium-gray);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-item:hover {
+            color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.05);
+        }
+
+        .tab-item.active {
+            color: var(--primary-purple);
+            border-bottom-color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.1);
+        }
+
+        .tab-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-purple);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .tab-item:not(.active) .tab-icon {
+            background: var(--medium-gray);
+        }
+
+        /* Tab Content Styles */
+        .tab-content {
+            display: none;
+            padding: 2rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive tabs */
+        @media (max-width: 768px) {
+            .tab-navigation {
+                padding: 0 1rem;
+            }
+            
+            .tab-item {
+                padding: 0.75rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .tab-icon {
+                width: 18px;
+                height: 18px;
+                font-size: 0.7rem;
+            }
+        }
         
         .tour-trigger-btn {
             position: fixed;
@@ -872,6 +1084,7 @@
         @media (max-width: 768px) {
             .main-content {
                 padding: 1rem;
+                padding-top: 260px; /* Account for header + tabs + metrics + 40px gap on mobile */
             }
             
             .header {
@@ -894,6 +1107,11 @@
             
             .metrics-dashboard {
                 grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .fixed-metrics-dashboard {
+                grid-template-columns: repeat(3, 1fr);
+                padding: 0.75rem 1rem;
             }
             
             .search-controls {
@@ -920,6 +1138,11 @@
         @media (max-width: 480px) {
             .metrics-dashboard {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .fixed-metrics-dashboard {
+                grid-template-columns: repeat(2, 1fr);
+                padding: 0.5rem 0.75rem;
             }
             
             .logo-section {
@@ -1310,104 +1533,200 @@
             </div>
         </header>
         
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+                {% if 'admin' in user.roles or 'operator' in user.roles %}
+                <li><button class="tab-item active" onclick="switchTab('ca-management')" id="tab-ca-management">
+                    <span class="tab-icon">1</span>PKI & Certificate Authority
+                </button></li>
+                {% endif %}
+                <li><button class="tab-item" onclick="switchTab('certificates')" id="tab-certificates">
+                    <span class="tab-icon">2</span>Certificates
+                </button></li>
+                {% if 'admin' in user.roles or 'operator' in user.roles %}
+                <li><button class="tab-item" onclick="switchTab('protocols')" id="tab-protocols">
+                    <span class="tab-icon">3</span>Device Protocols
+                </button></li>
+                <li><button class="tab-item" onclick="switchTab('approvals')" id="tab-approvals">
+                    <span class="tab-icon">4</span>Request Approvals & Domain Whitelist
+                </button></li>
+                {% endif %}
+                {% if user.is_admin %}
+                <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
+                    <span class="tab-icon">5</span>General Settings
+                </button></li>
+                {% endif %}
+            </ul>
+        </nav>
+        
+        <!-- Fixed Dashboard Metrics -->
+        <div class="fixed-metrics-dashboard" id="fixedDashboardMetrics">
+            <div class="metric-card" id="totalCertsCardFixed" title="Total number of certificates issued by your PKI">
+                <h3>Total Certificates</h3>
+                <div class="value" id="totalCertsFixed">0</div>
+                <div class="label">Issued</div>
+            </div>
+            <div class="metric-card" id="expiringSoonCardFixed" title="Certificates expiring within the next 30 days">
+                <h3>Expiring Soon</h3>
+                <div class="value" id="expiringSoonFixed">0</div>
+                <div class="label">Within 30 days</div>
+            </div>
+            <div class="metric-card" id="pendingRequestsCardFixed" title="Certificate requests waiting to be signed">
+                <h3>Pending Requests</h3>
+                <div class="value" id="pendingRequestsFixed">0</div>
+                <div class="label">Awaiting signature</div>
+            </div>
+            <div class="metric-card" id="systemHealthCardFixed" title="Overall health of your PKI system">
+                <h3>System Health</h3>
+                <div class="value" id="systemHealthFixed">✅</div>
+                <div class="label" id="systemHealthLabelFixed">PKI Backend</div>
+            </div>
+            <div class="metric-card" id="scepHealthCardFixed" title="Status of SCEP server for automatic device enrollment">
+                <h3>SCEP Server</h3>
+                <div class="value" id="scepHealthFixed">📡</div>
+                <div class="label">Device Enrollment</div>
+            </div>
+        </div>
+
         <main class="main-content">
-            <!-- Dashboard Metrics -->
-            <div class="metrics-dashboard hidden" id="dashboardMetrics">
-                <div class="metric-card" id="totalCertsCard" title="Total number of certificates issued by your PKI">
-                    <h3>Total Certificates</h3>
-                    <div class="value" id="totalCerts">0</div>
-                    <div class="label">Issued</div>
-                </div>
-                <div class="metric-card" id="expiringSoonCard" title="Certificates expiring within the next 30 days">
-                    <h3>Expiring Soon</h3>
-                    <div class="value" id="expiringSoon">0</div>
-                    <div class="label">Within 30 days</div>
-                </div>
-                <div class="metric-card" id="pendingRequestsCard" title="Certificate requests waiting to be signed">
-                    <h3>Pending Requests</h3>
-                    <div class="value" id="pendingRequests">0</div>
-                    <div class="label">Awaiting signature</div>
-                </div>
-                <div class="metric-card" id="systemHealthCard" title="Overall health of your PKI system">
-                    <h3>System Health</h3>
-                    <div class="value" id="systemHealth">✅</div>
-                    <div class="label" id="systemHealthLabel">PKI Backend</div>
-                </div>
-                <div class="metric-card" id="scepHealthCard" title="Status of SCEP server for automatic device enrollment">
-                    <h3>SCEP Server</h3>
-                    <div class="value" id="scepHealth">📡</div>
-                    <div class="label">Device Enrollment</div>
-                </div>
-            </div>
             
-            <!-- PKI Initialization Section (Admin Only) -->
-            {% if user.is_admin %}
-            <div class="section">
-                <h2><span class="section-icon">1</span>PKI Initialization</h2>
-                <div class="button-grid">
-                    <button class="btn btn-primary" id="initPKI">Initialize PKI</button>
-                    <button class="btn btn-info" id="checkStatus">Check PKI Status</button>
-                    <button class="btn btn-secondary" id="loadDashboard">Load Dashboard</button>
+            <!-- Tab Content: PKI & Certificate Authority (PKI Setup + CA Management + Certificate Creation) -->
+            {% if 'admin' in user.roles or 'operator' in user.roles %}
+            <div class="tab-content active" id="ca-management">
+                <div class="section">
+                    <h2><span class="section-icon">1</span>PKI Initialization</h2>
+                    <div class="button-grid">
+                        <button class="btn btn-primary" id="initPKI">Initialize PKI</button>
+                        <button class="btn btn-info" id="checkStatus">Check PKI Status</button>
+                        <button class="btn btn-secondary" id="loadDashboard">Load Dashboard</button>
+                    </div>
                 </div>
+                
+                <!-- Certificate Authority Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">1</span>Certificate Authority</h2>
+                    <div class="button-grid">
+                        <button class="btn btn-primary" id="buildCA">Build CA</button>
+                        <button class="btn btn-info" id="generateCRL">Generate CRL</button>
+                        <button class="btn btn-secondary" id="showCA">Show CA Details</button>
+                    </div>
+                </div>
+                
             </div>
             {% endif %}
             
-            <!-- Certificate Authority Section (Admin & Operator) -->
+            <!-- Tab Content: Certificates (Operations + Tracking) -->
+            <div class="tab-content" id="certificates">
+                {% if 'admin' in user.roles or 'operator' in user.roles %}
+                <!-- Certificate Creation Section -->
+                <div class="section">
+                    <h2><span class="section-icon">2</span>Certificate Creation</h2>
+                    <div class="form-group">
+                        <label for="certName">Certificate Name:</label>
+                        <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
+                    </div>
+                    <div class="form-group">
+                        <label for="certType">Certificate Type:</label>
+                        <select id="certType">
+                            <option value="client">Client Certificate</option>
+                            <option value="server">Server Certificate</option>
+                        </select>
+                    </div>
+                    <div class="button-grid">
+                        <button class="btn btn-primary" id="createFullCert">Create Full Certificate</button>
+                        <button class="btn btn-secondary" id="generateRequest">Generate Request Only</button>
+                        <button class="btn btn-secondary" id="signRequest">Sign Existing Request</button>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">2</span>Certificate Operations</h2>
+                    <div class="form-group">
+                        <label for="operationCertName">Certificate Name:</label>
+                        <input type="text" id="operationCertName" placeholder="Enter certificate name">
+                    </div>
+                    <div class="button-grid">
+                        <button class="btn btn-info" id="showCert">Show Certificate Details</button>
+                        {% if 'admin' in user.roles or 'operator' in user.roles %}
+                        <button class="btn btn-info" id="validateCert">Validate Certificate</button>
+                        {% endif %}
+                        <button class="btn btn-secondary" id="downloadCert">Download Certificate</button>
+                        {% if 'admin' in user.roles or 'operator' in user.roles %}
+                        <button class="btn btn-danger" id="revokeCert">Revoke Certificate</button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Certificate Tracking Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">2</span>Certificate Tracking</h2>
+                    
+                    <!-- Search and Filter Controls -->
+                    <div class="search-controls">
+                        <input type="text" id="searchCerts" placeholder="Search certificates...">
+                        <select id="filterType">
+                            <option value="">All Types</option>
+                            <option value="issued">Issued</option>
+                            <option value="request">Pending</option>
+                            <option value="revoked">Revoked</option>
+                        </select>
+                        <select id="filterExpiry">
+                            <option value="">All Certificates</option>
+                            <option value="7">Expiring in 7 days</option>
+                            <option value="30">Expiring in 30 days</option>
+                            <option value="90">Expiring in 90 days</option>
+                        </select>
+                    </div>
+                    
+                    <div class="button-grid">
+                        <button class="btn btn-info" id="listCertificates">List All Certificates</button>
+                        {% if 'admin' in user.roles or 'operator' in user.roles %}
+                        <button class="btn btn-warning" id="showExpiryDashboard">📊 Expiry Dashboard</button>
+                        <button class="btn btn-secondary" id="checkExpiring">Check Expiring Certs</button>
+                        <button class="btn btn-secondary" id="checkConnection">Check Connection</button>
+                        <button class="btn btn-secondary" id="createBackup">Create Backup</button>
+                        {% endif %}
+                    </div>
+                    <div id="certificatesList" class="certificates-list"></div>
+                    
+                    <!-- Certificate Expiry Dashboard -->
+                    <div id="expiryDashboard" class="expiry-dashboard" style="display: none; margin-top: 2rem;">
+                        <h3 style="margin-bottom: 1rem;">🔒 Certificate Expiry Dashboard</h3>
+                        <div class="dashboard-stats">
+                            <div class="stat-card expired">
+                                <div class="stat-number" id="expiredCount">0</div>
+                                <div class="stat-label">Expired</div>
+                            </div>
+                            <div class="stat-card critical">
+                                <div class="stat-number" id="criticalCount">0</div>
+                                <div class="stat-label">Critical (≤7 days)</div>
+                            </div>
+                            <div class="stat-card warning">
+                                <div class="stat-number" id="warningCount">0</div>
+                                <div class="stat-label">Warning (≤30 days)</div>
+                            </div>
+                            <div class="stat-card normal">
+                                <div class="stat-number" id="normalCount">0</div>
+                                <div class="stat-label">Normal (≤90 days)</div>
+                            </div>
+                            <div class="stat-card healthy">
+                                <div class="stat-number" id="healthyCount">0</div>
+                                <div class="stat-label">Healthy (>90 days)</div>
+                            </div>
+                        </div>
+                        <div id="dashboardRecommendations" class="dashboard-recommendations"></div>
+                        <div id="dashboardDetails" class="dashboard-details"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab Content: Device Protocols (SCEP + OCSP) -->
             {% if 'admin' in user.roles or 'operator' in user.roles %}
-            <div class="section">
-                <h2><span class="section-icon">2</span>Certificate Authority</h2>
-                <div class="button-grid">
-                    <button class="btn btn-primary" id="buildCA">Build CA</button>
-                    <button class="btn btn-info" id="generateCRL">Generate CRL</button>
-                    <button class="btn btn-secondary" id="showCA">Show CA Details</button>
-                </div>
-            </div>
-            
-            <!-- Certificate Management Section (Admin & Operator) -->
-            <div class="section">
-                <h2><span class="section-icon">3</span>Certificate Management</h2>
-                <div class="form-group">
-                    <label for="certName">Certificate Name:</label>
-                    <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
-                </div>
-                <div class="form-group">
-                    <label for="certType">Certificate Type:</label>
-                    <select id="certType">
-                        <option value="client">Client Certificate</option>
-                        <option value="server">Server Certificate</option>
-                    </select>
-                </div>
-                <div class="button-grid">
-                    <button class="btn btn-primary" id="createFullCert">Create Full Certificate</button>
-                    <button class="btn btn-secondary" id="generateRequest">Generate Request Only</button>
-                    <button class="btn btn-secondary" id="signRequest">Sign Existing Request</button>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Certificate Operations Section -->
-            <div class="section">
-                <h2><span class="section-icon">4</span>Certificate Operations</h2>
-                <div class="form-group">
-                    <label for="operationCertName">Certificate Name:</label>
-                    <input type="text" id="operationCertName" placeholder="Enter certificate name">
-                </div>
-                <div class="button-grid">
-                    <button class="btn btn-info" id="showCert">Show Certificate Details</button>
-                    {% if 'admin' in user.roles or 'operator' in user.roles %}
-                    <button class="btn btn-info" id="validateCert">Validate Certificate</button>
-                    {% endif %}
-                    <button class="btn btn-secondary" id="downloadCert">Download Certificate</button>
-                    {% if 'admin' in user.roles or 'operator' in user.roles %}
-                    <button class="btn btn-danger" id="revokeCert">Revoke Certificate</button>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- SCEP Server Section (Admin & Operator) -->
-            {% if 'admin' in user.roles or 'operator' in user.roles %}
-            <div class="section scep-section">
-                <h2><span class="section-icon">5</span>SCEP Device Enrollment</h2>
+            <div class="tab-content" id="protocols">
+                <div class="section scep-section">
+                <h2><span class="section-icon">3</span>SCEP Device Enrollment</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     SCEP (Simple Certificate Enrollment Protocol) enables automatic certificate enrollment for network devices.
                     Configure your devices to use these endpoints for automated certificate management.
@@ -1448,13 +1767,35 @@
                     <button class="btn btn-secondary" id="downloadCASCEP">Download CA via SCEP</button>
                     <button class="btn btn-primary" id="openIOSSimulator">iOS Simulator</button>
                 </div>
+                </div>
+                
+                <!-- OCSP Section -->
+                <div class="section ocsp-section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                    <h2><span class="section-icon">3</span>OCSP (Online Certificate Status Protocol)</h2>
+                    <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                        OCSP allows real-time certificate status validation. Use this endpoint to check if certificates are valid, revoked, or unknown.
+                        The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
+                    </p>
+                    <div class="form-group">
+                        <label for="ocspUrl">OCSP Responder URL:</label>
+                        <input type="text" id="ocspUrl" value="Loading..." readonly 
+                               class="ocsp-url-field" onclick="this.select()">
+                    </div>
+                    
+                    <div class="button-grid">
+                        <button class="btn btn-info" id="showOCSPInfo">Show OCSP Details</button>
+                        <button class="btn btn-secondary" id="testOCSPHealth">Test OCSP Health</button>
+                        <button class="btn btn-primary" id="openOCSPSimulator">🔍 OCSP Simulator</button>
+                    </div>
+                </div>
             </div>
             {% endif %}
             
-            <!-- OCSP Section (Admin & Operator) -->
+            <!-- Tab Content: OCSP Validation -->
             {% if 'admin' in user.roles or 'operator' in user.roles %}
-            <div class="section ocsp-section">
-                <h2><span class="section-icon">6</span>OCSP (Online Certificate Status Protocol)</h2>
+            <div class="tab-content" id="ocsp">
+                <div class="section ocsp-section">
+                <h2><span class="section-icon">3</span>OCSP (Online Certificate Status Protocol)</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     OCSP allows real-time certificate status validation. Use this endpoint to check if certificates are valid, revoked, or unknown.
                     The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
@@ -1470,13 +1811,15 @@
                     <button class="btn btn-secondary" id="testOCSPHealth">Test OCSP Health</button>
                     <button class="btn btn-primary" id="openOCSPSimulator">🔍 OCSP Simulator</button>
                 </div>
+                </div>
             </div>
             {% endif %}
 
-            <!-- Certificate Request Approvals Section (Admin & Operator) -->
+            <!-- Tab Content: Request Approvals -->
             {% if 'admin' in user.roles or 'operator' in user.roles %}
-            <div class="section" id="approvals-section">
-                <h2><span class="section-icon">7</span>Certificate Request Approvals</h2>
+            <div class="tab-content" id="approvals">
+                <div class="section" id="approvals-section">
+                <h2><span class="section-icon">4</span>Certificate Request Approvals</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Review and approve pending certificate requests from the self-service portal.
                 </p>
@@ -1490,13 +1833,58 @@
                 <div id="pendingRequestsList" class="pending-requests-list" style="margin-top: 1.5rem;">
                     <!-- Pending requests will be loaded here -->
                 </div>
+                </div>
+                
+                <!-- Email Domain Whitelist Section -->
+                {% if user.is_admin %}
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">4</span>Email Domain Whitelist</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Manage which email domains are allowed to request 802.1X certificates.
+                </p>
+                
+                <div class="button-grid">
+                    <button class="btn btn-info" onclick="loadEmailDomains()">📋 Load Domains</button>
+                    <button class="btn btn-success" onclick="showAddDomainForm()">➕ Add Domain</button>
+                </div>
+                <!-- Add Domain Form -->
+                <div id="add-domain-form" class="form-container" style="display: none; margin-top: 1rem; background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                    <h3 style="margin-bottom: 1rem;">Add Email Domain</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newEmailDomain" style="display: block; margin-bottom: 0.5rem;">Domain Name *</label>
+                            <input type="text" id="newEmailDomain" placeholder="example.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label for="domainDescription" style="display: block; margin-bottom: 0.5rem;">Description</label>
+                            <input type="text" id="domainDescription" placeholder="Optional description" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" id="allowSubdomains" style="margin-right: 0.5rem;"> Allow subdomains (e.g., user@sub.example.com)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-actions" style="margin-top: 1rem;">
+                        <button class="btn btn-success" onclick="addEmailDomain()">Add Domain</button>
+                        <button class="btn btn-secondary" onclick="hideAddDomainForm()">Cancel</button>
+                    </div>
+                </div>
+                
+                <div id="email-domains-content" class="domains-list" style="margin-top: 1.5rem;">
+                    <!-- Domains will be loaded here -->
+                </div>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 
-            <!-- Email Domain Management Section (Admin only) -->
+            <!-- OLD System Settings Tab - COMMENTED OUT
+            <!-- Tab Content: System Settings (Email Domains + SMTP + User Management) -->
             {% if user.is_admin %}
-            <div class="section" id="domains-section">
-                <h2><span class="section-icon">8</span>Email Domain Whitelist</h2>
+            <div class="tab-content" id="settings-old-disabled">
+                <div class="section" id="domains-section">
+                <h2><span class="section-icon">5</span>Email Domain Whitelist</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage which email domains are allowed to request 802.1X certificates.
                 </p>
@@ -1533,81 +1921,24 @@
                 <div id="email-domains-content" class="domains-list" style="margin-top: 1.5rem;">
                     <!-- Domains will be loaded here -->
                 </div>
+                </div>
             </div>
 
-            <!-- SMTP Configuration Section (Admin only) -->
-            <div class="section" id="smtp-section">
-                <h2><span class="section-icon">9</span>SMTP Email Configuration</h2>
+            <!-- Tab Content: SMTP Config -->
+            <div class="tab-content" id="smtp-old-disabled">
+                <div class="section" id="smtp-section">
+                <h2><span class="section-icon">5</span>SMTP Email Configuration</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Configure SMTP settings for sending email verifications.
                 </p>
-                
-                
-                <div class="smtp-config">
-                    <h3 style="margin-bottom: 1rem;">SMTP Configuration</h3>
-                    <div id="smtp-config-content" class="config-form" style="display: block;">
-                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="smtpServer">SMTP Server *:</label>
-                                <input type="text" id="smtpServer" placeholder="smtp.gmail.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpPort">SMTP Port:</label>
-                                <input type="number" id="smtpPort" placeholder="587" min="1" max="65535" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpUsername">SMTP Username:</label>
-                                <input type="text" id="smtpUsername" placeholder="your-email@domain.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpPassword">SMTP Password:</label>
-                                <input type="password" id="smtpPassword" placeholder="Password" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpSenderEmail">Sender Email *:</label>
-                                <input type="email" id="smtpSenderEmail" placeholder="noreply@yourcompany.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="smtpSenderName">Sender Name:</label>
-                                <input type="text" id="smtpSenderName" placeholder="CA Manager" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top: 1rem;">
-                            <label>
-                                <input type="checkbox" id="smtpUseTLS" checked>
-                                Use TLS/STARTTLS
-                            </label>
-                        </div>
-                        
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-primary" onclick="saveSMTPConfig()">💾 Save Configuration</button>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-top: 1rem;">
-                        <label>Test Email Address:</label>
-                        <input type="email" id="testEmailAddress" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                    
-                    <div class="button-grid" style="margin-top: 1rem;">
-                        <button class="btn btn-info" onclick="loadSMTPConfig()">🔄 Refresh Configuration</button>
-                        <button class="btn btn-warning" onclick="testSMTPConnection()">✉️ Test Email</button>
-                    </div>
-                    
-                    <div id="smtp-status" style="margin-top: 1rem;"></div>
-                </div>
-
-                <div class="config-instructions" style="margin-top: 2rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
-                    <h3 style="margin-bottom: 1rem; color: #0c5460;">✅ Live Configuration Active</h3>
-                    <p style="color: #0c5460;">SMTP configuration is now managed through the database and takes effect immediately after saving. No container restart required!</p>
                 </div>
             </div>
             {% endif %}
 
-            <!-- Certificate Tracking Section -->
-            <div class="section">
-                <h2><span class="section-icon">8</span>Certificate Tracking</h2>
+            <!-- Tab Content: Certificate Tracking -->
+            <div class="tab-content" id="cert-tracking">
+                <div class="section">
+                <h2><span class="section-icon">2</span>Certificate Tracking</h2>
                 
                 <!-- Search and Filter Controls -->
                 <div class="search-controls">
@@ -1665,12 +1996,14 @@
                     <div id="dashboardRecommendations" class="dashboard-recommendations"></div>
                     <div id="dashboardDetails" class="dashboard-details"></div>
                 </div>
+                </div>
             </div>
             
-            <!-- User Management Section (Admin Only) -->
+            <!-- Tab Content: User Management -->
             {% if user.is_admin %}
-            <div class="section" id="userManagementSection">
-                <h2><span class="section-icon">9</span>User Management</h2>
+            <div class="tab-content" id="user-management">
+                <div class="section" id="userManagementSection">
+                <h2><span class="section-icon">5</span>User Management</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage user accounts and permissions for the PKI system.
                 </p>
@@ -1683,41 +2016,306 @@
                 <div id="usersList" class="users-list" style="display: none; margin-top: 1.5rem;">
                     <!-- Users will be populated here -->
                 </div>
-            </div>
-            {% endif %}
-            
-            <!-- Version Management Section (Admin only) -->
-            {% if 'admin' in user.roles %}
-            <div class="section">
-                <h2><span class="section-icon">10</span>Version Management</h2>
-                <div class="version-info" id="versionInfo" style="background: #f8f9fa; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 4px solid #0c5460;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
-                        <div><strong>Current Branch:</strong> <span id="currentBranch">Loading...</span></div>
-                        <div><strong>Version:</strong> <span id="currentVersion">Loading...</span></div>
-                        <div><strong>Latest Commit:</strong> <span id="latestCommit">Loading...</span></div>
-                        <div><strong>Update Available:</strong> <span id="updateAvailable">Checking...</span></div>
-                    </div>
                 </div>
+                
+                <!-- SMTP Configuration Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">📧</span>SMTP Email Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure SMTP settings for sending certificate email notifications.
+                </p>
+                
+                <div class="smtp-config">
+                    <h3 style="margin-bottom: 1rem;">Email Server Settings</h3>
+                    <div id="smtp-config-content" class="config-form" style="display: block;">
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                            <div class="form-group">
+                                <label for="smtpServer">SMTP Server *:</label>
+                                <input type="text" id="smtpServer" placeholder="smtp.gmail.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpPort">SMTP Port:</label>
+                                <input type="number" id="smtpPort" placeholder="587" min="1" max="65535" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpUsername">SMTP Username:</label>
+                                <input type="text" id="smtpUsername" placeholder="your-email@domain.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpPassword">SMTP Password:</label>
+                                <input type="password" id="smtpPassword" placeholder="Password" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpSenderEmail">Sender Email *:</label>
+                                <input type="email" id="smtpSenderEmail" placeholder="noreply@yourcompany.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="smtpSenderName">Sender Name:</label>
+                                <input type="text" id="smtpSenderName" placeholder="CA Manager" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label>
+                                <input type="checkbox" id="smtpUseTLS" checked>
+                                Use TLS/STARTTLS
+                            </label>
+                        </div>
+                        
+                        <div class="button-grid" style="margin-top: 1rem;">
+                            <button class="btn btn-primary" onclick="saveSMTPConfig()">💾 Save Configuration</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--light-gray);">
+                        <h4 style="margin-bottom: 1rem;">Test Email Configuration</h4>
+                        <label>Test Email Address:</label>
+                        <input type="email" id="testEmailAddress" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <div class="button-grid" style="margin-top: 1rem;">
+                            <button class="btn btn-info" onclick="loadSMTPConfig()">🔄 Refresh Configuration</button>
+                            <button class="btn btn-warning" onclick="testSMTPConnection()">✉️ Send Test Email</button>
+                        </div>
+                    </div>
+                    
+                    <div id="smtp-status" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div class="config-instructions" style="margin-top: 2rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
+                    <h3 style="margin-bottom: 1rem; color: #0c5460;">📧 Email Configuration Help</h3>
+                    <p style="color: #0c5460; margin-bottom: 0.5rem;"><strong>Common SMTP Settings:</strong></p>
+                    <ul style="color: #0c5460; margin-left: 1.5rem;">
+                        <li>Gmail: smtp.gmail.com, Port 587 (requires app password)</li>
+                        <li>Outlook: smtp-mail.outlook.com, Port 587</li>
+                        <li>Yahoo: smtp.mail.yahoo.com, Port 587 or 465</li>
+                    </ul>
+                    <p style="color: #0c5460; margin-top: 0.5rem;">✅ Configuration is saved to database and takes effect immediately. No restart required!</p>
+                </div>
+                </div>
+                
+                <!-- IDP Configuration Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔐</span>Identity Provider (IDP) Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure Google and Microsoft authentication for automated certificate management.
+                </p>
                 
                 <div class="button-grid">
-                    <button class="btn btn-info" id="checkUpdates">Check for Updates</button>
-                    <button class="btn btn-primary" id="updateBranch">Update Current Branch</button>
-                    <button class="btn btn-secondary" id="manageBranches">Switch Branch</button>
+                    <button class="btn btn-primary" onclick="showIDPConfigModal()">
+                        <span>⚙️</span> Configure IDP Settings
+                    </button>
+                    <button class="btn btn-info" onclick="testIDPConnection()">
+                        <span>🔍</span> Test IDP Connection
+                    </button>
+                    <button class="btn btn-secondary" onclick="viewIDPStatus()">
+                        <span>📊</span> View IDP Status
+                    </button>
                 </div>
                 
-                <!-- Update Progress -->
-                <div id="updateProgress" class="update-progress" style="display: none; margin-top: 1rem;">
-                    <div style="background: #e9ecef; border-radius: 4px; padding: 0.25rem;">
-                        <div id="progressBar" style="background: #0c5460; height: 0.5rem; border-radius: 4px; width: 0%; transition: width 0.3s;"></div>
+                <div id="idpStatusDisplay" style="margin-top: 20px; display: none;">
+                    <div class="status-card">
+                        <h3>IDP Status</h3>
+                        <div id="idpStatusContent"></div>
                     </div>
-                    <div id="progressMessage" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
                 </div>
+                </div>
+                
+                <!-- Version Management Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔄</span>Version Management</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Manage CA Manager version updates and branch switching directly from the dashboard.
+                </p>
+                
+                <div class="version-management">
+                    <div class="current-version-info" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 0.5rem;">Current Version Information</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div>
+                                <strong>Current Branch:</strong> <span id="currentBranch" style="color: var(--primary-color);">Loading...</span>
+                            </div>
+                            <div>
+                                <strong>Latest Commit:</strong> <span id="currentCommit" style="font-family: monospace;">Loading...</span>
+                            </div>
+                            <div>
+                                <strong>Last Updated:</strong> <span id="lastUpdated">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="update-controls">
+                        <h3 style="margin-bottom: 1rem;">Update Options</h3>
+                        
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="branchSelect">Select Branch:</label>
+                            <select id="branchSelect" style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Loading branches...</option>
+                            </select>
+                            <small style="display: block; margin-top: 0.25rem; color: var(--medium-gray);">
+                                Choose a branch to switch to or update from
+                            </small>
+                        </div>
+                        
+                        <div class="button-grid" style="gap: 1rem; margin-bottom: 1.5rem;">
+                            <button class="btn btn-info" onclick="checkForUpdates()">
+                                🔍 Check for Updates
+                            </button>
+                            <button class="btn btn-warning" onclick="updateCurrentBranch()">
+                                🔄 Update Current Branch
+                            </button>
+                            <button class="btn btn-primary" onclick="switchBranch()" id="switchBranchBtn" disabled>
+                                🔀 Switch to Selected Branch
+                            </button>
+                        </div>
+                        
+                        <div id="updateStatus" style="margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none;"></div>
+                        
+                        <div class="update-progress" id="updateProgress" style="display: none; margin-top: 1rem;">
+                            <h4>Update Progress</h4>
+                            <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 30px; margin: 0.5rem 0;">
+                                <div id="progressBar" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div id="progressText" style="font-family: monospace; font-size: 0.875rem; color: var(--medium-gray); margin-top: 0.5rem;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-instructions" style="margin-top: 2rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 15px;">
+                        <h3 style="margin-bottom: 1rem; color: #856404;">⚠️ Important Notes</h3>
+                        <ul style="color: #856404; margin-left: 1.5rem;">
+                            <li>Updates will restart the CA Manager service temporarily</li>
+                            <li>All configuration and certificates are preserved during updates</li>
+                            <li>Database and persistent data remain intact</li>
+                            <li>The update process typically takes 1-2 minutes</li>
+                            <li>Ensure you have a backup before switching major versions</li>
+                        </ul>
+                    </div>
+                </div>
+                </div>
+                
+                <!-- PKI Backup & Restore Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">💾</span>PKI Backup & Restore</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Create encrypted backups of your entire PKI infrastructure or restore from existing backups. Backups include all certificates, private keys, and PKI configuration.
+                </p>
+                
+                <div class="pki-backup-section">
+                    <!-- Backup Section -->
+                    <div class="backup-restore-card" style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h3 style="color: #28a745; margin-bottom: 1rem;">🛡️ Create Backup</h3>
+                        <p style="color: var(--medium-gray); font-size: 0.875rem; margin-bottom: 1rem;">
+                            Generate an encrypted backup file containing all PKI data including CA certificates, private keys, issued certificates, and revocation lists.
+                        </p>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="backupPassword" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Backup Password *:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="backupPassword" placeholder="Enter a strong password for encryption" required 
+                                       style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleBackupPasswordVisibility()" 
+                                        style="padding: 8px 12px; min-width: 60px;" title="Toggle password visibility">👁️</button>
+                            </div>
+                            <small style="color: var(--medium-gray); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                                This password will be required to restore the backup. Store it securely.
+                            </small>
+                        </div>
+                        
+                        <div class="button-grid" style="gap: 1rem;">
+                            <button class="btn btn-success" onclick="createPKIBackup()" id="createBackupBtn">
+                                💾 Create Encrypted Backup
+                            </button>
+                            <button class="btn btn-info" onclick="showBackupInfo()" id="backupInfoBtn">
+                                ℹ️ What's Included?
+                            </button>
+                        </div>
+                        
+                        <div id="backupInfoPanel" style="display: none; margin-top: 1rem; background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 4px; padding: 1rem;">
+                            <h4 style="color: #0c5460; margin-bottom: 0.5rem;">Backup Contents:</h4>
+                            <ul style="color: #0c5460; font-size: 0.875rem; margin-left: 1.5rem;">
+                                <li><strong>CA Certificate & Private Key</strong> - Root certificate authority files</li>
+                                <li><strong>Issued Certificates</strong> - All client and server certificates with private keys</li>
+                                <li><strong>Certificate Revocation List (CRL)</strong> - Current revocation status</li>
+                                <li><strong>PKI Database</strong> - Certificate index and serial numbers</li>
+                                <li><strong>Configuration Files</strong> - EasyRSA configuration and vars</li>
+                                <li><strong>Intermediate CAs</strong> - If any intermediate certificates exist</li>
+                            </ul>
+                            <p style="color: #0c5460; font-size: 0.875rem; margin-top: 0.5rem;">
+                                <strong>Encryption:</strong> AES-256 encryption with PBKDF2 key derivation
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Restore Section -->
+                    <div class="backup-restore-card" style="background: #fff3cd; border: 1px solid #ffeeba; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <h3 style="color: #856404; margin-bottom: 1rem;">🔄 Restore from Backup</h3>
+                        <p style="color: #856404; font-size: 0.875rem; margin-bottom: 1rem;">
+                            Restore your PKI infrastructure from an encrypted backup file (.pki). This will replace your current PKI configuration.
+                        </p>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="backupFile" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Select Backup File (.pki) *:</label>
+                            <input type="file" id="backupFile" accept=".pki" required 
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            <small style="color: #856404; font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                                Only .pki files created by this system are supported
+                            </small>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="restorePassword" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Backup Password *:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="restorePassword" placeholder="Enter the backup password" required 
+                                       style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleRestorePasswordVisibility()" 
+                                        style="padding: 8px 12px; min-width: 60px;" title="Toggle password visibility">👁️</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 10px; color: #856404;">
+                                <input type="checkbox" id="confirmRestore" style="width: auto;">
+                                <span style="font-size: 0.875rem;">I understand this will replace my current PKI configuration</span>
+                            </label>
+                        </div>
+                        
+                        <div class="button-grid" style="gap: 1rem;">
+                            <button class="btn btn-warning" onclick="restorePKIBackup()" id="restoreBackupBtn">
+                                🔄 Restore from Backup
+                            </button>
+                            <button class="btn btn-danger" onclick="showRestoreWarning()" id="restoreWarningBtn">
+                                ⚠️ Important Warnings
+                            </button>
+                        </div>
+                        
+                        <div id="restoreWarningPanel" style="display: none; margin-top: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 1rem;">
+                            <h4 style="color: #721c24; margin-bottom: 0.5rem;">⚠️ Critical Warnings:</h4>
+                            <ul style="color: #721c24; font-size: 0.875rem; margin-left: 1.5rem;">
+                                <li><strong>Complete Replacement:</strong> All current certificates and keys will be replaced</li>
+                                <li><strong>Service Interruption:</strong> PKI services will be temporarily unavailable during restore</li>
+                                <li><strong>Database Changes:</strong> Certificate database will be completely replaced</li>
+                                <li><strong>Backup Recommended:</strong> Create a backup of your current PKI before restoring</li>
+                                <li><strong>Irreversible:</strong> This operation cannot be undone</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Backup Status -->
+                    <div id="backupStatusPanel" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 8px;">
+                        <div id="backupStatusContent"></div>
+                        <div id="backupProgressBar" style="display: none; background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 20px; margin: 1rem 0;">
+                            <div id="backupProgress" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                
             </div>
             {% endif %}
             
-            <!-- Status and Output -->
-            <div id="status" class="status"></div>
+            <!-- Output -->
             <div id="output" class="output"></div>
+        
+        <!-- Floating Notifications Container -->
+        <div id="notifications" class="notifications-container"></div>
         </main>
     </div>
 
@@ -1765,35 +2363,6 @@
                         <button type="submit" class="btn btn-primary">Change Password</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Branch Selection Modal -->
-    <div id="branchSelectionModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Switch Branch</h2>
-                <span class="close" onclick="closeBranchModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="branchSelect">Select Branch:</label>
-                    <select id="branchSelect" class="form-control" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Loading branches...</option>
-                    </select>
-                </div>
-                <div class="branch-info" id="branchInfo" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; display: none;">
-                    <strong>Selected Branch Information:</strong>
-                    <div id="branchDetails" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
-                </div>
-                <div class="warning-message" style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
-                    <strong>⚠️ Warning:</strong> Switching branches will restart the entire application. This process may take a few minutes to complete.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeBranchModal()">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmBranchSwitch" onclick="confirmBranchSwitch()" disabled>Switch Branch</button>
             </div>
         </div>
     </div>
@@ -1874,6 +2443,225 @@
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" id="cancelCA">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="submitCA">Build Certificate Authority</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CA Choice Modal -->
+    <div id="caChoiceModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Certificate Authority Setup</h2>
+                <span class="close" id="closeCAChoice">&times;</span>
+            </div>
+            
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 25px; color: #666;">Choose how to set up your Certificate Authority:</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="ca-choice-card" style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.3s;" 
+                         onmouseover="this.style.borderColor='#5B059C'; this.style.transform='translateY(-2px)'" 
+                         onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'"
+                         onclick="chooseCAOption('generate')">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">🔐</div>
+                            <h3 style="color: #5B059C; margin-bottom: 10px;">Generate New CA</h3>
+                            <p style="color: #666; font-size: 14px;">Create a brand new Certificate Authority with custom configuration</p>
+                        </div>
+                    </div>
+                    
+                    <div class="ca-choice-card" style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.3s;"
+                         onmouseover="this.style.borderColor='#5B059C'; this.style.transform='translateY(-2px)'" 
+                         onmouseout="this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'"
+                         onclick="chooseCAOption('upload')">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">📤</div>
+                            <h3 style="color: #5B059C; margin-bottom: 10px;">Upload Existing CA</h3>
+                            <p style="color: #666; font-size: 14px;">Import an existing CA certificate and private key</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-box" style="margin-top: 25px; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #5B059C;">
+                    <strong style="color: #5B059C;">ℹ️ Note:</strong>
+                    <ul style="margin: 10px 0 0 20px; color: #666;">
+                        <li><strong>Generate New CA:</strong> Recommended for new deployments</li>
+                        <li><strong>Upload Existing CA:</strong> Use when migrating from another system or restoring from backup</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CA Upload Modal -->
+    <div id="caUploadModal" class="modal">
+        <div class="modal-content" style="max-width: 850px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15);">
+            <div class="modal-header" style="background: linear-gradient(135deg, #5B059C 0%, #7B1FA2 100%); color: white; padding: 25px 35px; border-radius: 16px 16px 0 0; position: relative;">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="background: rgba(255,255,255,0.15); padding: 16px; border-radius: 12px; backdrop-filter: blur(10px);">
+                        <span style="font-size: 28px;">📤</span>
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; color: white; font-size: 26px; font-weight: 600;">Upload Certificate Authority</h2>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px;">Import an existing CA certificate and private key to start managing certificates</p>
+                    </div>
+                </div>
+                <span class="close" id="closeCAUpload" style="color: white; font-size: 32px; opacity: 0.8; cursor: pointer; position: absolute; top: 25px; right: 30px; transition: all 0.2s ease;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'" onmouseout="this.style.opacity='0.8'; this.style.transform='scale(1)'">&times;</span>
+            </div>
+            
+            <form id="caUploadForm">
+                <div style="padding: 35px;">
+                    <!-- Upload Method Selection -->
+                    <div class="form-section" style="margin-bottom: 35px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">1</div>
+                            <h3 style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">Choose Upload Method</h3>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-left: 44px;">
+                            <label class="upload-method-card" style="display: block; padding: 25px; border: 2px solid #e0e0e0; border-radius: 16px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); position: relative;" 
+                                   onclick="selectUploadMethod('separate')"
+                                   onmouseover="if(!this.querySelector('input').checked) { this.style.borderColor='#5B059C'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(91, 5, 156, 0.15)'; }"
+                                   onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'; this.style.boxShadow='none'; }">
+                                <input type="radio" name="uploadMethod" value="separate" id="separateFiles" checked onchange="toggleUploadMethod()" style="position: absolute; top: 15px; right: 15px; accent-color: #5B059C; transform: scale(1.3);">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 48px; margin-bottom: 15px;">📄</div>
+                                    <div style="font-weight: 600; color: #333; margin-bottom: 8px; font-size: 16px;">Separate Files</div>
+                                    <div style="font-size: 13px; color: #666; line-height: 1.4;">Upload certificate (.crt, .pem) and private key (.key, .pem) as separate files</div>
+                                </div>
+                            </label>
+                            <label class="upload-method-card" style="display: block; padding: 25px; border: 2px solid #e0e0e0; border-radius: 16px; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); position: relative;"
+                                   onclick="selectUploadMethod('combined')"
+                                   onmouseover="if(!this.querySelector('input').checked) { this.style.borderColor='#5B059C'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(91, 5, 156, 0.15)'; }"
+                                   onmouseout="if(!this.querySelector('input').checked) { this.style.borderColor='#e0e0e0'; this.style.transform='translateY(0)'; this.style.boxShadow='none'; }">
+                                <input type="radio" name="uploadMethod" value="combined" id="combinedFile" onchange="toggleUploadMethod()" style="position: absolute; top: 15px; right: 15px; accent-color: #5B059C; transform: scale(1.3);">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                                    <div style="font-weight: 600; color: #333; margin-bottom: 8px; font-size: 16px;">Combined PEM</div>
+                                    <div style="font-size: 13px; color: #666; line-height: 1.4;">Upload a single PEM file containing both certificate and private key</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- File Upload Section -->
+                    <div class="form-section" style="margin-bottom: 35px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">2</div>
+                            <h3 style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">Upload Files</h3>
+                        </div>
+                        
+                        <!-- Separate Files Section -->
+                        <div id="separateFilesSection" style="margin-left: 44px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                                <div class="upload-area" style="border: 2px dashed #ddd; border-radius: 12px; padding: 30px; text-align: center; transition: all 0.3s ease; background: #fafafa;" 
+                                     ondragover="event.preventDefault(); this.style.borderColor='#5B059C'; this.style.background='#f3e5f5';" 
+                                     ondragleave="this.style.borderColor='#ddd'; this.style.background='#fafafa';"
+                                     ondrop="handleFileDrop(event, 'caCertFile')">
+                                    <div style="font-size: 36px; margin-bottom: 12px; color: #5B059C;">🔐</div>
+                                    <label for="caCertFile" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; cursor: pointer;">CA Certificate</label>
+                                    <input type="file" id="caCertFile" accept=".pem,.crt,.cer" style="display: none;" onchange="updateFileLabel(this, 'cert')">
+                                    <div id="certFileLabel" style="font-size: 13px; color: #666; margin-bottom: 12px;">Drag & drop or click to browse</div>
+                                    <button type="button" onclick="document.getElementById('caCertFile').click()" style="background: #5B059C; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">Browse File</button>
+                                    <div style="margin-top: 8px; font-size: 11px; color: #999;">Accepts: .pem, .crt, .cer</div>
+                                </div>
+                                
+                                <div class="upload-area" style="border: 2px dashed #ddd; border-radius: 12px; padding: 30px; text-align: center; transition: all 0.3s ease; background: #fafafa;"
+                                     ondragover="event.preventDefault(); this.style.borderColor='#5B059C'; this.style.background='#f3e5f5';" 
+                                     ondragleave="this.style.borderColor='#ddd'; this.style.background='#fafafa';"
+                                     ondrop="handleFileDrop(event, 'caKeyFile')">
+                                    <div style="font-size: 36px; margin-bottom: 12px; color: #5B059C;">🗝️</div>
+                                    <label for="caKeyFile" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; cursor: pointer;">Private Key</label>
+                                    <input type="file" id="caKeyFile" accept=".pem,.key" style="display: none;" onchange="updateFileLabel(this, 'key')">
+                                    <div id="keyFileLabel" style="font-size: 13px; color: #666; margin-bottom: 12px;">Drag & drop or click to browse</div>
+                                    <button type="button" onclick="document.getElementById('caKeyFile').click()" style="background: #5B059C; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">Browse File</button>
+                                    <div style="margin-top: 8px; font-size: 11px; color: #999;">Accepts: .pem, .key</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Combined File Section -->
+                        <div id="combinedFileSection" style="display: none; margin-left: 44px;">
+                            <div class="upload-area" style="border: 2px dashed #ddd; border-radius: 12px; padding: 40px; text-align: center; transition: all 0.3s ease; background: #fafafa; max-width: 500px;"
+                                 ondragover="event.preventDefault(); this.style.borderColor='#5B059C'; this.style.background='#f3e5f5';" 
+                                 ondragleave="this.style.borderColor='#ddd'; this.style.background='#fafafa';"
+                                 ondrop="handleFileDrop(event, 'caCombinedFile')">
+                                <div style="font-size: 48px; margin-bottom: 15px; color: #5B059C;">📋</div>
+                                <label for="caCombinedFile" style="display: block; font-weight: 600; color: #333; margin-bottom: 10px; cursor: pointer; font-size: 16px;">Combined PEM File</label>
+                                <input type="file" id="caCombinedFile" accept=".pem" style="display: none;" onchange="updateFileLabel(this, 'combined')">
+                                <div id="combinedFileLabel" style="font-size: 14px; color: #666; margin-bottom: 15px;">Drag & drop or click to browse</div>
+                                <button type="button" onclick="document.getElementById('caCombinedFile').click()" style="background: #5B059C; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">Browse PEM File</button>
+                                <div style="margin-top: 10px; font-size: 12px; color: #999;">Must contain both certificate and private key</div>
+                            </div>
+                            
+                            <div style="background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                <h4 style="color: #0c5460; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px;"><span>💡</span>Combined PEM File Format</h4>
+                                <p style="margin: 0 0 15px 0; font-size: 14px; color: #0c5460; line-height: 1.5;">Your PEM file should contain both the certificate and private key in this order:</p>
+                                <div style="background: #fff; border-radius: 8px; padding: 15px; font-family: 'Courier New', monospace; font-size: 12px; color: #333; border-left: 4px solid #5B059C;">
+                                    <div style="margin-bottom: 8px;">-----BEGIN CERTIFICATE-----</div>
+                                    <div style="color: #999; margin-bottom: 8px;">[certificate data]</div>
+                                    <div style="margin-bottom: 12px;">-----END CERTIFICATE-----</div>
+                                    <div style="margin-bottom: 8px;">-----BEGIN PRIVATE KEY-----</div>
+                                    <div style="color: #999; margin-bottom: 8px;">[private key data]</div>
+                                    <div>-----END PRIVATE KEY-----</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Configuration Section -->
+                    <div class="form-section" style="margin-bottom: 35px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">3</div>
+                            <h3 style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">Configuration</h3>
+                        </div>
+                        
+                        <div style="margin-left: 44px; display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                            <div class="form-group">
+                                <label for="caKeyPassword" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">🔒 Private Key Password</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="caKeyPassword" placeholder="Leave blank if key is not encrypted" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s ease;" onfocus="this.style.borderColor='#5B059C'" onblur="this.style.borderColor='#e0e0e0'">
+                                    <button type="button" onclick="togglePasswordVisibility('caKeyPassword')" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 16px;">👁️</button>
+                                </div>
+                                <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">Only required if your private key is encrypted</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="certValidityDaysUpload" style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">📅 Certificate Validity (days)</label>
+                                <input type="number" id="certValidityDaysUpload" value="365" min="30" max="3650" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s ease;" onfocus="this.style.borderColor='#5B059C'" onblur="this.style.borderColor='#e0e0e0'">
+                                <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">Default validity for new certificates (30-3650 days)</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Important Notes -->
+                    <div style="background: linear-gradient(145deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid #ffc107; border-radius: 12px; padding: 25px; margin-bottom: 0;">
+                        <div style="display: flex; align-items: flex-start; gap: 15px;">
+                            <div style="background: #ffc107; color: #856404; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; margin-top: 2px;">⚠️</div>
+                            <div>
+                                <h4 style="color: #856404; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">Important Security Notes</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <ul style="margin: 0; padding-left: 18px; color: #856404; font-size: 13px; line-height: 1.6;">
+                                        <li>Files must be in PEM format (Base64 encoded)</li>
+                                        <li>Private key must mathematically match the certificate</li>
+                                        <li>Your private key will be encrypted and stored securely</li>
+                                    </ul>
+                                    <ul style="margin: 0; padding-left: 18px; color: #856404; font-size: 13px; line-height: 1.6;">
+                                        <li>The CA certificate will be validated before import</li>
+                                        <li>This will clear any existing certificate database</li>
+                                        <li>Ensure you have backup of your current PKI if needed</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 25px 35px; border-radius: 0 0 16px 16px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #e9ecef;">
+                    <button type="button" class="btn btn-secondary" onclick="hideCAUploadModal()" style="padding: 12px 24px; border-radius: 8px; font-weight: 500; min-width: 100px;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #5B059C 0%, #7B1FA2 100%); border: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; min-width: 160px; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(91, 5, 156, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <span>📤</span> Upload & Import CA
+                    </button>
                 </div>
             </form>
         </div>
@@ -1984,6 +2772,155 @@
         </div>
     </div>
 
+    <!-- IDP Configuration Modal -->
+    <div id="idpConfigModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Identity Provider Configuration</h2>
+                <span class="close" onclick="closeIDPConfigModal()">&times;</span>
+            </div>
+            
+            <form id="idpConfigForm">
+                <div style="padding: 20px;">
+                    <!-- IDP Enable/Disable -->
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="idpEnabled" style="width: auto;">
+                            <span>Enable Identity Provider Authentication</span>
+                        </label>
+                        <small class="form-help">Allow users to sign in with Google or Microsoft accounts</small>
+                    </div>
+                    
+                    <!-- Google OAuth Configuration -->
+                    <div class="config-section" style="margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <h3 style="color: #4285f4; margin-bottom: 15px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" style="vertical-align: middle;">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                            </svg>
+                            Google OAuth Configuration
+                        </h3>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="googleEnabled" style="width: auto;">
+                                <span>Enable Google Sign-In</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="googleClientId">Client ID:</label>
+                            <input type="text" id="googleClientId" placeholder="YOUR_CLIENT_ID.apps.googleusercontent.com">
+                            <small class="form-help">Get from <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="googleClientSecret">Client Secret:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="googleClientSecret" placeholder="YOUR_CLIENT_SECRET" style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleSecretVisibility('googleClientSecret')" style="padding: 8px 12px; min-width: 60px;">👁️</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="googleHostedDomain">Hosted Domain (Optional):</label>
+                            <input type="text" id="googleHostedDomain" placeholder="yourdomain.com">
+                            <small class="form-help">Restrict sign-in to users from this Google Workspace domain</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Microsoft OAuth Configuration -->
+                    <div class="config-section" style="margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <h3 style="color: #0078d4; margin-bottom: 15px;">
+                            <svg width="20" height="20" viewBox="0 0 21 21" style="vertical-align: middle;">
+                                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                            </svg>
+                            Microsoft (Entra ID) Configuration
+                        </h3>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="microsoftEnabled" style="width: auto;">
+                                <span>Enable Microsoft Sign-In</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="microsoftClientId">Application (Client) ID:</label>
+                            <input type="text" id="microsoftClientId" placeholder="00000000-0000-0000-0000-000000000000">
+                            <small class="form-help">Get from <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank">Azure Portal</a></small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="microsoftClientSecret">Client Secret:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="password" id="microsoftClientSecret" placeholder="YOUR_CLIENT_SECRET" style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="toggleSecretVisibility('microsoftClientSecret')" style="padding: 8px 12px; min-width: 60px;">👁️</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="microsoftTenantId">Tenant ID:</label>
+                            <input type="text" id="microsoftTenantId" placeholder="common, organizations, or tenant ID">
+                            <small class="form-help">Use 'common' for all accounts, 'organizations' for work/school only</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Certificate Settings -->
+                    <div class="config-section" style="margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <h3 style="color: #5B059C; margin-bottom: 15px;">📜 Certificate Settings</h3>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="autoGenerateCerts" checked style="width: auto;">
+                                <span>Auto-generate certificates for IDP users</span>
+                            </label>
+                            <small class="form-help">Automatically create certificates when users sign in for the first time</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="certValidityDays">Certificate Validity (days):</label>
+                            <input type="number" id="certValidityDays" value="365" min="30" max="3650">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="emailDelivery" checked style="width: auto;">
+                                <span>Email certificates to users</span>
+                            </label>
+                            <small class="form-help">Send certificates via email after generation</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="renewalDays">Allow renewal (days before expiry):</label>
+                            <input type="number" id="renewalDays" value="30" min="7" max="90">
+                        </div>
+                    </div>
+                    
+                    <!-- Redirect URI Information -->
+                    <div class="info-box" style="margin-top: 25px; background: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 4px solid #2196f3;">
+                        <h4 style="color: #1976d2; margin-bottom: 10px;">📌 Required Redirect URIs</h4>
+                        <p style="margin-bottom: 10px;">Add these redirect URIs to your OAuth application settings:</p>
+                        <ul style="margin-left: 20px; color: #424242;">
+                            <li><strong>Google:</strong> <code id="googleRedirectUri">https://your-domain.com/auth/google/callback</code></li>
+                            <li><strong>Microsoft:</strong> <code id="microsoftRedirectUri">https://your-domain.com/auth/microsoft/callback</code></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons" style="padding: 0 20px 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeIDPConfigModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         console.log('Script execution started');
         
@@ -2001,6 +2938,57 @@
         let isLoading = false;
         let authenticationEnabled = false;
         let currentCertificates = [];
+        
+        // Tab Management
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab items
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            const selectedContent = document.getElementById(tabId);
+            if (selectedContent) {
+                selectedContent.classList.add('active');
+            }
+            
+            // Add active class to corresponding tab button
+            const selectedTab = document.getElementById(`tab-${tabId}`);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            }
+            
+            // Store active tab in localStorage for persistence
+            localStorage.setItem('activeTab', tabId);
+            
+            // Load tab-specific data
+            if (tabId === 'user-management') {
+                // Load version information and available branches for General Settings
+                setTimeout(() => {
+                    loadVersionInfo().catch(e => console.error('loadVersionInfo error:', e));
+                    loadAvailableBranches().catch(e => console.error('loadAvailableBranches error:', e));
+                    loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
+                }, 100);
+            }
+        }
+        
+        // Initialize default tab on page load
+        function initializeTabs() {
+            const savedTab = localStorage.getItem('activeTab');
+            const availableTabs = Array.from(document.querySelectorAll('.tab-content')).map(el => el.id);
+            
+            // Default to first available tab if saved tab doesn't exist
+            const defaultTab = availableTabs.includes(savedTab) ? savedTab : availableTabs[0];
+            
+            if (defaultTab) {
+                switchTab(defaultTab);
+            }
+        }
         
         // Current user information
         let currentUser = {
@@ -2039,14 +3027,68 @@
         }
 
         function showStatus(message, type = 'loading') {
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = `status ${type} show`;
+            const container = document.getElementById('notifications');
+            
+            // Fallback to console if notifications container doesn't exist
+            if (!container) {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+                return;
+            }
+            
+            // Close any existing loading notification if this isn't loading
+            if (type !== 'loading' && window.currentLoadingNotification) {
+                closeNotification(window.currentLoadingNotification);
+                window.currentLoadingNotification = null;
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            // Create content
+            const content = document.createElement('div');
+            content.className = 'notification-content';
             
             if (type === 'loading') {
-                statusDiv.innerHTML = `<span class="loading-spinner"></span>${message}`;
+                content.innerHTML = `<span class="loading-spinner"></span>${message}`;
             } else {
-                statusDiv.textContent = message;
+                content.innerHTML = message;
             }
+            
+            // Create close button
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'notification-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.onclick = () => closeNotification(notification);
+            
+            // Assemble notification
+            notification.appendChild(content);
+            notification.appendChild(closeBtn);
+            container.appendChild(notification);
+            
+            // Show with animation
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Auto-close non-loading notifications
+            if (type !== 'loading') {
+                setTimeout(() => closeNotification(notification), 5000);
+            }
+            
+            // Store reference for loading notifications
+            if (type === 'loading') {
+                window.currentLoadingNotification = notification;
+            }
+        }
+        
+        function closeNotification(notification) {
+            if (!notification || !notification.parentNode) return;
+            
+            notification.classList.add('closing');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
         }
 
         function showOutput(content, title = 'Information') {
@@ -2137,14 +3179,15 @@
                 if (result && result.status === 'success') {
                     const metrics = result.metrics;
                     
-                    document.getElementById('totalCerts').textContent = metrics.total_certificates || 0;
-                    document.getElementById('expiringSoon').textContent = metrics.expiring_soon || 0;
-                    document.getElementById('pendingRequests').textContent = metrics.pending_requests || 0;
+                    // Update fixed dashboard metrics
+                    document.getElementById('totalCertsFixed').textContent = metrics.total_certificates || 0;
+                    document.getElementById('expiringSoonFixed').textContent = metrics.expiring_soon || 0;
+                    document.getElementById('pendingRequestsFixed').textContent = metrics.pending_requests || 0;
                     
                     // Enhanced system health with tooltips
-                    const systemHealthElement = document.getElementById('systemHealth');
-                    const systemHealthCard = document.getElementById('systemHealthCard');
-                    const systemHealthLabel = document.getElementById('systemHealthLabel');
+                    const systemHealthElement = document.getElementById('systemHealthFixed');
+                    const systemHealthCard = document.getElementById('systemHealthCardFixed');
+                    const systemHealthLabel = document.getElementById('systemHealthLabelFixed');
                     
                     if (metrics.health_status === 'healthy') {
                         systemHealthElement.textContent = '✅';
@@ -2159,27 +3202,25 @@
                     
                     // Enhanced tooltips based on PKI state
                     if (!metrics.pki_initialized) {
-                        document.getElementById('totalCertsCard').title = 'No certificates yet - Initialize PKI first';
-                        document.getElementById('expiringSoonCard').title = 'Certificate monitoring unavailable - PKI not initialized';
-                        document.getElementById('pendingRequestsCard').title = 'Certificate requests unavailable - Initialize PKI first';
+                        document.getElementById('totalCertsCardFixed').title = 'No certificates yet - Initialize PKI first';
+                        document.getElementById('expiringSoonCardFixed').title = 'Certificate monitoring unavailable - PKI not initialized';
+                        document.getElementById('pendingRequestsCardFixed').title = 'Certificate requests unavailable - Initialize PKI first';
                     }
                     
-                    document.getElementById('dashboardMetrics').classList.remove('hidden');
                     showStatus('Dashboard loaded successfully', 'success');
                 } else {
                     // Show dashboard with warning state
-                    document.getElementById('totalCerts').textContent = '0';
-                    document.getElementById('expiringSoon').textContent = '0';
-                    document.getElementById('pendingRequests').textContent = '0';
-                    document.getElementById('systemHealth').textContent = '⚠️';
+                    document.getElementById('totalCertsFixed').textContent = '0';
+                    document.getElementById('expiringSoonFixed').textContent = '0';
+                    document.getElementById('pendingRequestsFixed').textContent = '0';
+                    document.getElementById('systemHealthFixed').textContent = '⚠️';
                     
-                    const systemHealthCard = document.getElementById('systemHealthCard');
-                    const systemHealthLabel = document.getElementById('systemHealthLabel');
+                    const systemHealthCard = document.getElementById('systemHealthCardFixed');
+                    const systemHealthLabel = document.getElementById('systemHealthLabelFixed');
                     systemHealthLabel.textContent = 'Setup Required';
                     systemHealthCard.title = 'PKI system needs setup. Complete the initialization and CA building process';
                     systemHealthCard.style.cursor = 'help';
                     
-                    document.getElementById('dashboardMetrics').classList.remove('hidden');
                     showStatus('Dashboard loaded with warnings - PKI setup may be incomplete', 'warning');
                 }
                 
@@ -2197,7 +3238,7 @@
         async function updateSCEPStatus() {
             try {
                 const result = await apiRequest('/api/scep/health');
-                const scepElement = document.getElementById('scepHealth');
+                const scepElement = document.getElementById('scepHealthFixed');
                 
                 if (result && result.status === 'success' && result.scep_health) {
                     const scepHealth = result.scep_health;
@@ -2213,12 +3254,12 @@
                         scepElement.title = 'SCEP Server: Unhealthy';
                     }
                 } else {
-                    document.getElementById('scepHealth').textContent = '❌';
-                    document.getElementById('scepHealth').title = 'SCEP Server: Connection failed';
+                    scepElement.textContent = '❌';
+                    scepElement.title = 'SCEP Server: Connection failed';
                 }
             } catch (error) {
-                document.getElementById('scepHealth').textContent = '❌';
-                document.getElementById('scepHealth').title = 'SCEP Server: Connection error';
+                scepElement.textContent = '❌';
+                scepElement.title = 'SCEP Server: Connection error';
             }
         }
 
@@ -2334,7 +3375,151 @@
             if (buttonText.includes('download')) {
                 await downloadCA();
             } else {
+                // Show the CA choice modal instead of directly showing the build modal
+                showCAChoiceModal();
+            }
+        }
+        
+        function showCAChoiceModal() {
+            document.getElementById('caChoiceModal').style.display = 'block';
+        }
+        
+        function hideCAChoiceModal() {
+            document.getElementById('caChoiceModal').style.display = 'none';
+        }
+        
+        function showCAUploadModal() {
+            document.getElementById('caUploadModal').style.display = 'block';
+        }
+        
+        function hideCAUploadModal() {
+            document.getElementById('caUploadModal').style.display = 'none';
+        }
+        
+        function toggleUploadMethod() {
+            const separateMethod = document.getElementById('separateFiles').checked;
+            const separateSection = document.getElementById('separateFilesSection');
+            const combinedSection = document.getElementById('combinedFileSection');
+            const caCertFile = document.getElementById('caCertFile');
+            const caKeyFile = document.getElementById('caKeyFile');
+            const caCombinedFile = document.getElementById('caCombinedFile');
+            
+            if (separateMethod) {
+                separateSection.style.display = 'block';
+                combinedSection.style.display = 'none';
+                caCertFile.required = true;
+                caKeyFile.required = true;
+                caCombinedFile.required = false;
+                caCombinedFile.value = ''; // Clear combined file input
+            } else {
+                separateSection.style.display = 'none';
+                combinedSection.style.display = 'block';
+                caCertFile.required = false;
+                caKeyFile.required = false;
+                caCombinedFile.required = true;
+                caCertFile.value = ''; // Clear separate file inputs
+                caKeyFile.value = '';
+            }
+            
+            // Update radio button card styling
+            updateUploadMethodCards();
+        }
+        
+        function selectUploadMethod(method) {
+            const separateRadio = document.getElementById('separateFiles');
+            const combinedRadio = document.getElementById('combinedFile');
+            
+            if (method === 'separate') {
+                separateRadio.checked = true;
+            } else {
+                combinedRadio.checked = true;
+            }
+            
+            toggleUploadMethod();
+        }
+        
+        function updateUploadMethodCards() {
+            const separateCard = document.querySelector('label[onclick="selectUploadMethod(\'separate\')"]');
+            const combinedCard = document.querySelector('label[onclick="selectUploadMethod(\'combined\')"]');
+            const separateChecked = document.getElementById('separateFiles').checked;
+            const combinedChecked = document.getElementById('combinedFile').checked;
+            
+            // Reset both cards
+            [separateCard, combinedCard].forEach(card => {
+                card.style.borderColor = '#e0e0e0';
+                card.style.transform = 'translateY(0)';
+                card.style.boxShadow = 'none';
+                card.style.background = 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)';
+            });
+            
+            // Highlight selected card
+            if (separateChecked && separateCard) {
+                separateCard.style.borderColor = '#5B059C';
+                separateCard.style.boxShadow = '0 8px 25px rgba(91, 5, 156, 0.2)';
+                separateCard.style.background = 'linear-gradient(145deg, #f3e5f5 0%, #e1bee7 100%)';
+            } else if (combinedChecked && combinedCard) {
+                combinedCard.style.borderColor = '#5B059C';
+                combinedCard.style.boxShadow = '0 8px 25px rgba(91, 5, 156, 0.2)';
+                combinedCard.style.background = 'linear-gradient(145deg, #f3e5f5 0%, #e1bee7 100%)';
+            }
+        }
+        
+        function handleFileDrop(event, inputId) {
+            event.preventDefault();
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const input = document.getElementById(inputId);
+                input.files = files;
+                updateFileLabel(input, inputId.includes('cert') ? 'cert' : inputId.includes('key') ? 'key' : 'combined');
+            }
+            
+            // Reset drag styling
+            event.target.style.borderColor = '#ddd';
+            event.target.style.background = '#fafafa';
+        }
+        
+        function updateFileLabel(input, type) {
+            const file = input.files[0];
+            let labelElement;
+            
+            switch(type) {
+                case 'cert':
+                    labelElement = document.getElementById('certFileLabel');
+                    break;
+                case 'key':
+                    labelElement = document.getElementById('keyFileLabel');
+                    break;
+                case 'combined':
+                    labelElement = document.getElementById('combinedFileLabel');
+                    break;
+            }
+            
+            if (file && labelElement) {
+                labelElement.textContent = `✅ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                labelElement.style.color = '#28a745';
+                labelElement.style.fontWeight = '600';
+            }
+        }
+        
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+            }
+        }
+        
+        function chooseCAOption(option) {
+            hideCAChoiceModal();
+            if (option === 'generate') {
                 showCAModal();
+            } else if (option === 'upload') {
+                showCAUploadModal();
             }
         }
 
@@ -2375,6 +3560,146 @@
                 showStatus('Connection error: ' + error.message, 'error');
             } finally {
                 setLoading(false);
+            }
+        }
+        
+        async function submitCAUploadForm() {
+            if (isLoading) return;
+            
+            const separateMethod = document.getElementById('separateFiles').checked;
+            const keyPassword = document.getElementById('caKeyPassword').value;
+            const certValidityDays = parseInt(document.getElementById('certValidityDaysUpload').value);
+            
+            let certContent, keyContent;
+            
+            if (separateMethod) {
+                // Handle separate certificate and key files
+                const certFile = document.getElementById('caCertFile').files[0];
+                const keyFile = document.getElementById('caKeyFile').files[0];
+                
+                if (!certFile || !keyFile) {
+                    showStatus('Please select both certificate and key files', 'error');
+                    return;
+                }
+                
+                certContent = await readFileAsText(certFile);
+                keyContent = await readFileAsText(keyFile);
+            } else {
+                // Handle combined PEM file
+                const combinedFile = document.getElementById('caCombinedFile').files[0];
+                
+                if (!combinedFile) {
+                    showStatus('Please select a combined PEM file', 'error');
+                    return;
+                }
+                
+                const combinedContent = await readFileAsText(combinedFile);
+                
+                // Split the combined PEM content
+                const result = splitCombinedPEM(combinedContent);
+                if (!result.success) {
+                    showStatus('Error: ' + result.error, 'error');
+                    return;
+                }
+                
+                certContent = result.certificate;
+                keyContent = result.privateKey;
+            }
+            
+            hideCAUploadModal();
+            setLoading(true);
+            hideOutput();
+            showStatus('Uploading and validating Certificate Authority files...', 'loading');
+            
+            try {
+                const uploadData = {
+                    ca_certificate: certContent,
+                    ca_key: keyContent,
+                    key_password: keyPassword || null,
+                    cert_validity_days: certValidityDays
+                };
+                
+                const result = await apiRequest('/api/ca/upload', 'POST', uploadData);
+                if (result) {
+                    handleOperationResult(result, 'Certificate Authority uploaded successfully');
+                    
+                    if (result.status === 'success') {
+                        setTimeout(updateCAButton, 1000);
+                        // Reload dashboard to reflect CA upload
+                        setTimeout(loadDashboard, 2000);
+                    }
+                }
+            } catch (error) {
+                showStatus('Error uploading CA: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+        }
+        
+        function splitCombinedPEM(pemContent) {
+            try {
+                // Remove any extra whitespace and normalize line endings
+                const normalizedContent = pemContent.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                
+                // Look for certificate
+                const certStart = normalizedContent.indexOf('-----BEGIN CERTIFICATE-----');
+                const certEnd = normalizedContent.indexOf('-----END CERTIFICATE-----');
+                
+                if (certStart === -1 || certEnd === -1) {
+                    return {
+                        success: false,
+                        error: 'No certificate found in PEM file. Make sure the file contains -----BEGIN CERTIFICATE----- and -----END CERTIFICATE----- blocks.'
+                    };
+                }
+                
+                // Extract certificate
+                const certificate = normalizedContent.substring(certStart, certEnd + '-----END CERTIFICATE-----'.length).trim();
+                
+                // Look for private key (try different formats)
+                const keyPatterns = [
+                    { start: '-----BEGIN PRIVATE KEY-----', end: '-----END PRIVATE KEY-----' },
+                    { start: '-----BEGIN RSA PRIVATE KEY-----', end: '-----END RSA PRIVATE KEY-----' },
+                    { start: '-----BEGIN EC PRIVATE KEY-----', end: '-----END EC PRIVATE KEY-----' }
+                ];
+                
+                let privateKey = null;
+                for (const pattern of keyPatterns) {
+                    const keyStart = normalizedContent.indexOf(pattern.start);
+                    const keyEnd = normalizedContent.indexOf(pattern.end);
+                    
+                    if (keyStart !== -1 && keyEnd !== -1) {
+                        privateKey = normalizedContent.substring(keyStart, keyEnd + pattern.end.length).trim();
+                        break;
+                    }
+                }
+                
+                if (!privateKey) {
+                    return {
+                        success: false,
+                        error: 'No private key found in PEM file. Make sure the file contains a private key block (-----BEGIN PRIVATE KEY-----, -----BEGIN RSA PRIVATE KEY-----, or -----BEGIN EC PRIVATE KEY-----).'
+                    };
+                }
+                
+                return {
+                    success: true,
+                    certificate: certificate,
+                    privateKey: privateKey
+                };
+                
+            } catch (error) {
+                return {
+                    success: false,
+                    error: 'Failed to parse PEM file: ' + error.message
+                };
             }
         }
 
@@ -4154,6 +5479,44 @@ Dependencies:
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOMContentLoaded - starting initialization');
             
+            // Initialize tabs
+            initializeTabs();
+            
+            // Initialize sticky header scroll effects
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+            const metricsFixed = document.querySelector('.fixed-metrics-dashboard');
+            
+            let scrollTimeout;
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                
+                // Add shadow to fixed elements when scrolled
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    if (tabNavigation) {
+                        tabNavigation.classList.add('scrolled');
+                    }
+                    if (metricsFixed) {
+                        metricsFixed.classList.add('scrolled');
+                    }
+                } else {
+                    header.classList.remove('scrolled');
+                    if (tabNavigation) {
+                        tabNavigation.classList.remove('scrolled');
+                    }
+                    if (metricsFixed) {
+                        metricsFixed.classList.remove('scrolled');
+                    }
+                }
+                
+                // Clear the existing timeout and set a new one
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    // Additional scroll-end effects could be added here if needed
+                }, 100);
+            });
+            
             // Add try-catch to identify which function is breaking
             try {
                 // Check connection on page load
@@ -4284,6 +5647,16 @@ Dependencies:
                 submitCAForm();
             };
             
+            // CA Choice modal listeners
+            document.getElementById('closeCAChoice').onclick = hideCAChoiceModal;
+            
+            // CA Upload modal listeners
+            document.getElementById('closeCAUpload').onclick = hideCAUploadModal;
+            document.getElementById('caUploadForm').onsubmit = (e) => {
+                e.preventDefault();
+                submitCAUploadForm();
+            };
+            
             // User Modal event listeners
             document.getElementById('closeUserModal').onclick = hideUserModal;
             document.getElementById('cancelUser').onclick = hideUserModal;
@@ -4327,17 +5700,7 @@ Dependencies:
             }
         }
 
-        // Auto-hide status messages after 10 seconds (except loading)
-        setInterval(() => {
-            const statusDiv = document.getElementById('status');
-            if (statusDiv.classList.contains('show') && !statusDiv.classList.contains('loading')) {
-                setTimeout(() => {
-                    if (!statusDiv.classList.contains('loading')) {
-                        statusDiv.classList.remove('show');
-                    }
-                }, 10000);
-            }
-        }, 1000);
+        // Auto-hide status messages - now handled by notification system
 
         // Guided Tour Implementation
         let guidedTour = null;
@@ -5296,308 +6659,627 @@ Dependencies:
             }
         }
 
-        // Version Management Functions
-        function loadVersionInfo() {
-            fetch('/api/version-info')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('currentBranch').textContent = data.current_branch;
-                        document.getElementById('currentVersion').textContent = data.version;
-                        document.getElementById('latestCommit').textContent = data.latest_commit.hash + ' - ' + data.latest_commit.message;
-                        document.getElementById('updateAvailable').textContent = data.update_available ? 'Yes' : 'Up to date';
-                        document.getElementById('updateAvailable').style.color = data.update_available ? '#d73502' : '#0c5460';
-                    } else {
-                        showError('Failed to load version info: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading version info:', error);
-                    showError('Failed to load version info');
-                });
-        }
-
-        function checkUpdates() {
-            const button = document.getElementById('checkUpdates');
-            button.disabled = true;
-            button.textContent = 'Checking...';
-            
-            fetch('/api/check-updates')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('updateAvailable').textContent = data.update_available ? 'Yes' : 'Up to date';
-                        document.getElementById('updateAvailable').style.color = data.update_available ? '#d73502' : '#0c5460';
-                        
-                        if (data.update_available) {
-                            showMessage(`Updates available! Current: ${data.current_commit}, Latest: ${data.latest_commit}`);
-                        } else {
-                            showMessage('Your branch is up to date');
-                        }
-                    } else {
-                        showError('Failed to check updates: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking updates:', error);
-                    showError('Failed to check updates');
-                })
-                .finally(() => {
-                    button.disabled = false;
-                    button.textContent = 'Check for Updates';
-                });
-        }
-
-        function updateBranch() {
-            if (!confirm('This will update your current branch and restart the application. Continue?')) {
-                return;
-            }
-            
-            const button = document.getElementById('updateBranch');
-            button.disabled = true;
-            button.textContent = 'Starting Update...';
-            
-            // Show progress bar
-            const progressDiv = document.getElementById('updateProgress');
-            progressDiv.style.display = 'block';
-            
-            fetch('/api/update-branch', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showMessage('Update started. Please wait...');
-                        monitorUpdateStatus();
-                    } else {
-                        showError('Failed to start update: ' + data.error);
-                        progressDiv.style.display = 'none';
-                        button.disabled = false;
-                        button.textContent = 'Update Current Branch';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error starting update:', error);
-                    showError('Failed to start update');
-                    progressDiv.style.display = 'none';
-                    button.disabled = false;
-                    button.textContent = 'Update Current Branch';
-                });
-        }
-
-        function switchBranch() {
-            // Get available branches and open modal
-            fetch('/api/available-branches')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const branches = data.branches;
-                        const currentBranch = document.getElementById('currentBranch').textContent;
-                        
-                        // Populate dropdown with available branches (excluding current)
-                        const branchSelect = document.getElementById('branchSelect');
-                        branchSelect.innerHTML = '<option value="">-- Select a branch --</option>';
-                        
-                        branches
-                            .filter(branch => branch.name !== currentBranch)
-                            .forEach(branch => {
-                                const option = document.createElement('option');
-                                option.value = branch.name;
-                                option.textContent = `${branch.name} (${branch.commit_sha})`;
-                                option.dataset.sha = branch.commit_sha;
-                                option.dataset.protected = branch.protected;
-                                branchSelect.appendChild(option);
-                            });
-                        
-                        // Show the modal
-                        document.getElementById('branchSelectionModal').style.display = 'block';
-                        
-                        // Store branches data for later use
-                        window.availableBranches = branches;
-                        window.currentBranch = currentBranch;
-                        
-                    } else {
-                        showError('Failed to get available branches: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error getting branches:', error);
-                    showError('Failed to get available branches');
-                });
-        }
-
-        function closeBranchModal() {
-            document.getElementById('branchSelectionModal').style.display = 'none';
-            document.getElementById('branchInfo').style.display = 'none';
-            document.getElementById('confirmBranchSwitch').disabled = true;
-        }
-
-        function confirmBranchSwitch() {
-            const selectedBranch = document.getElementById('branchSelect').value;
-            if (selectedBranch) {
-                closeBranchModal();
-                performBranchSwitch(selectedBranch);
+        // IDP Configuration Functions
+        async function showIDPConfigModal() {
+            try {
+                // Load current configuration
+                const response = await fetch('/api/idp/config');
+                const config = await response.json();
+                
+                // Set form values
+                document.getElementById('idpEnabled').checked = config.idp_enabled || false;
+                document.getElementById('googleEnabled').checked = config.google_enabled || false;
+                document.getElementById('googleClientId').value = config.google_client_id || '';
+                document.getElementById('googleClientSecret').value = config.google_client_secret || '';
+                document.getElementById('googleHostedDomain').value = config.google_hosted_domain || '';
+                
+                document.getElementById('microsoftEnabled').checked = config.microsoft_enabled || false;
+                document.getElementById('microsoftClientId').value = config.microsoft_client_id || '';
+                document.getElementById('microsoftClientSecret').value = config.microsoft_client_secret || '';
+                document.getElementById('microsoftTenantId').value = config.microsoft_tenant_id || '';
+                
+                document.getElementById('autoGenerateCerts').checked = config.auto_generate_certs !== false;
+                document.getElementById('certValidityDays').value = config.cert_validity_days || 365;
+                document.getElementById('emailDelivery').checked = config.email_delivery !== false;
+                document.getElementById('renewalDays').value = config.renewal_days || 30;
+                
+                // Update redirect URIs
+                const baseUrl = window.location.origin;
+                document.getElementById('googleRedirectUri').textContent = `${baseUrl}/auth/google/callback`;
+                document.getElementById('microsoftRedirectUri').textContent = `${baseUrl}/auth/microsoft/callback`;
+                
+                // Show modal
+                document.getElementById('idpConfigModal').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading IDP config:', error);
+                showStatus('Failed to load IDP configuration', 'error');
             }
         }
-
-        function performBranchSwitch(targetBranch) {
-            if (!confirm(`This will switch to branch "${targetBranch}" and restart the application. Continue?`)) {
-                return;
+        
+        function closeIDPConfigModal() {
+            document.getElementById('idpConfigModal').style.display = 'none';
+        }
+        
+        function toggleSecretVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide secret';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show secret';
             }
+        }
+        
+        async function testIDPConnection() {
+            setLoading(true);
+            showStatus('Testing IDP connections...', 'loading');
             
-            const button = document.getElementById('manageBranches');
-            button.disabled = true;
-            button.textContent = 'Switching...';
-            
-            // Show progress bar
-            const progressDiv = document.getElementById('updateProgress');
-            progressDiv.style.display = 'block';
-            
-            fetch('/api/switch-branch', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ branch: targetBranch })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showMessage(`Branch switch to ${targetBranch} started. Please wait...`);
-                    monitorUpdateStatus();
+            try {
+                const response = await fetch('/api/idp/test-connection', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    let message = 'IDP Connection Test Results:\n';
+                    if (result.google) {
+                        message += `Google: ${result.google.status}\n`;
+                    }
+                    if (result.microsoft) {
+                        message += `Microsoft: ${result.microsoft.status}\n`;
+                    }
+                    showStatus(message, 'success');
                 } else {
-                    showError('Failed to switch branch: ' + data.error);
-                    progressDiv.style.display = 'none';
-                    button.disabled = false;
-                    button.textContent = 'Switch Branch';
+                    showStatus('IDP test failed: ' + result.message, 'error');
                 }
-            })
-            .catch(error => {
-                console.error('Error switching branch:', error);
-                showError('Failed to switch branch');
-                progressDiv.style.display = 'none';
-                button.disabled = false;
-                button.textContent = 'Switch Branch';
-            });
+            } catch (error) {
+                showStatus('Failed to test IDP connection: ' + error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
         }
-
-        function monitorUpdateStatus() {
-            const progressBar = document.getElementById('progressBar');
-            const progressMessage = document.getElementById('progressMessage');
+        
+        async function viewIDPStatus() {
+            const statusDiv = document.getElementById('idpStatusDisplay');
+            const contentDiv = document.getElementById('idpStatusContent');
             
-            const checkStatus = () => {
-                fetch('/api/update-status')
-                    .then(response => response.json())
-                    .then(data => {
-                        // Check if update status was reset (container restarted)
-                        if (data.message === 'Ready' && data.progress === 0 && !data.in_progress) {
-                            console.log('Update status reset detected, assuming branch switch completed successfully');
-                            showMessage('Branch switch completed successfully! The application will be available shortly.');
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 3000);
-                            // Reset UI
-                            document.getElementById('updateProgress').style.display = 'none';
-                            document.getElementById('updateBranch').disabled = false;
-                            document.getElementById('updateBranch').textContent = 'Update Current Branch';
-                            document.getElementById('manageBranches').disabled = false;
-                            document.getElementById('manageBranches').textContent = 'Switch Branch';
-                            return;
-                        }
-                        
-                        progressBar.style.width = data.progress + '%';
-                        progressMessage.textContent = data.message;
-                        
-                        if (data.completed) {
-                            if (data.success) {
-                                showMessage('Update completed successfully! The application will be available shortly.');
-                                setTimeout(() => {
-                                    window.location.reload();
-                                }, 5000);
-                            } else {
-                                showError('Update failed: ' + (data.error || data.message));
-                            }
-                            
-                            // Reset UI
-                            document.getElementById('updateProgress').style.display = 'none';
-                            document.getElementById('updateBranch').disabled = false;
-                            document.getElementById('updateBranch').textContent = 'Update Current Branch';
-                            document.getElementById('manageBranches').disabled = false;
-                            document.getElementById('manageBranches').textContent = 'Switch Branch';
-                        } else if (data.in_progress) {
-                            setTimeout(checkStatus, 2000);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error checking update status:', error);
-                        setTimeout(checkStatus, 2000);
-                    });
+            try {
+                const response = await fetch('/api/idp/status');
+                const status = await response.json();
+                
+                let html = '<table class="status-table">';
+                html += '<tr><th>Setting</th><th>Value</th></tr>';
+                html += `<tr><td>IDP Enabled</td><td>${status.idp_enabled ? '✅ Yes' : '❌ No'}</td></tr>`;
+                html += `<tr><td>Google OAuth</td><td>${status.google_enabled ? '✅ Configured' : '❌ Not configured'}</td></tr>`;
+                html += `<tr><td>Microsoft OAuth</td><td>${status.microsoft_enabled ? '✅ Configured' : '❌ Not configured'}</td></tr>`;
+                html += `<tr><td>Auto-generate Certificates</td><td>${status.auto_generate ? '✅ Yes' : '❌ No'}</td></tr>`;
+                html += `<tr><td>Total IDP Users</td><td>${status.total_users || 0}</td></tr>`;
+                html += `<tr><td>Active Certificates</td><td>${status.active_certificates || 0}</td></tr>`;
+                html += '</table>';
+                
+                contentDiv.innerHTML = html;
+                statusDiv.style.display = 'block';
+            } catch (error) {
+                contentDiv.innerHTML = '<p style="color: red;">Failed to load IDP status</p>';
+                statusDiv.style.display = 'block';
+            }
+        }
+        
+        // IDP Configuration Form Submit
+        document.getElementById('idpConfigForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const config = {
+                idp_enabled: document.getElementById('idpEnabled').checked,
+                google_enabled: document.getElementById('googleEnabled').checked,
+                google_client_id: document.getElementById('googleClientId').value,
+                google_client_secret: document.getElementById('googleClientSecret').value,
+                google_hosted_domain: document.getElementById('googleHostedDomain').value,
+                microsoft_enabled: document.getElementById('microsoftEnabled').checked,
+                microsoft_client_id: document.getElementById('microsoftClientId').value,
+                microsoft_client_secret: document.getElementById('microsoftClientSecret').value,
+                microsoft_tenant_id: document.getElementById('microsoftTenantId').value,
+                auto_generate_certs: document.getElementById('autoGenerateCerts').checked,
+                cert_validity_days: parseInt(document.getElementById('certValidityDays').value),
+                email_delivery: document.getElementById('emailDelivery').checked,
+                renewal_days: parseInt(document.getElementById('renewalDays').value)
             };
             
-            checkStatus();
-        }
-
-        // Initialize version management
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load version info on page load
-            if (document.getElementById('currentBranch')) {
-                loadVersionInfo();
-            }
-            
-            // Bind event handlers
-            const checkUpdatesBtn = document.getElementById('checkUpdates');
-            if (checkUpdatesBtn) {
-                checkUpdatesBtn.addEventListener('click', checkUpdates);
-            }
-            
-            const updateBranchBtn = document.getElementById('updateBranch');
-            if (updateBranchBtn) {
-                updateBranchBtn.addEventListener('click', updateBranch);
-            }
-            
-            const manageBranchesBtn = document.getElementById('manageBranches');
-            if (manageBranchesBtn) {
-                manageBranchesBtn.addEventListener('click', switchBranch);
-            }
-            
-            // Branch selection dropdown event handler
-            const branchSelect = document.getElementById('branchSelect');
-            if (branchSelect) {
-                branchSelect.addEventListener('change', function() {
-                    const selectedValue = this.value;
-                    const confirmBtn = document.getElementById('confirmBranchSwitch');
-                    const branchInfo = document.getElementById('branchInfo');
-                    const branchDetails = document.getElementById('branchDetails');
-                    
-                    if (selectedValue) {
-                        // Enable confirm button
-                        confirmBtn.disabled = false;
-                        
-                        // Show branch information
-                        const selectedOption = this.options[this.selectedIndex];
-                        const sha = selectedOption.dataset.sha;
-                        const isProtected = selectedOption.dataset.protected === 'true';
-                        
-                        branchDetails.innerHTML = `
-                            <div><strong>Branch:</strong> ${selectedValue}</div>
-                            <div><strong>Commit SHA:</strong> ${sha}</div>
-                            <div><strong>Protected:</strong> ${isProtected ? 'Yes' : 'No'}</div>
-                        `;
-                        branchInfo.style.display = 'block';
-                    } else {
-                        // Disable confirm button and hide info
-                        confirmBtn.disabled = true;
-                        branchInfo.style.display = 'none';
-                    }
+            try {
+                const response = await fetch('/api/idp/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
                 });
-            }
-            
-            // Close modal when clicking outside of it
-            window.onclick = function(event) {
-                const modal = document.getElementById('branchSelectionModal');
-                if (event.target === modal) {
-                    closeBranchModal();
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus('IDP configuration saved successfully', 'success');
+                    closeIDPConfigModal();
+                } else {
+                    showStatus('Failed to save IDP configuration: ' + result.message, 'error');
                 }
+            } catch (error) {
+                showStatus('Error saving IDP configuration: ' + error.message, 'error');
             }
         });
+
+        // Version Management Functions
+        async function loadVersionInfo() {
+            try {
+                const response = await fetch('/api/version-info', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('currentBranch').textContent = data.branch || 'Unknown';
+                    document.getElementById('currentCommit').textContent = data.commit ? data.commit.substring(0, 8) : 'Unknown';
+                    
+                    // Format last updated date to local time
+                    let lastUpdatedText = 'Unknown';
+                    if (data.last_updated && data.last_updated !== 'Unknown' && data.last_updated !== 'Container rebuild required for full version info') {
+                        try {
+                            const date = new Date(data.last_updated);
+                            lastUpdatedText = date.toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            });
+                        } catch (e) {
+                            lastUpdatedText = data.last_updated; // Fallback to original if parsing fails
+                        }
+                    }
+                    document.getElementById('lastUpdated').textContent = lastUpdatedText;
+                } else {
+                    showStatus('Failed to load version information', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading version info:', error);
+                showStatus('Error loading version information', 'error');
+            }
+        }
+
+        async function loadAvailableBranches() {
+            try {
+                const response = await fetch('/api/available-branches', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success' && data.branches) {
+                    const branchSelect = document.getElementById('branchSelect');
+                    branchSelect.innerHTML = '<option value="">Select a branch...</option>';
+                    
+                    data.branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch.name;
+                        // Handle case where commit might be undefined
+                        const commitHash = branch.commit ? branch.commit.substring(0, 8) : 'unknown';
+                        option.textContent = `${branch.name} (${commitHash})`;
+                        if (branch.current) {
+                            option.textContent += ' - Current';
+                            option.style.fontWeight = 'bold';
+                        }
+                        branchSelect.appendChild(option);
+                    });
+                    
+                    // Enable switch button when selection changes
+                    branchSelect.addEventListener('change', function() {
+                        const switchBtn = document.getElementById('switchBranchBtn');
+                        switchBtn.disabled = !this.value || this.value === data.current_branch;
+                    });
+                } else {
+                    console.error('API Error:', data);
+                    const errorMsg = data.message || 'Failed to load available branches';
+                    showStatus(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Error loading branches:', error);
+                showStatus('Error loading available branches', 'error');
+            }
+        }
+
+        async function checkForUpdates() {
+            showStatus('Checking for updates...', 'loading');
+            
+            try {
+                const response = await fetch('/api/check-updates', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const statusDiv = document.getElementById('updateStatus');
+                    statusDiv.style.display = 'block';
+                    
+                    if (data.updates_available) {
+                        statusDiv.style.background = '#d1ecf1';
+                        statusDiv.style.color = '#0c5460';
+                        statusDiv.innerHTML = `
+                            <h4>🆕 Updates Available</h4>
+                            <p><strong>Latest commit:</strong> ${data.latest_commit.substring(0, 8)}</p>
+                            <p><strong>Message:</strong> ${data.commit_message}</p>
+                            <p><strong>Updated:</strong> ${new Date(data.commit_date).toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            })}</p>
+                        `;
+                        showStatus('Updates are available for the current branch', 'success');
+                    } else {
+                        statusDiv.style.background = '#d4edda';
+                        statusDiv.style.color = '#155724';
+                        statusDiv.innerHTML = '<h4>✅ Up to Date</h4><p>You are running the latest version of the current branch.</p>';
+                        showStatus('No updates available - you are up to date', 'success');
+                    }
+                } else {
+                    showStatus('Failed to check for updates: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error checking updates:', error);
+                showStatus('Error checking for updates', 'error');
+            }
+        }
+
+        async function updateCurrentBranch() {
+            if (!confirm('Are you sure you want to update to the latest version of the current branch? This will restart the service temporarily.')) {
+                return;
+            }
+            
+            showUpdateProgress('Starting update process...', 0);
+            
+            try {
+                const response = await fetch('/api/update-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    pollUpdateStatus();
+                } else {
+                    const data = await response.json();
+                    showStatus('Failed to start update: ' + data.message, 'error');
+                    hideUpdateProgress();
+                }
+            } catch (error) {
+                console.error('Error starting update:', error);
+                showStatus('Error starting update process', 'error');
+                hideUpdateProgress();
+            }
+        }
+
+        async function switchBranch() {
+            const selectedBranch = document.getElementById('branchSelect').value;
+            if (!selectedBranch) {
+                showStatus('Please select a branch first', 'error');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to switch to branch "${selectedBranch}"? This will restart the service and may include significant changes.`)) {
+                return;
+            }
+            
+            showUpdateProgress(`Switching to branch: ${selectedBranch}...`, 0);
+            
+            try {
+                const response = await fetch('/api/switch-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ branch: selectedBranch })
+                });
+                
+                if (response.ok) {
+                    pollUpdateStatus();
+                } else {
+                    const data = await response.json();
+                    showStatus('Failed to switch branch: ' + data.message, 'error');
+                    hideUpdateProgress();
+                }
+            } catch (error) {
+                console.error('Error switching branch:', error);
+                showStatus('Error switching branch', 'error');
+                hideUpdateProgress();
+            }
+        }
+
+        function showUpdateProgress(text, percentage) {
+            const progressDiv = document.getElementById('updateProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressDiv.style.display = 'block';
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = text;
+        }
+
+        function hideUpdateProgress() {
+            document.getElementById('updateProgress').style.display = 'none';
+        }
+
+        async function pollUpdateStatus() {
+            try {
+                const response = await fetch('/api/update-status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Check if update status was reset (container restarted)
+                    if (data.message === 'Ready' && data.progress === 0 && !data.in_progress) {
+                        console.log('Update status reset detected, assuming branch switch completed successfully');
+                        showStatus('Branch switch completed successfully! Refreshing page...', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                        return;
+                    }
+                    
+                    showUpdateProgress(data.message, data.progress);
+                    
+                    if (data.completed) {
+                        if (data.success) {
+                            showStatus('Update completed successfully! Refreshing page...', 'success');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            showStatus('Update failed: ' + data.error, 'error');
+                            hideUpdateProgress();
+                        }
+                    } else {
+                        // Continue polling
+                        setTimeout(pollUpdateStatus, 1000);
+                    }
+                } else {
+                    showStatus('Error checking update status', 'error');
+                    hideUpdateProgress();
+                }
+            } catch (error) {
+                console.error('Error polling update status:', error);
+                // During container restart, connection errors are expected
+                // Continue polling with exponential backoff
+                if (error.name === 'TypeError' || error.message.includes('Failed to fetch')) {
+                    console.log('Container likely restarting, retrying in 3 seconds...');
+                    setTimeout(pollUpdateStatus, 3000);
+                } else {
+                    showStatus('Error monitoring update progress', 'error');
+                    hideUpdateProgress();
+                }
+            }
+        }
+
+        // PKI Backup & Restore Functions
+        function toggleBackupPasswordVisibility() {
+            const field = document.getElementById('backupPassword');
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide password';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show password';
+            }
+        }
+
+        function toggleRestorePasswordVisibility() {
+            const field = document.getElementById('restorePassword');
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide password';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show password';
+            }
+        }
+
+        function showBackupInfo() {
+            const panel = document.getElementById('backupInfoPanel');
+            const button = document.getElementById('backupInfoBtn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                button.textContent = '🔼 Hide Details';
+            } else {
+                panel.style.display = 'none';
+                button.textContent = 'ℹ️ What\'s Included?';
+            }
+        }
+
+        function showRestoreWarning() {
+            const panel = document.getElementById('restoreWarningPanel');
+            const button = document.getElementById('restoreWarningBtn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                button.textContent = '🔼 Hide Warnings';
+            } else {
+                panel.style.display = 'none';
+                button.textContent = '⚠️ Important Warnings';
+            }
+        }
+
+        async function createPKIBackup() {
+            const password = document.getElementById('backupPassword').value;
+            const createButton = document.getElementById('createBackupBtn');
+            const statusPanel = document.getElementById('backupStatusPanel');
+            const statusContent = document.getElementById('backupStatusContent');
+            const progressBar = document.getElementById('backupProgressBar');
+            const progress = document.getElementById('backupProgress');
+            
+            if (!password) {
+                showStatus('Please enter a backup password', 'error');
+                return;
+            }
+            
+            if (password.length < 8) {
+                showStatus('Backup password must be at least 8 characters long', 'error');
+                return;
+            }
+            
+            // Disable button and show progress
+            createButton.disabled = true;
+            createButton.textContent = '⏳ Creating Backup...';
+            statusPanel.style.display = 'block';
+            statusPanel.style.background = '#e7f3ff';
+            statusPanel.style.border = '1px solid #bee5eb';
+            statusContent.innerHTML = '<h4 style="color: #0c5460;">Creating encrypted backup...</h4><p style="color: #0c5460;">This may take a few minutes depending on the size of your PKI.</p>';
+            progressBar.style.display = 'block';
+            
+            // Simulate progress
+            let progressValue = 0;
+            const progressInterval = setInterval(() => {
+                progressValue += 10;
+                progress.style.width = `${Math.min(progressValue, 90)}%`;
+            }, 500);
+            
+            try {
+                const response = await fetch('/api/pki/backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ password: password })
+                });
+                
+                clearInterval(progressInterval);
+                progress.style.width = '100%';
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                    a.href = url;
+                    a.download = `pki-backup-${timestamp}.pki`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    statusPanel.style.background = '#d4edda';
+                    statusPanel.style.border = '1px solid #c3e6cb';
+                    statusContent.innerHTML = '<h4 style="color: #155724;">✅ Backup Created Successfully!</h4><p style="color: #155724;">Your encrypted PKI backup has been downloaded. Store the password securely.</p>';
+                    showStatus('PKI backup created and downloaded successfully', 'success');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Backup creation failed');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                statusPanel.style.background = '#f8d7da';
+                statusPanel.style.border = '1px solid #f5c6cb';
+                statusContent.innerHTML = `<h4 style="color: #721c24;">❌ Backup Failed</h4><p style="color: #721c24;">${error.message}</p>`;
+                showStatus('Failed to create PKI backup: ' + error.message, 'error');
+            } finally {
+                createButton.disabled = false;
+                createButton.textContent = '💾 Create Encrypted Backup';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    statusPanel.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        async function restorePKIBackup() {
+            const file = document.getElementById('backupFile').files[0];
+            const password = document.getElementById('restorePassword').value;
+            const confirmed = document.getElementById('confirmRestore').checked;
+            const restoreButton = document.getElementById('restoreBackupBtn');
+            const statusPanel = document.getElementById('backupStatusPanel');
+            const statusContent = document.getElementById('backupStatusContent');
+            
+            if (!file) {
+                showStatus('Please select a backup file', 'error');
+                return;
+            }
+            
+            if (!password) {
+                showStatus('Please enter the backup password', 'error');
+                return;
+            }
+            
+            if (!confirmed) {
+                showStatus('Please confirm that you understand this will replace your current PKI', 'error');
+                return;
+            }
+            
+            if (!file.name.endsWith('.pki')) {
+                showStatus('Please select a valid .pki backup file', 'error');
+                return;
+            }
+            
+            // Final confirmation
+            if (!confirm('⚠️ CRITICAL WARNING ⚠️\n\nThis will COMPLETELY REPLACE your current PKI configuration!\n\n• All current certificates and keys will be lost\n• PKI services will be temporarily unavailable\n• This operation cannot be undone\n\nAre you absolutely sure you want to continue?')) {
+                return;
+            }
+            
+            // Disable button and show progress
+            restoreButton.disabled = true;
+            restoreButton.textContent = '⏳ Restoring PKI...';
+            statusPanel.style.display = 'block';
+            statusPanel.style.background = '#fff3cd';
+            statusPanel.style.border = '1px solid #ffeeba';
+            statusContent.innerHTML = '<h4 style="color: #856404;">Restoring PKI from backup...</h4><p style="color: #856404;">Please wait while the PKI is restored. Do not close this page.</p>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('backup_file', file);
+                formData.append('password', password);
+                
+                const response = await fetch('/api/pki/restore', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    statusPanel.style.background = '#d4edda';
+                    statusPanel.style.border = '1px solid #c3e6cb';
+                    statusContent.innerHTML = '<h4 style="color: #155724;">✅ PKI Restored Successfully!</h4><p style="color: #155724;">Your PKI has been restored from the backup. The page will reload to reflect changes.</p>';
+                    showStatus('PKI restored successfully from backup', 'success');
+                    
+                    // Reload page after successful restore
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Restore operation failed');
+                }
+            } catch (error) {
+                statusPanel.style.background = '#f8d7da';
+                statusPanel.style.border = '1px solid #f5c6cb';
+                statusContent.innerHTML = `<h4 style="color: #721c24;">❌ Restore Failed</h4><p style="color: #721c24;">${error.message}</p>`;
+                showStatus('Failed to restore PKI backup: ' + error.message, 'error');
+                restoreButton.disabled = false;
+                restoreButton.textContent = '🔄 Restore from Backup';
+            }
+        }
 
         // Make functions globally available
         window.loadEmailDomains = loadEmailDomains;
@@ -5611,11 +7293,16 @@ Dependencies:
         window.showError = showError;
         window.showMessage = showMessage;
         window.loadVersionInfo = loadVersionInfo;
-        window.checkUpdates = checkUpdates;
-        window.updateBranch = updateBranch;
+        window.loadAvailableBranches = loadAvailableBranches;
+        window.checkForUpdates = checkForUpdates;
+        window.updateCurrentBranch = updateCurrentBranch;
         window.switchBranch = switchBranch;
-        window.closeBranchModal = closeBranchModal;
-        window.confirmBranchSwitch = confirmBranchSwitch;
+        window.toggleBackupPasswordVisibility = toggleBackupPasswordVisibility;
+        window.toggleRestorePasswordVisibility = toggleRestorePasswordVisibility;
+        window.showBackupInfo = showBackupInfo;
+        window.showRestoreWarning = showRestoreWarning;
+        window.createPKIBackup = createPKIBackup;
+        window.restorePKIBackup = restorePKIBackup;
     </script>
 
     <!-- Tour Trigger Button -->

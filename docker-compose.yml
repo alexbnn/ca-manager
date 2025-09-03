@@ -1,4 +1,4 @@
-# CA Manager v4.0.0 - With OCSP Support and Enhanced Certificate Status Validation
+# CA Manager v6.0.0-alpha - With Identity Provider Integration and Automated Certificate Management
 services:
   web-interface:
     build: .
@@ -33,6 +33,9 @@ services:
       # SCEP Server URL for external clients (uses actual tenant domain)
       - SCEP_SERVER_URL=${SCEP_SERVER_URL:-https://${DOMAIN:-localhost}}
       
+      # IDP Configuration is now managed via GUI/Database
+      # All IDP settings moved to system_config table
+      
       
     depends_on:
       easyrsa-container:
@@ -54,7 +57,7 @@ services:
       - ./templates:/app/templates:ro
       # Enable version management functionality
       - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app/source
+      - .:/app/source:ro
     deploy:
       resources:
         limits:

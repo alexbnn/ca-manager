@@ -33,7 +33,7 @@ from threading import Thread
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Application version - build timestamp
-APP_VERSION = "5.0.0"
+APP_VERSION = "6.0.0-alpha"
 BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 
 # Database connection for multi-user authentication
@@ -41,6 +41,18 @@ BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Initialize IDP Authentication Manager
+idp_auth_manager = None
+try:
+    from idp_auth import IDPAuthManager
+    idp_auth_manager = IDPAuthManager()
+    logger.info("IDP Authentication Manager initialized")
+except Exception as e:
+    logger.warning(f"Could not initialize IDP Authentication Manager: {str(e)}")
 
 # Global flag to ensure database is initialized only once
 _db_initialized = False
@@ -434,7 +446,12 @@ def index():
             if 'authenticated' not in session:
                 return render_template('login.html', version=BUILD_TIMESTAMP)
     
-    # Get user info for template
+    # Check if user logged in via IDP - serve specialized portal
+    if session.get('idp_user'):
+        logger.info(f"IDP user detected: {session.get('username')}, serving IDP portal")
+        return render_template('idp_portal.html')
+    
+    # Get user info for template (regular admin users)
     user_info = {
         'username': session.get('username', 'guest'),
         'is_admin': session.get('is_admin', False),
@@ -581,6 +598,239 @@ def logout_page():
     session.clear()
     return redirect('/login')
 
+# ================================
+# IDP OAuth Routes
+# ================================
+
+@app.route('/auth/microsoft/login')
+def microsoft_login():
+    """Initiate Microsoft OAuth login"""
+    try:
+        # Direct database approach - bypass IDPConfig class issues
+        import msal
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get Microsoft configuration directly from database
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_oauth_enabled',))
+        enabled_result = cursor.fetchone()
+        logger.info(f"DEBUG RAW RESULT - enabled_result: {enabled_result}, type: {type(enabled_result)}")
+        
+        # Handle RealDictRow results properly
+        enabled = enabled_result['config_value'] if enabled_result else 'False'
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_id',))
+        client_id_result = cursor.fetchone()
+        client_id = client_id_result['config_value'] if client_id_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_secret',))
+        client_secret_result = cursor.fetchone()
+        client_secret = client_secret_result['config_value'] if client_secret_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_tenant_id',))
+        tenant_id_result = cursor.fetchone()
+        tenant_id = tenant_id_result['config_value'] if tenant_id_result else 'common'
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('idp_redirect_uri_base',))
+        redirect_base_result = cursor.fetchone()
+        redirect_base = redirect_base_result['config_value'] if redirect_base_result else 'https://ca.bonner.com'
+        
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"DEBUG DIRECT - enabled: {enabled}, client_id: {client_id}, tenant_id: {tenant_id}")
+        
+        # Check if Microsoft OAuth is enabled
+        if str(enabled).lower() not in ('true', '1', 'yes', 'on'):
+            return jsonify({'error': 'Microsoft OAuth is not enabled'}), 400
+        
+        if not client_id or not client_secret:
+            return jsonify({'error': 'Microsoft OAuth not properly configured'}), 400
+        
+        # Create MSAL app directly
+        authority = f'https://login.microsoftonline.com/{tenant_id}'
+        redirect_uri = f'{redirect_base}/auth/microsoft/callback'
+        
+        app_msal = msal.ConfidentialClientApplication(
+            client_id=client_id,
+            client_credential=client_secret,
+            authority=authority
+        )
+        
+        # Generate state and store in session
+        import secrets
+        state = secrets.token_urlsafe(32)
+        session['oauth_state'] = state
+        
+        # Get authorization URL - use only the scopes that Microsoft Graph accepts
+        auth_url = app_msal.get_authorization_request_url(
+            scopes=['User.Read'],  # Only use User.Read scope - other claims come automatically
+            state=state,
+            redirect_uri=redirect_uri
+        )
+        
+        from flask import redirect
+        return redirect(auth_url)
+        
+    except Exception as e:
+        logger.error(f"Microsoft login error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': f'Failed to initiate Microsoft login: {str(e)}'}), 500
+
+@app.route('/auth/microsoft/callback')
+def microsoft_callback():
+    """Handle Microsoft OAuth callback"""
+    try:
+        import msal
+        import requests
+        
+        # Get Microsoft configuration directly from database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_id',))
+        client_id_result = cursor.fetchone()
+        client_id = client_id_result['config_value'] if client_id_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_client_secret',))
+        client_secret_result = cursor.fetchone()
+        client_secret = client_secret_result['config_value'] if client_secret_result else ''
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('microsoft_tenant_id',))
+        tenant_id_result = cursor.fetchone()
+        tenant_id = tenant_id_result['config_value'] if tenant_id_result else 'common'
+        
+        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('idp_redirect_uri_base',))
+        redirect_base_result = cursor.fetchone()
+        redirect_base = redirect_base_result['config_value'] if redirect_base_result else 'https://ca.bonner.com'
+        
+        cursor.close()
+        
+        # Verify state for CSRF protection
+        if request.args.get('state') != session.pop('oauth_state', None):
+            conn.close()
+            return jsonify({'error': 'Invalid state parameter'}), 400
+        
+        # Get authorization code
+        code = request.args.get('code')
+        if not code:
+            conn.close()
+            return jsonify({'error': 'No authorization code received'}), 400
+        
+        # Create MSAL app and exchange code for token
+        authority = f'https://login.microsoftonline.com/{tenant_id}'
+        redirect_uri = f'{redirect_base}/auth/microsoft/callback'
+        
+        app_msal = msal.ConfidentialClientApplication(
+            client_id,
+            authority=authority,
+            client_credential=client_secret
+        )
+        
+        # Exchange authorization code for token
+        result = app_msal.acquire_token_by_authorization_code(
+            code,
+            scopes=['User.Read'],
+            redirect_uri=redirect_uri
+        )
+        
+        if 'error' in result:
+            logger.error(f"Microsoft token error: {result.get('error_description')}")
+            conn.close()
+            return jsonify({'error': 'Authentication failed'}), 500
+        
+        # Get user info using the access token
+        if 'access_token' in result:
+            # Call Microsoft Graph API to get user details
+            graph_response = requests.get(
+                'https://graph.microsoft.com/v1.0/me',
+                headers={'Authorization': f"Bearer {result['access_token']}"}
+            )
+            
+            if graph_response.status_code == 200:
+                user_info = graph_response.json()
+                
+                # Create user session
+                session['authenticated'] = True
+                session['username'] = user_info.get('userPrincipalName') or user_info.get('mail')
+                session['idp_user'] = True
+                session['user_id'] = 0  # IDP users don't have local user IDs yet
+                session['user_display_name'] = user_info.get('displayName')
+                
+                logger.info(f"Microsoft OAuth login successful for user: {session['username']}")
+                conn.close()
+                return redirect('/')
+            else:
+                logger.error(f"Failed to get user info from Microsoft Graph: {graph_response.text}")
+                conn.close()
+                return jsonify({'error': 'Failed to get user information'}), 500
+        
+        conn.close()
+        return jsonify({'error': 'Authentication failed'}), 500
+        
+    except Exception as e:
+        logger.error(f"Microsoft callback error: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
+
+@app.route('/auth/google/login')
+def google_login():
+    """Initiate Google OAuth login"""
+    try:
+        # Set database connection for IDPConfig FIRST
+        from idp_config import IDPConfig
+        from idp_auth import IDPAuthManager
+        
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Now initialize the auth manager with the database config loaded
+        auth_manager = IDPAuthManager(app)
+        
+        # Initiate Google login
+        redirect_response = auth_manager.initiate_google_login()
+        conn.close()
+        return redirect_response
+    except Exception as e:
+        logger.error(f"Google login error: {str(e)}")
+        return jsonify({'error': f'Failed to initiate Google login: {str(e)}'}), 500
+
+@app.route('/auth/google/callback')
+def google_callback():
+    """Handle Google OAuth callback"""
+    try:
+        # Set database connection for IDPConfig FIRST
+        from idp_config import IDPConfig
+        from idp_auth import IDPAuthManager
+        
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Now initialize the auth manager with the database config loaded
+        auth_manager = IDPAuthManager(app)
+        
+        # Handle the callback
+        result = auth_manager.handle_google_callback()
+        
+        # If successful, create a regular session
+        if isinstance(result, dict) and result.get('status') == 'success':
+            user_data = result.get('user', {})
+            session['authenticated'] = True
+            session['username'] = user_data.get('email', 'idp_user')
+            session['idp_user'] = True
+            session['user_id'] = 0  # IDP users don't have local user IDs yet
+            
+            logger.info(f"IDP login successful for user: {session['username']}")
+            conn.close()
+            return redirect('/')
+        
+        conn.close()
+        return result
+    except Exception as e:
+        logger.error(f"Google callback error: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
+
 def make_easyrsa_request(operation, params=None):
     """Helper function to make requests to EasyRSA container"""
     if params is None:
@@ -618,9 +868,61 @@ def make_easyrsa_request(operation, params=None):
 @auth_required(permission='pki_init')
 # @limiter.limit("5 per minute")
 def init_pki():
-    """Initialize PKI"""
+    """Initialize PKI and clear all certificate data"""
     log_operation('init_pki')
+    
+    # First initialize the PKI structure
     result = make_easyrsa_request('init-pki')
+    
+    # If PKI initialization was successful, also clear the database
+    if result.get('status') == 'success':
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Clear all certificate-related data (in dependency order)
+            tables_cleared = {}
+            
+            # Clear download tracking
+            cursor.execute("DELETE FROM certificate_downloads")
+            tables_cleared['certificate_downloads'] = cursor.rowcount
+            
+            # Clear approval history
+            cursor.execute("DELETE FROM request_approvals")
+            tables_cleared['request_approvals'] = cursor.rowcount
+            
+            # Clear certificate requests
+            cursor.execute("DELETE FROM certificate_requests")
+            tables_cleared['certificate_requests'] = cursor.rowcount
+            
+            # Clear CA chains
+            cursor.execute("DELETE FROM ca_chains")
+            tables_cleared['ca_chains'] = cursor.rowcount
+            
+            # Clear intermediate CAs
+            cursor.execute("DELETE FROM intermediate_cas")
+            tables_cleared['intermediate_cas'] = cursor.rowcount
+            
+            # Clear IDP certificates
+            cursor.execute("DELETE FROM idp_certificates")
+            tables_cleared['idp_certificates'] = cursor.rowcount
+            
+            conn.commit()
+            conn.close()
+            
+            total_cleared = sum(tables_cleared.values())
+            
+            # Update the result message to include database cleanup info
+            original_message = result.get('message', 'PKI initialized successfully')
+            result['message'] = f"{original_message}. Cleared {total_cleared} total certificate records from database ({', '.join([f'{count} {table}' for table, count in tables_cleared.items() if count > 0])})."
+            
+            logger.info(f"PKI reset completed: cleared certificate data - {tables_cleared}")
+            
+        except Exception as e:
+            logger.error(f"Error clearing database during PKI reset: {e}")
+            # Don't fail the entire operation if database cleanup fails
+            result['message'] = result.get('message', '') + f" (Warning: Could not clear database records: {str(e)})"
+    
     return jsonify(result)
 
 @app.route('/api/pki/status', methods=['GET'])
@@ -657,6 +959,166 @@ def build_ca():
     result = make_easyrsa_request('build-ca', ca_config)
     return jsonify(result)
 
+@app.route('/api/ca/upload', methods=['POST'])
+@auth_required(permission='ca_build')
+def upload_ca():
+    """Upload existing CA certificate and private key"""
+    import tempfile
+    import ssl
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa, padding
+    
+    data = request.get_json() or {}
+    
+    try:
+        # Get uploaded data
+        ca_cert_pem = data.get('ca_certificate', '')
+        ca_key_pem = data.get('ca_key', '')
+        key_password = data.get('key_password', None)
+        cert_validity_days = data.get('cert_validity_days', 365)
+        
+        if not ca_cert_pem or not ca_key_pem:
+            return jsonify({
+                'status': 'error',
+                'message': 'Both CA certificate and private key are required'
+            }), 400
+        
+        # Validate certificate format and parse it
+        try:
+            cert = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid certificate format: {str(e)}'
+            }), 400
+        
+        # Validate private key format
+        try:
+            if key_password:
+                private_key = serialization.load_pem_private_key(
+                    ca_key_pem.encode(),
+                    password=key_password.encode(),
+                    backend=default_backend()
+                )
+            else:
+                private_key = serialization.load_pem_private_key(
+                    ca_key_pem.encode(),
+                    password=None,
+                    backend=default_backend()
+                )
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid private key format or incorrect password: {str(e)}'
+            }), 400
+        
+        # Verify that the private key matches the certificate
+        try:
+            # Get public key from certificate
+            cert_public_key = cert.public_key()
+            
+            # Get public key from private key
+            private_public_key = private_key.public_key()
+            
+            # Compare public key numbers
+            if hasattr(cert_public_key, 'public_numbers') and hasattr(private_public_key, 'public_numbers'):
+                if cert_public_key.public_numbers() != private_public_key.public_numbers():
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Private key does not match the certificate'
+                    }), 400
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Error validating key-certificate pair: {str(e)}'
+            }), 400
+        
+        # Extract certificate information
+        subject = cert.subject
+        ca_info = {
+            'common_name': subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME) else 'Unknown',
+            'country': subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.COUNTRY_NAME) else '',
+            'state': subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.STATE_OR_PROVINCE_NAME) else '',
+            'city': subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.LOCALITY_NAME) else '',
+            'organization': subject.get_attributes_for_oid(x509.NameOID.ORGANIZATION_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.ORGANIZATION_NAME) else '',
+            'organizational_unit': subject.get_attributes_for_oid(x509.NameOID.ORGANIZATIONAL_UNIT_NAME)[0].value if subject.get_attributes_for_oid(x509.NameOID.ORGANIZATIONAL_UNIT_NAME) else '',
+            'email': subject.get_attributes_for_oid(x509.NameOID.EMAIL_ADDRESS)[0].value if subject.get_attributes_for_oid(x509.NameOID.EMAIL_ADDRESS) else '',
+            'valid_from': cert.not_valid_before.isoformat(),
+            'valid_until': cert.not_valid_after.isoformat(),
+            'serial_number': str(cert.serial_number)
+        }
+        
+        # Send to EasyRSA container to import
+        upload_data = {
+            'ca_certificate': ca_cert_pem,
+            'ca_key': ca_key_pem,
+            'cert_validity_days': cert_validity_days,
+            'ca_info': ca_info
+        }
+        
+        log_operation('upload_ca', {'ca_info': ca_info})
+        result = make_easyrsa_request('import-ca', upload_data)
+        
+        if result.get('status') == 'success':
+            # CA import successful - also clear all certificate database records
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Clear all certificate-related data (in dependency order)
+                tables_cleared = {}
+                
+                # Clear download tracking
+                cursor.execute("DELETE FROM certificate_downloads")
+                tables_cleared['certificate_downloads'] = cursor.rowcount
+                
+                # Clear approval history
+                cursor.execute("DELETE FROM request_approvals")
+                tables_cleared['request_approvals'] = cursor.rowcount
+                
+                # Clear certificate requests
+                cursor.execute("DELETE FROM certificate_requests")
+                tables_cleared['certificate_requests'] = cursor.rowcount
+                
+                # Clear CA chains
+                cursor.execute("DELETE FROM ca_chains")
+                tables_cleared['ca_chains'] = cursor.rowcount
+                
+                # Clear intermediate CAs
+                cursor.execute("DELETE FROM intermediate_cas")
+                tables_cleared['intermediate_cas'] = cursor.rowcount
+                
+                # Clear IDP certificates
+                cursor.execute("DELETE FROM idp_certificates")
+                tables_cleared['idp_certificates'] = cursor.rowcount
+                
+                conn.commit()
+                conn.close()
+                
+                total_cleared = sum(tables_cleared.values())
+                
+                result['ca_info'] = ca_info
+                result['message'] = f"Successfully imported CA: {ca_info['common_name']}. Cleared {total_cleared} certificate records from database."
+                
+                logger.info(f"CA import completed with database cleanup - cleared: {tables_cleared}")
+                
+            except Exception as e:
+                logger.error(f"Error clearing database during CA import: {e}")
+                # Don't fail the entire operation if database cleanup fails
+                result['ca_info'] = ca_info
+                result['message'] = f"Successfully imported CA: {ca_info['common_name']} (Warning: Could not clear database records: {str(e)})"
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error uploading CA: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to upload CA: {str(e)}'
+        }), 500
+
 @app.route('/api/ca/show', methods=['GET'])
 @auth_required(permission='ca_read')
 def show_ca():
@@ -667,26 +1129,68 @@ def show_ca():
 @app.route('/api/ca/download', methods=['GET'])
 @auth_required(permission='ca_read')
 def download_ca():
-    """Download CA certificate"""
+    """Download CA certificate (with private key for admin users)"""
     try:
         log_operation('download_ca')
-        response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
         
-        if response.status_code == 200:
-            ca_content = response.content
-            file_obj = io.BytesIO(ca_content)
-            
-            return send_file(
-                file_obj,
-                as_attachment=True,
-                download_name='ca.pem',
-                mimetype='application/x-pem-file'
-            )
-        else:
+        # Check if user is admin
+        is_admin = session.get('is_admin', False)
+        
+        # Get CA certificate
+        cert_response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
+        
+        if cert_response.status_code != 200:
             return jsonify({
                 "status": "error", 
-                "message": f"CA certificate not found. Container response: {response.status_code}"
+                "message": f"CA certificate not found. Container response: {cert_response.status_code}"
             }), 404
+        
+        ca_cert_content = cert_response.text
+        
+        if is_admin:
+            # Admin users get combined certificate + private key
+            try:
+                # Get CA private key
+                key_response = requests.post(
+                    f"{TERMINAL_CONTAINER_URL}/execute",
+                    json={"operation": "get-ca-key"},
+                    timeout=REQUEST_TIMEOUT
+                )
+                
+                if key_response.status_code == 200:
+                    key_data = key_response.json()
+                    if key_data.get('status') == 'success':
+                        ca_key_content = key_data.get('private_key', '')
+                        
+                        # Combine certificate and private key
+                        combined_content = f"{ca_cert_content.strip()}\n{ca_key_content.strip()}\n"
+                        file_obj = io.BytesIO(combined_content.encode('utf-8'))
+                        
+                        return send_file(
+                            file_obj,
+                            as_attachment=True,
+                            download_name='ca-combined.pem',
+                            mimetype='application/x-pem-file'
+                        )
+                    else:
+                        # Fall back to certificate only if key retrieval fails
+                        app.logger.warning(f"Could not retrieve CA private key for admin: {key_data.get('message')}")
+                else:
+                    app.logger.warning(f"CA private key request failed with status: {key_response.status_code}")
+                    
+            except Exception as key_error:
+                app.logger.warning(f"Failed to retrieve CA private key: {str(key_error)}")
+                # Continue to provide certificate-only download
+        
+        # Regular users or fallback: certificate only
+        file_obj = io.BytesIO(ca_cert_content.encode('utf-8'))
+        
+        return send_file(
+            file_obj,
+            as_attachment=True,
+            download_name='ca.pem',
+            mimetype='application/x-pem-file'
+        )
             
     except requests.exceptions.ConnectionError:
         return jsonify({
@@ -1024,15 +1528,18 @@ def create_backup():
     result = make_easyrsa_request('create-backup')
     
     if result.get('status') == 'success' and 'backup_data' in result:
-        # Decode base64-encoded backup data
-        backup_data = base64.b64decode(result['backup_data'])
-        backup_filename = f"pki-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.tar.gz"
+        # The backup_data is already in the correct format (base64-encoded JSON)
+        # Save it directly as a .pki file without additional encoding/decoding
+        backup_filename = f"pki-backup-{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.pki"
+        
+        # Convert the base64 string to bytes for file download
+        backup_bytes = result['backup_data'].encode('utf-8')
         
         return send_file(
-            io.BytesIO(backup_data),
+            io.BytesIO(backup_bytes),
             as_attachment=True,
             download_name=backup_filename,
-            mimetype='application/gzip'
+            mimetype='application/octet-stream'
         )
     
     return jsonify(result)
@@ -2308,6 +2815,116 @@ def delete_user_by_id(user_id):
         logging.error(f"Failed to delete user: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/users', methods=['POST'])
+@auth_required()
+def create_user():
+    """Create a new user"""
+    if not MULTI_USER_MODE:
+        return jsonify({'status': 'error', 'message': 'Multi-user mode not enabled'}), 400
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+        
+        # Extract and validate required fields
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        full_name = data.get('full_name', '').strip()
+        role = data.get('role', '').strip()
+        
+        # Validation
+        if not username or len(username) < 3:
+            return jsonify({'status': 'error', 'message': 'Username must be at least 3 characters long'}), 400
+        
+        if not all(c.isalnum() or c == '_' for c in username):
+            return jsonify({'status': 'error', 'message': 'Username can only contain letters, numbers, and underscores'}), 400
+        
+        if not email or '@' not in email:
+            return jsonify({'status': 'error', 'message': 'Valid email address is required'}), 400
+        
+        if not password or len(password) < 6:
+            return jsonify({'status': 'error', 'message': 'Password must be at least 6 characters long'}), 400
+        
+        if not full_name:
+            return jsonify({'status': 'error', 'message': 'Full name is required'}), 400
+        
+        if role not in ['admin', 'operator', 'viewer']:
+            return jsonify({'status': 'error', 'message': 'Role must be admin, operator, or viewer'}), 400
+        
+        # Hash password
+        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        
+        # Check for existing users
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        with conn.cursor() as cursor:
+            # Check if username exists
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            if cursor.fetchone():
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Username already exists'}), 409
+            
+            # Check if email exists
+            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Email already exists'}), 409
+            
+            # Create user
+            cursor.execute("""
+                INSERT INTO users (username, email, password_hash, full_name, is_admin, is_active)
+                VALUES (%s, %s, %s, %s, %s, true)
+                RETURNING id
+            """, (username, email, password_hash, full_name, role == 'admin'))
+            
+            user_id = cursor.fetchone()['id']
+            
+            # Get or create role
+            cursor.execute("SELECT id FROM roles WHERE name = %s", (role,))
+            role_record = cursor.fetchone()
+            
+            if not role_record:
+                # Create role if it doesn't exist
+                cursor.execute("""
+                    INSERT INTO roles (name, description)
+                    VALUES (%s, %s)
+                    RETURNING id
+                """, (role, f'{role.capitalize()} role'))
+                role_id = cursor.fetchone()['id']
+            else:
+                role_id = role_record['id']
+            
+            # Assign role to user
+            cursor.execute("""
+                INSERT INTO user_roles (user_id, role_id)
+                VALUES (%s, %s)
+            """, (user_id, role_id))
+            
+            conn.commit()
+        
+        conn.close()
+        
+        log_operation('user_created', {
+            'new_user_id': user_id,
+            'username': username,
+            'role': role,
+            'created_by': session.get('username')
+        })
+        
+        return jsonify({
+            'status': 'success', 
+            'message': f'User {username} created successfully',
+            'user_id': user_id
+        })
+        
+    except Exception as e:
+        logging.error(f"Failed to create user: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # ================================
 # Certificate Request Portal APIs
 # ================================
@@ -3517,6 +4134,794 @@ def test_smtp_connection():
         logging.error(f"Error testing SMTP: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+# ================================
+# IDP Configuration API  
+# ================================
+
+@app.route('/api/idp/config', methods=['GET'])
+@auth_required()
+def get_idp_config():
+    """Get IDP configuration for GUI"""
+    try:
+        from idp_config import IDPConfig
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Get all configuration
+        config = IDPConfig.get_all_config()
+        
+        # Add computed fields
+        config['providers'] = []
+        if config.get('google_enabled'):
+            config['providers'].append('google')
+        if config.get('microsoft_enabled'):
+            config['providers'].append('microsoft')
+        
+        conn.close()
+        
+        return jsonify(config)
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP config: {str(e)}")
+        return jsonify({'error': 'Failed to load IDP configuration'}), 500
+
+@app.route('/api/idp/config', methods=['POST'])
+@auth_required()
+def save_idp_config():
+    """Save IDP configuration from GUI"""
+    try:
+        from idp_config import IDPConfig
+        
+        data = request.get_json() or {}
+        
+        # Get current user for audit
+        user_id = session.get('user_id', 1)  # Default to admin user ID
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        # Update configuration
+        success = IDPConfig.update_config(data, user_id)
+        
+        if success:
+            # Log configuration change
+            logger.info(f"IDP configuration updated by user ID: {user_id}")
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'IDP configuration saved successfully'
+            })
+        else:
+            return jsonify({
+                'status': 'error', 
+                'message': 'Failed to save IDP configuration'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error saving IDP config: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to save IDP configuration: {str(e)}'
+        }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/idp/status')
+def get_idp_status():
+    """Get IDP status and statistics"""
+    try:
+        from idp_config import IDPConfig
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        config = IDPConfig.get_all_config()
+        
+        # Get IDP user statistics
+        with conn.cursor() as cursor:
+            # Count total IDP users
+            cursor.execute("SELECT COUNT(*) FROM idp_users")
+            total_users = cursor.fetchone()[0]
+            
+            # Count active certificates
+            cursor.execute("SELECT COUNT(*) FROM idp_certificates WHERE status = 'active'")
+            active_certificates = cursor.fetchone()[0]
+            
+            # Count certificates expiring in 30 days
+            cursor.execute("""
+                SELECT COUNT(*) FROM idp_certificates 
+                WHERE status = 'active' AND valid_until <= CURRENT_TIMESTAMP + INTERVAL '30 days'
+            """)
+            expiring_certificates = cursor.fetchone()[0]
+        
+        status = {
+            'idp_enabled': config.get('idp_enabled', False),
+            'google_enabled': config.get('google_enabled', False),
+            'microsoft_enabled': config.get('microsoft_enabled', False),
+            'auto_generate': config.get('auto_generate_certs', False),
+            'total_users': total_users,
+            'active_certificates': active_certificates,
+            'expiring_certificates': expiring_certificates,
+            'providers': []
+        }
+        
+        if config.get('google_enabled'):
+            status['providers'].append('google')
+        if config.get('microsoft_enabled'):
+            status['providers'].append('microsoft')
+        
+        conn.close()
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP status: {str(e)}")
+        return jsonify({
+            'idp_enabled': False,
+            'google_enabled': False,
+            'microsoft_enabled': False,
+            'total_users': 0,
+            'active_certificates': 0,
+            'error': 'Failed to load IDP status'
+        })
+
+@app.route('/api/idp/login-config')
+def get_idp_login_config():
+    """Get basic IDP configuration for login page (no auth required)"""
+    try:
+        # Use direct database queries instead of IDPConfig class
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get required configuration values directly from database
+        config_keys = ['idp_enabled', 'microsoft_oauth_enabled', 'google_oauth_enabled']
+        config_values = {}
+        
+        for key in config_keys:
+            cursor.execute(
+                "SELECT config_value FROM system_config WHERE config_key = %s",
+                (key,)
+            )
+            result = cursor.fetchone()
+            if result:
+                # Handle boolean conversion for database values
+                value = result['config_value']
+                if isinstance(value, str):
+                    config_values[key] = value.lower() in ('true', '1', 'yes', 'on')
+                elif isinstance(value, bool):
+                    config_values[key] = value
+                else:
+                    config_values[key] = bool(value)
+            else:
+                config_values[key] = False
+        
+        cursor.close()
+        conn.close()
+        
+        # Return only what's needed for login page
+        result = {
+            'idp_enabled': config_values.get('idp_enabled', False),
+            'google_enabled': config_values.get('google_oauth_enabled', False),
+            'microsoft_enabled': config_values.get('microsoft_oauth_enabled', False),
+            'providers': []
+        }
+        
+        if config_values.get('google_oauth_enabled'):
+            result['providers'].append('google')
+        if config_values.get('microsoft_oauth_enabled'):
+            result['providers'].append('microsoft')
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP login config: {str(e)}")
+        return jsonify({
+            'idp_enabled': False,
+            'google_enabled': False,
+            'microsoft_enabled': False,
+            'providers': []
+        })
+
+@app.route('/api/idp/test-connection', methods=['POST'])
+@auth_required()
+def test_idp_connection():
+    """Test IDP OAuth2 connections"""
+    try:
+        from idp_config import IDPConfig
+        import requests
+        
+        # Set database connection
+        conn = get_db_connection()
+        IDPConfig.set_db_connection(conn)
+        
+        config = IDPConfig.get_all_config()
+        results = {'status': 'success'}
+        
+        # Test Google connection
+        if config.get('google_enabled') and config.get('google_client_id'):
+            try:
+                response = requests.get(
+                    'https://accounts.google.com/.well-known/openid-configuration',
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    results['google'] = {'status': '✅ Google OAuth configuration accessible'}
+                else:
+                    results['google'] = {'status': '❌ Google OAuth configuration not accessible'}
+            except Exception as e:
+                results['google'] = {'status': f'❌ Google OAuth test failed: {str(e)[:100]}'}
+        
+        # Test Microsoft connection
+        if config.get('microsoft_enabled') and config.get('microsoft_client_id'):
+            tenant_id = config.get('microsoft_tenant_id', 'common')
+            client_secret = config.get('microsoft_client_secret', '')
+            
+            # Validate required configuration
+            if not client_secret:
+                results['microsoft'] = {'status': '❌ Microsoft client secret not configured'}
+            elif len(tenant_id) < 10:  # Basic tenant ID validation
+                results['microsoft'] = {'status': '❌ Microsoft tenant ID appears invalid'}
+            else:
+                try:
+                    # Try to connect to Microsoft's OAuth endpoint
+                    response = requests.get(
+                        f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize',
+                        timeout=5,
+                        allow_redirects=False
+                    )
+                    # We expect a redirect or 4xx response for GET without params, not 5xx
+                    if response.status_code < 500:
+                        results['microsoft'] = {'status': '✅ Microsoft OAuth configuration accessible'}
+                    else:
+                        results['microsoft'] = {'status': f'❌ Microsoft OAuth endpoint error: {response.status_code}'}
+                except Exception as e:
+                    results['microsoft'] = {'status': f'❌ Microsoft OAuth test failed: {str(e)[:100]}'}
+        
+        conn.close()
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        logger.error(f"Error testing IDP connection: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to test IDP connections: {str(e)}'
+        }), 500
+
+
+# ================================
+# IDP Self-Service Portal APIs
+# ================================
+
+@app.route('/api/idp/current-user')
+def get_current_idp_user():
+    """Get current IDP user information"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    return jsonify({
+        'status': 'success',
+        'user': {
+            'email': session.get('username'),
+            'name': session.get('user_display_name') or session.get('username'),
+            'provider': 'microsoft',  # TODO: Store actual provider in session
+            'picture': None  # TODO: Store profile picture if available
+        }
+    })
+
+@app.route('/api/idp/certificate-status')
+def get_idp_certificate_status():
+    """Get current certificate status for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get the most recent active certificate for this user
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (session.get('username'),))
+        
+        cert_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if cert_row:
+            # Check if certificate is expiring soon (within 30 days)
+            from datetime import datetime, timedelta
+            expiry_date = cert_row['valid_until']
+            expiring_soon = (expiry_date - datetime.now()) < timedelta(days=30)
+            
+            return jsonify({
+                'status': 'success',
+                'certificate': {
+                    'id': cert_row['id'],
+                    'common_name': cert_row['common_name'],
+                    'serial_number': cert_row['serial_number'],
+                    'valid_from': cert_row['valid_from'].isoformat(),
+                    'valid_until': cert_row['valid_until'].isoformat(),
+                    'status': cert_row['status'],
+                    'created_at': cert_row['created_at'].isoformat()
+                },
+                'expiring_soon': expiring_soon
+            })
+        else:
+            return jsonify({
+                'status': 'success',
+                'certificate': None,
+                'expiring_soon': False
+            })
+            
+    except Exception as e:
+        logger.error(f"Error getting certificate status: {str(e)}")
+        return jsonify({'error': 'Failed to get certificate status'}), 500
+
+@app.route('/api/idp/certificate-history')
+def get_idp_certificate_history():
+    """Get certificate history for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get all certificates for this user
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s 
+            ORDER BY created_at DESC
+        """, (session.get('username'),))
+        
+        cert_rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        certificates = []
+        for row in cert_rows:
+            certificates.append({
+                'id': row['id'],
+                'common_name': row['common_name'],
+                'serial_number': row['serial_number'],
+                'valid_from': row['valid_from'].isoformat(),
+                'valid_until': row['valid_until'].isoformat(),
+                'status': row['status'],
+                'created_at': row['created_at'].isoformat()
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'certificates': certificates
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting certificate history: {str(e)}")
+        return jsonify({'error': 'Failed to get certificate history'}), 500
+
+@app.route('/api/idp/generate-certificate', methods=['POST'])
+def generate_idp_certificate():
+    """Generate a new certificate for IDP user using existing certificate request system"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        user_name = session.get('user_display_name') or email
+        
+        logger.info(f"Generating certificate for IDP user: {email}")
+        
+        # First, revoke any existing active certificates for this user
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE idp_certificates 
+            SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revocation_reason = 'superseded'
+            WHERE email = %s AND status = 'active'
+        """, (email,))
+        
+        # Create certificate request using the existing system
+        import uuid
+        import json
+        from datetime import datetime
+        request_id = str(uuid.uuid4())
+        
+        # Insert certificate request - use email as common name for proper certificate
+        cursor.execute("""
+            INSERT INTO certificate_requests (
+                request_id, requester_name, requester_email, department,
+                common_name, san_dns_names, san_ip_addresses, san_emails,
+                certificate_type, key_algorithm, key_size, validity_days,
+                certificate_template, approval_required, status,
+                request_metadata, email_verified, verification_token,
+                verification_completed_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            request_id,
+            user_name,
+            email,
+            'IDP User',
+            email,  # Use email as common name
+            [],     # san_dns_names
+            [],     # san_ip_addresses
+            [email],  # san_emails
+            'client',
+            'RSA',
+            2048,
+            365,
+            'default',
+            False,   # approval_required - auto-approve for IDP users
+            'approved',  # status
+            json.dumps({'idp_generated': True, 'provider': 'microsoft'}),
+            True,    # email_verified
+            None,    # verification_token
+            datetime.utcnow(),  # verification_completed_at
+        ))
+        
+        # Get the database ID for the request from the INSERT RETURNING
+        request_db_id = cursor.fetchone()['id']
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # First revoke any existing certificate with the same name in EasyRSA
+        logger.info(f"Checking for existing certificate with name: {email}")
+        revoke_result = make_easyrsa_request("revoke", {"name": email})
+        if revoke_result.get("status") == "success":
+            logger.info(f"Revoked existing certificate for {email}")
+        else:
+            logger.info(f"No existing certificate found for {email} (or revocation not needed)")
+        
+        # Use existing certificate generation function
+        logger.info(f"Using existing certificate generation for request {request_id}")
+        cert_generated = generate_certificate_for_request(request_db_id, request_id, {
+            'common_name': email,
+            'san_emails': [email]
+        })
+        
+        if not cert_generated:
+            return jsonify({'error': 'Certificate generation failed'}), 500
+        
+        # Get the generated certificate info and store in IDP tables
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT certificate_pem, private_key_pem 
+            FROM certificate_requests WHERE request_id = %s AND status = 'issued'
+        """, (request_id,))
+        cert_row = cursor.fetchone()
+        
+        if cert_row and cert_row['certificate_pem'] and cert_row['private_key_pem']:
+            # Parse certificate to get details
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+            
+            try:
+                cert_obj = x509.load_pem_x509_certificate(cert_row['certificate_pem'].encode(), default_backend())
+                serial_number = format(cert_obj.serial_number, 'X')
+                valid_from = cert_obj.not_valid_before
+                valid_until = cert_obj.not_valid_after
+            except Exception as e:
+                logger.error(f"Failed to parse certificate: {e}")
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Failed to parse generated certificate'}), 500
+            
+            # First create/update entry in idp_users table
+            cursor.execute("""
+                INSERT INTO idp_users (email, idp_provider, idp_user_id, name, last_login)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (email) DO UPDATE SET 
+                    name = EXCLUDED.name,
+                    last_login = CURRENT_TIMESTAMP
+            """, (email, 'microsoft', email, user_name))
+            
+            # Store in idp_certificates table for IDP portal display
+            cursor.execute("""
+                INSERT INTO idp_certificates (
+                    email, common_name, idp_provider, certificate_pem, private_key_pem,
+                    serial_number, valid_from, valid_until, status, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """, (
+                email, email, 'microsoft', cert_row['certificate_pem'], 
+                cert_row['private_key_pem'], serial_number, 
+                valid_from, valid_until, 'active'
+            ))
+            conn.commit()
+        else:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Certificate generation completed but certificate not found'}), 500
+        
+        cursor.close()
+        conn.close()
+        
+        # Send certificate via email
+        try:
+            # Get CA certificate for the email
+            ca_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": False})
+            ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
+            
+            # Send the certificate email
+            email_sent = send_certificate_email_with_data(
+                request_id=request_id,
+                recipient_email=email,
+                recipient_name=user_name,
+                common_name=email,
+                cert_pem=cert_row['certificate_pem'],
+                key_pem=cert_row['private_key_pem'],
+                ca_cert_pem=ca_cert_pem
+            )
+            
+            if not email_sent:
+                logger.warning(f"Certificate generated but email delivery failed for {email}")
+                # Don't fail the request if email fails, certificate is still generated
+        except Exception as e:
+            logger.error(f"Error sending certificate email: {e}")
+            # Don't fail the request if email fails, certificate is still generated
+        
+        logger.info(f"Successfully generated certificate for IDP user {email} with serial {serial_number}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Certificate generated successfully! Check your email for the certificate file.',
+            'serial_number': serial_number
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to generate certificate'}), 500
+
+@app.route('/api/idp/renew-certificate', methods=['POST'])
+def renew_idp_certificate():
+    """Renew certificate for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Renewing certificate for IDP user: {email}")
+        
+        # Check if user has an existing certificate
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        existing_cert = cursor.fetchone()
+        
+        if not existing_cert:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'No active certificate found to renew'}), 404
+        
+        # Check if certificate is eligible for renewal (within 30 days of expiry)
+        from datetime import datetime, timedelta
+        expiry_date = existing_cert['valid_until']
+        days_until_expiry = (expiry_date - datetime.now()).days
+        
+        if days_until_expiry > 30:
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'error': f'Certificate can only be renewed within 30 days of expiry. Current certificate expires in {days_until_expiry} days.'
+            }), 400
+        
+        cursor.close()
+        conn.close()
+        
+        # Use the same generate function which will automatically revoke existing certificates
+        # and create a new one
+        return generate_idp_certificate()
+        
+    except Exception as e:
+        logger.error(f"Error renewing certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to renew certificate'}), 500
+
+@app.route('/api/idp/revoke-certificate', methods=['POST'])
+def revoke_idp_certificate():
+    """Revoke the active certificate for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Revoking certificate for IDP user: {email}")
+        
+        # Get the active certificate from database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        active_cert = cursor.fetchone()
+        
+        if not active_cert:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'No active certificate found to revoke'}), 404
+        
+        # Update certificate status in database
+        cursor.execute("""
+            UPDATE idp_certificates 
+            SET status = 'revoked', 
+                revoked_at = CURRENT_TIMESTAMP, 
+                revocation_reason = 'user_requested'
+            WHERE id = %s
+        """, (active_cert['id'],))
+        
+        # Revoke in EasyRSA PKI
+        revoke_result = make_easyrsa_request("revoke", {"name": email})
+        
+        if revoke_result.get("status") == "success":
+            logger.info(f"Successfully revoked certificate for {email}")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Certificate revoked successfully'
+            })
+        else:
+            # If EasyRSA revocation fails, still commit database changes
+            logger.warning(f"EasyRSA revocation failed for {email}, but database updated")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Certificate marked as revoked'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error revoking certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to revoke certificate'}), 500
+
+@app.route('/api/idp/download-certificate')
+def download_idp_certificate():
+    """Download certificate for IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        format_type = request.args.get('format', 'pkcs12')
+        email = session.get('username')
+        
+        # Get the most recent active certificate for this user
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM idp_certificates 
+            WHERE email = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        cert_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not cert_row:
+            return jsonify({'error': 'No active certificate found'}), 404
+        
+        cert_pem = cert_row['certificate_pem']
+        key_pem = cert_row['private_key_pem']
+        common_name = cert_row['common_name']
+        
+        if not cert_pem or not key_pem:
+            return jsonify({'error': 'Certificate data incomplete'}), 500
+        
+        # Prepare certificate data based on format
+        from flask import make_response
+        from cryptography.hazmat.primitives import serialization
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+        
+        if format_type == 'pkcs12':
+            # Get CA certificate using the actual email address as the certificate name
+            # Since we're using the existing certificate request system, the certificate
+            # is stored with the actual email address, not a sanitized version
+            logger.info(f"Attempting to get CA certificate using email: {email}")
+            
+            ca_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": False})
+            logger.info(f"CA cert result from get-cert-files with email: {ca_result}")
+            ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
+            
+            if not ca_cert_pem:
+                logger.error(f"CA certificate not available - get-cert-files returned: {ca_result}")
+                return jsonify({'error': 'CA certificate not available for P12 creation'}), 500
+            
+            # Create P12 bundle
+            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            private_key_obj = serialization.load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
+            ca_cert_obj = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
+            
+            # Use 'certificate' as the password for P12 files
+            p12_data = serialization.pkcs12.serialize_key_and_certificates(
+                name=common_name.encode('utf-8'),
+                key=private_key_obj,
+                cert=cert_obj,
+                cas=[ca_cert_obj],
+                encryption_algorithm=serialization.BestAvailableEncryption(b'certificate')
+            )
+            
+            response = make_response(p12_data)
+            response.headers['Content-Type'] = 'application/x-pkcs12'
+            response.headers['Content-Disposition'] = f'attachment; filename="{email.replace("@", "_")}.p12"'
+            return response
+            
+        elif format_type == 'pem':
+            # Return certificate and private key as PEM bundle
+            pem_bundle = cert_pem + '\n' + key_pem
+            
+            response = make_response(pem_bundle)
+            response.headers['Content-Type'] = 'application/x-pem-file'
+            response.headers['Content-Disposition'] = f'attachment; filename="{email.replace("@", "_")}.pem"'
+            return response
+            
+        elif format_type == 'der':
+            # Convert certificate to DER format
+            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            der_data = cert_obj.public_bytes(serialization.Encoding.DER)
+            
+            response = make_response(der_data)
+            response.headers['Content-Type'] = 'application/x-x509-cert'
+            response.headers['Content-Disposition'] = f'attachment; filename="{email.replace("@", "_")}.der"'
+            return response
+            
+        else:
+            return jsonify({'error': 'Unsupported format'}), 400
+        
+    except Exception as e:
+        logger.error(f"Error downloading certificate: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to download certificate'}), 500
+
+@app.route('/auth/logout')
+def idp_logout():
+    """Logout route for IDP users (and regular users)"""
+    username = session.get('username')
+    is_idp_user = session.get('idp_user')
+    
+    if is_idp_user:
+        logger.info(f"IDP user logout: {username}")
+    
+    log_operation('logout', {'username': username, 'idp_user': is_idp_user})
+    session.clear()
+    return redirect('/login')
+
 
 # ================================
 # Certificate Generation Functions  
@@ -3623,28 +5028,70 @@ def generate_certificate_for_request(request_db_id, request_id, request_data):
         return False
 
 # Version Management API Endpoints
-@app.route('/api/version-info')
+
+@app.route('/api/version-info', methods=['GET'])
 @auth_required()
 def get_version_info():
     """Get current version information"""
     try:
-        # Get current branch
-        result = subprocess.run(['git', 'branch', '--show-current'], 
-                              cwd='/app/source', capture_output=True, text=True, timeout=10)
-        current_branch = result.stdout.strip() if result.returncode == 0 else 'Unknown'
+        # Check if git is available
+        git_available = True
+        try:
+            subprocess.run(['git', '--version'], capture_output=True, text=True, timeout=5)
+        except (subprocess.SubprocessError, FileNotFoundError):
+            git_available = False
         
-        # Get latest commit info
-        result = subprocess.run(['git', 'log', '-1', '--format=%H|%s|%an|%ad', '--date=iso'], 
-                              cwd='/app/source', capture_output=True, text=True, timeout=10)
+        if git_available:
+            # Get current branch
+            result = subprocess.run(['git', 'branch', '--show-current'], 
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
+            current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
+            
+            # Get current commit hash
+            result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
+            current_commit = result.stdout.strip() if result.returncode == 0 else 'unknown'
+            
+            # Get last update time from git log
+            result = subprocess.run(['git', 'log', '-1', '--format=%cd', '--date=iso'], 
+                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
+            last_updated = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        else:
+            # Fallback values when git is not available
+            current_branch = '5.1.0b'
+            current_commit = 'Git not available - container needs rebuild'
+            last_updated = 'Container rebuild required for full version info'
         
-        if result.returncode == 0 and result.stdout.strip():
-            commit_parts = result.stdout.strip().split('|', 3)
-            latest_commit = {
-                'hash': commit_parts[0][:8] if len(commit_parts) > 0 else 'N/A',
-                'message': commit_parts[1] if len(commit_parts) > 1 else 'N/A',
-                'author': commit_parts[2] if len(commit_parts) > 2 else 'N/A',
-                'date': commit_parts[3] if len(commit_parts) > 3 else 'N/A'
-            }
+        # Get version from manifest.json if available (for 5.0.0b compatibility)
+        version = APP_VERSION  # Default to APP_VERSION
+        try:
+            with open('/app/source/manifest.json', 'r') as f:
+                import json
+                manifest = json.load(f)
+                version = manifest.get('version', APP_VERSION)
+        except:
+            pass
+        
+        # Build latest commit info (for 5.0.0b compatibility)
+        if git_available:
+            result = subprocess.run(['git', 'log', '-1', '--format=%H|%s|%an|%ad', '--date=iso'], 
+                                  cwd='/app/source', capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                commit_parts = result.stdout.strip().split('|', 3)
+                latest_commit = {
+                    'hash': commit_parts[0][:8] if len(commit_parts) > 0 else 'N/A',
+                    'message': commit_parts[1] if len(commit_parts) > 1 else 'N/A',
+                    'author': commit_parts[2] if len(commit_parts) > 2 else 'N/A',
+                    'date': commit_parts[3] if len(commit_parts) > 3 else 'N/A'
+                }
+            else:
+                latest_commit = {
+                    'hash': current_commit[:8] if current_commit != 'unknown' else 'N/A',
+                    'message': 'Git not available',
+                    'author': 'N/A',
+                    'date': last_updated
+                }
         else:
             latest_commit = {
                 'hash': 'N/A',
@@ -3653,26 +5100,18 @@ def get_version_info():
                 'date': 'N/A'
             }
         
-        # Get version from manifest.json if available
-        version = 'Unknown'
-        try:
-            with open('/app/source/manifest.json', 'r') as f:
-                import json
-                manifest = json.load(f)
-                version = manifest.get('version', 'Unknown')
-        except:
-            pass
-        
         return jsonify({
             'status': 'success',  # For 5.1.0b compatibility
             'success': True,  # For 5.0.0b compatibility
             'branch': current_branch,  # For 5.1.0b compatibility
             'current_branch': current_branch,  # For 5.0.0b compatibility
-            'version': version,  # For both
+            'commit': current_commit,  # For 5.1.0b compatibility
+            'last_updated': last_updated,  # For 5.1.0b compatibility
+            'app_version': APP_VERSION,  # For 5.1.0b compatibility
+            'version': version,  # For 5.0.0b compatibility
             'latest_commit': latest_commit,  # For 5.0.0b compatibility
-            'commit': result.stdout.strip()[:8] if result.returncode == 0 and result.stdout.strip() else 'N/A',  # For 5.1.0b compatibility (truncated)
             'update_available': False,  # For 5.0.0b compatibility (will be determined by check-updates)
-            'git_available': True  # For 5.1.0b compatibility
+            'git_available': git_available  # For 5.1.0b compatibility
         })
         
     except Exception as e:
@@ -3684,13 +5123,13 @@ def get_version_info():
             'message': str(e)
         }), 500
 
-@app.route('/api/available-branches')
+@app.route('/api/available-branches', methods=['GET'])
 @auth_required()
 def get_available_branches():
     """Get available branches from GitHub"""
     try:
-        # Get current branch for comparison
-        current_branch = '5.0.0b'  # Default fallback
+        # Get current branch for comparison (fallback if git not available)
+        current_branch = '5.1.0b'  # Default fallback
         try:
             result = subprocess.run(['git', 'branch', '--show-current'], 
                                   capture_output=True, text=True, cwd='/app/source', timeout=10)
@@ -3699,38 +5138,38 @@ def get_available_branches():
         except (subprocess.SubprocessError, FileNotFoundError):
             pass  # Use fallback
         
-        import requests
+        # Fetch branches from GitHub API
         response = requests.get(f'{GITHUB_API_URL}/branches', timeout=10)
-        
-        if response.status_code == 200:
-            branches_data = response.json()
-            branches = []
-            for branch in branches_data:
-                branches.append({
-                    'name': branch['name'],
-                    'commit': branch['commit']['sha'],  # Full SHA for 5.1.0b compatibility
-                    'commit_sha': branch['commit']['sha'][:8],  # Truncated for 5.0.0b compatibility
-                    'protected': branch.get('protected', False),  # For 5.0.0b compatibility
-                    'commit_url': branch['commit']['url'],  # For 5.0.0b compatibility
-                    'current': branch['name'] == current_branch
-                })
-            
-            return jsonify({
-                'status': 'success',  # For 5.1.0b compatibility
-                'success': True,  # For 5.0.0b compatibility
-                'branches': branches,
-                'current_branch': current_branch
-            })
-        else:
+        if response.status_code != 200:
             return jsonify({
                 'status': 'error',  # For 5.1.0b compatibility
                 'success': False,  # For 5.0.0b compatibility
                 'error': f'GitHub API error: {response.status_code}',  # For 5.0.0b compatibility
                 'message': 'Failed to fetch branches from GitHub'
             }), 500
-            
+        
+        branches_data = response.json()
+        branches = []
+        
+        for branch in branches_data:
+            branches.append({
+                'name': branch['name'],
+                'commit': branch['commit']['sha'],  # Full SHA for 5.1.0b compatibility
+                'commit_sha': branch['commit']['sha'][:8],  # Truncated for 5.0.0b compatibility
+                'protected': branch.get('protected', False),  # For 5.0.0b compatibility
+                'commit_url': branch['commit']['url'],  # For 5.0.0b compatibility
+                'current': branch['name'] == current_branch
+            })
+        
+        return jsonify({
+            'status': 'success',  # For 5.1.0b compatibility
+            'success': True,  # For 5.0.0b compatibility
+            'branches': branches,
+            'current_branch': current_branch
+        })
+        
     except Exception as e:
-        logging.error(f"Error fetching branches: {e}")
+        logging.error(f"Error getting available branches: {e}")
         return jsonify({
             'status': 'error',  # For 5.1.0b compatibility
             'success': False,  # For 5.0.0b compatibility
@@ -3738,140 +5177,78 @@ def get_available_branches():
             'message': str(e)
         }), 500
 
-@app.route('/api/check-updates')
+@app.route('/api/check-updates', methods=['GET'])
 @auth_required()
 def check_updates():
-    """Check if updates are available for current branch"""
+    """Check if updates are available for the current branch"""
     try:
-        # Get current branch
+        # Get current branch and commit
         result = subprocess.run(['git', 'branch', '--show-current'], 
-                              cwd='/app/source', capture_output=True, text=True, timeout=10)
+                              capture_output=True, text=True, cwd='/app/source')
         current_branch = result.stdout.strip() if result.returncode == 0 else 'main'
         
-        # Get current commit hash
         result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                              cwd='/app/source', capture_output=True, text=True, timeout=10)
+                              capture_output=True, text=True, cwd='/app/source')
         current_commit = result.stdout.strip() if result.returncode == 0 else ''
         
-        # Get remote commit hash
-        import requests
+        # Get latest commit from GitHub API
         response = requests.get(f'{GITHUB_API_URL}/branches/{current_branch}', timeout=10)
-        
-        if response.status_code == 200:
-            branch_data = response.json()
-            remote_commit = branch_data['commit']['sha']
-            
-            update_available = current_commit != remote_commit
-            
-            return jsonify({
-                'status': 'success',  # For 5.1.0b compatibility
-                'success': True,  # For 5.0.0b compatibility
-                'updates_available': update_available,  # For 5.1.0b compatibility
-                'update_available': update_available,  # For 5.0.0b compatibility
-                'current_commit': current_commit[:8] if current_commit else '',  # Truncated for 5.0.0b
-                'latest_commit': remote_commit[:8] if remote_commit else '',  # Truncated for 5.0.0b
-                'current_commit_full': current_commit,  # Full for 5.1.0b
-                'latest_commit_full': remote_commit,  # Full for 5.1.0b
-                'branch': current_branch
-            })
-        else:
+        if response.status_code != 200:
             return jsonify({
                 'status': 'error',  # For 5.1.0b compatibility
                 'success': False,  # For 5.0.0b compatibility
                 'error': f'Unable to check remote branch: {response.status_code}',  # For 5.0.0b compatibility
                 'message': f'Failed to check updates for branch {current_branch}'
             }), 500
-            
+        
+        branch_data = response.json()
+        latest_commit = branch_data['commit']['sha']
+        
+        # Check if update is available
+        updates_available = current_commit != latest_commit
+        
+        response_data = {
+            'status': 'success',  # For 5.1.0b compatibility
+            'success': True,  # For 5.0.0b compatibility
+            'updates_available': updates_available,  # For 5.1.0b compatibility
+            'update_available': updates_available,  # For 5.0.0b compatibility
+            'current_commit': current_commit[:8] if current_commit else '',  # Truncated for 5.0.0b
+            'latest_commit': latest_commit[:8] if latest_commit else '',  # Truncated for 5.0.0b
+            'current_commit_full': current_commit,  # Full for 5.1.0b
+            'latest_commit_full': latest_commit,  # Full for 5.1.0b
+            'branch': current_branch
+        }
+        
+        if updates_available:
+            response_data.update({
+                'commit_message': branch_data['commit']['commit']['message'],
+                'commit_date': branch_data['commit']['commit']['committer']['date']
+            })
+        
+        return jsonify(response_data)
+        
     except Exception as e:
-        logging.error(f"Error checking updates: {e}")
-        return jsonify({
-            'status': 'error',  # For 5.1.0b compatibility
-            'success': False,  # For 5.0.0b compatibility
-            'error': str(e),  # For 5.0.0b compatibility
-            'message': str(e)
-        }), 500
+        logging.error(f"Error checking for updates: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/update-branch', methods=['POST'])
 @auth_required()
 def update_current_branch():
-    """Update current branch to latest version"""
+    """Update to the latest version of the current branch"""
     global update_status
     
+    if not session.get('is_admin'):
+        return jsonify({'status': 'error', 'message': 'Admin privileges required'}), 403
+    
     if update_status['in_progress']:
-        return jsonify({
-            'success': False, 
-            'error': 'Update already in progress'
-        }), 409
+        return jsonify({'status': 'error', 'message': 'Update already in progress'}), 409
     
-    # Start update in background thread
-    def perform_update():
-        global update_status
-        update_status.update({
-            'in_progress': True,
-            'completed': False,
-            'success': False,
-            'message': 'Starting update...',
-            'progress': 10,
-            'error': None
-        })
-        
-        try:
-            update_status.update({
-                'message': 'Updating repository...',
-                'progress': 30
-            })
-            
-            # Run the update script
-            result = subprocess.run(['/app/update-system.sh', 'update'], 
-                                  cwd='/app/source', 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=600)  # 10 minute timeout
-            
-            if result.returncode == 0:
-                update_status.update({
-                    'in_progress': False,
-                    'completed': True,
-                    'success': True,
-                    'message': 'Update completed successfully!',
-                    'progress': 100
-                })
-            else:
-                update_status.update({
-                    'in_progress': False,
-                    'completed': True,
-                    'success': False,
-                    'message': f'Update failed: {result.stderr}',
-                    'progress': 0,
-                    'error': result.stderr
-                })
-                
-        except subprocess.TimeoutExpired:
-            update_status.update({
-                'in_progress': False,
-                'completed': True,
-                'success': False,
-                'message': 'Update timed out',
-                'progress': 0,
-                'error': 'Update process timed out after 10 minutes'
-            })
-        except Exception as e:
-            update_status.update({
-                'in_progress': False,
-                'completed': True,
-                'success': False,
-                'message': f'Update failed: {str(e)}',
-                'progress': 0,
-                'error': str(e)
-            })
+    # Start update process in background thread
+    thread = Thread(target=perform_update, args=(None,))
+    thread.daemon = True
+    thread.start()
     
-    # Start update thread
-    Thread(target=perform_update, daemon=True).start()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Update started'
-    })
+    return jsonify({'status': 'success', 'message': 'Update started'})
 
 @app.route('/api/switch-branch', methods=['POST'])
 @auth_required()
@@ -3879,97 +5256,311 @@ def switch_branch():
     """Switch to a different branch"""
     global update_status
     
+    if not session.get('is_admin'):
+        return jsonify({'status': 'error', 'message': 'Admin privileges required'}), 403
+    
     if update_status['in_progress']:
-        return jsonify({
-            'success': False, 
-            'error': 'Update already in progress'
-        }), 409
+        return jsonify({'status': 'error', 'message': 'Update already in progress'}), 409
     
     data = request.get_json()
     target_branch = data.get('branch')
     
     if not target_branch:
-        return jsonify({
-            'success': False, 
-            'error': 'Branch name required'
-        }), 400
+        return jsonify({'status': 'error', 'message': 'Branch name required'}), 400
     
-    # Start branch switch in background thread
-    def perform_branch_switch():
-        global update_status
+    # Start branch switch process in background thread
+    thread = Thread(target=perform_update, args=(target_branch,))
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'status': 'success', 'message': f'Switching to branch {target_branch}'})
+
+@app.route('/api/update-status', methods=['GET'])
+@auth_required()
+def get_update_status():
+    """Get current update status"""
+    return jsonify({
+        'status': 'success',
+        'in_progress': update_status['in_progress'],
+        'completed': update_status['completed'],
+        'success': update_status['success'],
+        'message': update_status['message'],
+        'progress': update_status['progress'],
+        'error': update_status['error']
+    })
+
+def perform_update(target_branch=None):
+    """Perform the actual update/branch switch process"""
+    global update_status
+    
+    try:
         update_status.update({
             'in_progress': True,
             'completed': False,
             'success': False,
-            'message': f'Switching to branch {target_branch}...',
-            'progress': 10,
+            'message': 'Starting update process...',
+            'progress': 0,
             'error': None
         })
         
-        try:
-            update_status.update({
-                'message': f'Updating to branch {target_branch}...',
-                'progress': 50
-            })
-            
-            # Run the update script with branch switch
+        # Step 1: Fetch latest changes
+        update_status.update({'message': 'Fetching latest changes...', 'progress': 10})
+        result = subprocess.run(['git', 'fetch', 'origin'], 
+                              capture_output=True, text=True, cwd='/app/source', timeout=30)
+        if result.returncode != 0:
+            raise Exception(f'Git fetch failed: {result.stderr}')
+        
+        # Step 2: Switch branch if specified
+        if target_branch:
+            update_status.update({'message': f'Switching to branch {target_branch}...', 'progress': 30})
+            result = subprocess.run(['git', 'checkout', f'origin/{target_branch}'], 
+                                  capture_output=True, text=True, cwd='/app/source', timeout=30)
+            if result.returncode != 0:
+                raise Exception(f'Branch switch failed: {result.stderr}')
+        else:
+            # Step 3: Pull latest changes for current branch
+            update_status.update({'message': 'Pulling latest changes...', 'progress': 30})
+            result = subprocess.run(['git', 'pull', 'origin'], 
+                                  capture_output=True, text=True, cwd='/app/source', timeout=30)
+            if result.returncode != 0:
+                raise Exception(f'Git pull failed: {result.stderr}')
+        
+        # Step 4: Use the update script for Docker operations
+        update_status.update({'message': 'Executing system update...', 'progress': 50})
+        if target_branch:
             result = subprocess.run(['/app/update-system.sh', 'switch', target_branch], 
-                                  cwd='/app/source', 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=600)
-            
-            if result.returncode == 0:
-                update_status.update({
-                    'in_progress': False,
-                    'completed': True,
-                    'success': True,
-                    'message': f'Successfully switched to {target_branch}!',
-                    'progress': 100
-                })
-            else:
-                update_status.update({
-                    'in_progress': False,
-                    'completed': True,
-                    'success': False,
-                    'message': f'Branch switch failed: {result.stderr}',
-                    'progress': 0,
-                    'error': result.stderr
-                })
-                
-        except subprocess.TimeoutExpired:
-            update_status.update({
-                'in_progress': False,
-                'completed': True,
-                'success': False,
-                'message': 'Branch switch timed out',
-                'progress': 0,
-                'error': 'Branch switch process timed out after 10 minutes'
-            })
-        except Exception as e:
-            update_status.update({
-                'in_progress': False,
-                'completed': True,
-                'success': False,
-                'message': f'Branch switch failed: {str(e)}',
-                'progress': 0,
-                'error': str(e)
-            })
-    
-    # Start switch thread
-    Thread(target=perform_branch_switch, daemon=True).start()
-    
-    return jsonify({
-        'success': True,
-        'message': f'Branch switch to {target_branch} started'
-    })
+                                  capture_output=True, text=True, timeout=600)
+        else:
+            result = subprocess.run(['/app/update-system.sh', 'update'], 
+                                  capture_output=True, text=True, timeout=600)
+        
+        if result.returncode != 0:
+            raise Exception(f'System update failed: {result.stderr}')
+        
+        # Success
+        update_status.update({
+            'message': 'Update completed successfully!',
+            'progress': 100,
+            'completed': True,
+            'success': True,
+            'in_progress': False
+        })
+        
+    except Exception as e:
+        logging.error(f"Update failed: {e}")
+        update_status.update({
+            'message': 'Update failed',
+            'error': str(e),
+            'completed': True,
+            'success': False,
+            'in_progress': False
+        })
 
-@app.route('/api/update-status')
-@auth_required()
-def get_update_status():
-    """Get current update status"""
-    global update_status
-    return jsonify(update_status)
+# PKI Backup and Restore Endpoints
+@app.route('/api/pki/backup', methods=['POST'])
+@auth_required(permission='admin')
+def create_pki_backup():
+    """Create encrypted backup of the entire PKI infrastructure"""
+    try:
+        data = request.get_json() or {}
+        password = data.get('password')
+        
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        if len(password) < 8:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password must be at least 8 characters long"
+            }), 400
+        
+        log_operation('create_pki_backup')
+        
+        # Request backup from EasyRSA container
+        backup_data = {
+            'password': password,
+            'include_private_keys': True,
+            'compression': True
+        }
+        
+        response = requests.post(
+            f"{TERMINAL_CONTAINER_URL}/execute",
+            json={"operation": "create-backup", "params": backup_data},
+            timeout=300  # 5 minutes for backup
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('status') == 'success':
+                # Get the backup content
+                backup_content = result.get('backup_data')
+                if backup_content:
+                    # Create file-like object from backup data (already base64 encoded JSON)
+                    backup_bytes = backup_content.encode('utf-8')
+                    file_obj = io.BytesIO(backup_bytes)
+                    
+                    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+                    filename = f'pki-backup-{timestamp}.pki'
+                    
+                    return send_file(
+                        file_obj,
+                        as_attachment=True,
+                        download_name=filename,
+                        mimetype='application/octet-stream'
+                    )
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "No backup data received from container"
+                    }), 500
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": result.get('message', 'Backup creation failed')
+                }), 500
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"EasyRSA container error: {response.status_code}"
+            }), 500
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "status": "error",
+            "message": "Backup operation timed out. Please try again."
+        }), 408
+    except Exception as e:
+        logging.error(f"Error creating PKI backup: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to create PKI backup: {str(e)}"
+        }), 500
+
+@app.route('/api/pki/restore', methods=['POST'])
+@auth_required(permission='admin')
+def restore_pki_backup():
+    """Restore PKI infrastructure from encrypted backup"""
+    try:
+        logger.info(f"Restore request received. Files: {list(request.files.keys())}")
+        logger.info(f"Form data: {list(request.form.keys())}")
+        
+        if 'backup_file' not in request.files:
+            logger.error("No backup_file found in request.files")
+            return jsonify({
+                "status": "error",
+                "message": "No backup file provided"
+            }), 400
+        
+        file = request.files['backup_file']
+        password = request.form.get('password')
+        
+        logger.info(f"File received: {file.filename}, Password provided: {bool(password)}")
+        
+        if not file or not file.filename:
+            return jsonify({
+                "status": "error",
+                "message": "No file selected or empty filename"
+            }), 400
+        
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        # More flexible file extension check
+        if not file.filename.lower().endswith('.pki'):
+            logger.warning(f"File extension check failed: {file.filename}")
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid file format. Only .pki files are supported. Received: {file.filename}"
+            }), 400
+        
+        log_operation('restore_pki_backup', {'filename': file.filename})
+        
+        # Read and validate file content
+        try:
+            file_content = file.read()
+            if not file_content:
+                return jsonify({
+                    "status": "error",
+                    "message": "Backup file is empty"
+                }), 400
+            
+            logger.info(f"File content size: {len(file_content)} bytes")
+            
+            # File content is already base64-encoded JSON from .pki file
+            backup_data_b64 = file_content.decode('utf-8')
+            
+        except Exception as e:
+            logger.error(f"Error reading backup file: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Error reading backup file: {str(e)}"
+            }), 400
+        
+        # Send restore request to EasyRSA container
+        restore_data = {
+            'password': password,
+            'backup_data': backup_data_b64,
+            'verify_password': True
+        }
+        
+        logger.info("Sending restore request to EasyRSA container")
+        
+        try:
+            response = requests.post(
+                f"{TERMINAL_CONTAINER_URL}/execute",
+                json={"operation": "restore-backup", "params": restore_data},
+                timeout=300  # 5 minutes for restore
+            )
+            
+            logger.info(f"EasyRSA response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"EasyRSA response: {result}")
+                
+                if result.get('status') == 'success':
+                    return jsonify({
+                        "status": "success",
+                        "message": "PKI restored successfully from backup",
+                        "details": result.get('message', '')
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": result.get('message', 'Backup restore failed')
+                    }), 500
+            else:
+                response_text = response.text if hasattr(response, 'text') else 'Unknown error'
+                logger.error(f"EasyRSA container error {response.status_code}: {response_text}")
+                return jsonify({
+                    "status": "error",
+                    "message": f"EasyRSA container error: {response.status_code} - {response_text}"
+                }), 500
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request to EasyRSA container failed: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to communicate with EasyRSA container: {str(e)}"
+            }), 500
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "status": "error",
+            "message": "Restore operation timed out. Please try again."
+        }), 408
+    except Exception as e:
+        logging.error(f"Error restoring PKI backup: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to restore PKI backup: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     # Ensure logs directory exists
