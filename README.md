@@ -6,16 +6,32 @@ A complete solution for managing your Public Key Infrastructure with a beautiful
 
 ## ✨ Features
 
+### Core PKI Management
 - **🌐 Modern Web Interface** - Clean, responsive dashboard for certificate management
 - **🔐 PKI Certificate Authority** - Full-featured CA with certificate lifecycle management  
 - **📱 SCEP Server** - Simple Certificate Enrollment Protocol for device auto-enrollment
 - **🔍 OCSP Responder** - Online Certificate Status Protocol for real-time certificate validation
 - **🧪 Testing Simulators** - Built-in iOS SCEP and OCSP testing environments
 - **🚀 Traefik Integration** - Modern reverse proxy with automatic SSL/TLS
+
+### Enterprise Integration
+- **🪟 Microsoft Integration** - Active Directory authentication and certificate templates
+- **📧 SMTP Configuration** - Email notifications for certificate expiry and events
 - **👥 Multi-User Support** - Role-based access control with audit logging
+- **🔐 LDAP/AD Support** - Enterprise directory integration
 - **📊 Certificate Monitoring** - Expiry dashboard and automated alerts
+
+### Security & Compliance
 - **🔒 Security First** - Built-in rate limiting, security headers, and audit trails
+- **📋 Audit Logging** - Complete certificate lifecycle tracking
+- **🛡️ Rate Limiting** - Protection against abuse and attacks
+- **🔑 Strong Authentication** - Multi-factor authentication support
+
+### Deployment & Operations
 - **🐳 Container Ready** - Full Docker deployment with PostgreSQL and Redis
+- **📈 Real-Time Monitoring** - Live deployment progress and service health
+- **🔄 Auto-Deployment** - One-click setup with intelligent monitoring
+- **🌍 Let's Encrypt Integration** - Staging/production SSL with port forwarding support
 
 ## 🚀 Quick Start
 
@@ -42,10 +58,10 @@ unzip main.zip
 cd ca-manager-main/
 ```
 
-### 2. Run Setup Wizard
+### 2. Single Command Deployment
 
 ```bash
-# Start the interactive setup wizard
+# Start the complete deployment process
 ./deploy.sh
 ```
 
@@ -53,21 +69,48 @@ This will:
 - Start a beautiful web-based setup wizard at `http://localhost:8000`
 - Guide you through domain, SSL, and organization configuration
 - Generate all necessary configuration files
+- **Automatically deploy your CA Manager after wizard completion**
+- **Keep the wizard running for real-time deployment monitoring**
 
 ### 3. Complete Setup
 
 1. **Open your browser** to `http://localhost:8000`
 2. **Follow the 4-step wizard**:
    - 🌐 **Domain Configuration** - Set your domain name
-   - 🔐 **SSL Certificate Setup** - Choose Let's Encrypt or self-signed
+   - 🔐 **SSL Certificate Setup** - Choose Let's Encrypt (staging/production) or self-signed
    - 🏢 **Organization Details** - Configure your PKI information  
    - 🔒 **Security Settings** - Set administrator credentials
+   - 📧 **SMTP Configuration** - Configure email notifications (optional)
 
-3. **Download the generated configuration**
-4. **Stop the setup wizard**: `docker-compose -f docker-compose.setup.yml down`
-5. **Start CA Manager**: `./deploy.sh`
+3. **Deploy and Monitor**:
+   - Click "Deploy CA Manager" on the final step
+   - **Real-time progress monitoring** shows Docker build logs and service status
+   - **Progress bar** tracks deployment from 0% to 100%
+   - **Launch button** appears when deployment is complete
 
-### 4. Access Your CA Manager
+### 4. New Features 🆕
+
+#### Automated Deployment with Real-Time Monitoring
+- **One-click deployment** from the setup wizard
+- **Live progress tracking** with Docker build logs in browser
+- **Service health monitoring** with status indicators
+- **Smart completion detection** works with all SSL certificate types
+- **Enhanced PostgreSQL reliability** with improved health checks
+
+#### Let's Encrypt Enhancements
+- **Staging/Production selection** to avoid rate limits during testing
+- **Port forwarding support** for servers behind NAT/firewalls
+- **Universal SSL certificate detection** (self-signed, staging, production)
+- **HTTP/TLS challenge support** with automatic fallback
+
+#### Enhanced User Experience
+- **No manual docker-compose commands** - everything automated
+- **Wizard stays active** for monitoring instead of auto-redirecting
+- **Launch button** automatically uses your configured domain
+- **Clean restart capability** with improved cleanup scripts
+- **SMTP configuration** integrated into setup wizard
+
+### 5. Access Your CA Manager
 
 - **Main Application**: `https://your-domain/` (or `https://localhost/`)
 - **Default Login**: `admin` / `admin` (change after first login)
@@ -109,6 +152,20 @@ EASYRSA_REQ_CITY=San Francisco
 EASYRSA_REQ_ORG=Your Organization
 EASYRSA_REQ_EMAIL=admin@your-domain.com
 
+# SMTP Configuration (Optional)
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_USE_TLS=true
+EMAIL_FROM=noreply@your-domain.com
+
+# Microsoft/LDAP Integration (Optional)
+LDAP_SERVER=ldap://your-domain-controller:389
+LDAP_BIND_DN=cn=service-account,ou=Service Accounts,dc=your-domain,dc=com
+LDAP_BIND_PASSWORD=service-account-password
+LDAP_SEARCH_BASE=ou=Users,dc=your-domain,dc=com
+
 # Application
 AUTHENTICATION_ENABLED=true
 MULTI_USER_MODE=true
@@ -121,22 +178,37 @@ LOG_LEVEL=INFO
 
 For production with a real domain:
 
-1. Update `traefik.yml` to enable Let's Encrypt:
+1. **Production Environment** - Update `traefik.yml`:
 ```yaml
 certificatesResolvers:
   letsencrypt:
     acme:
       email: your-email@domain.com
       storage: /letsencrypt/acme.json
+      caServer: https://acme-v02.api.letsencrypt.org/directory  # Production
       httpChallenge:
         entryPoint: web
 ```
 
-2. Update service labels in `docker-compose.yml`:
+2. **Staging Environment** - For testing without rate limits:
+```yaml
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: your-email@domain.com
+      storage: /letsencrypt/acme.json
+      caServer: https://acme-staging-v02.api.letsencrypt.org/directory  # Staging
+      httpChallenge:
+        entryPoint: web
+```
+
+3. Update service labels in `docker-compose.yml`:
 ```yaml
 labels:
   - "traefik.http.routers.web.tls.certResolver=letsencrypt"
 ```
+
+**Note**: The setup wizard automatically configures the appropriate CA server based on your staging/production selection.
 
 #### Option 2: Self-Signed (Testing/Internal)
 
@@ -311,6 +383,25 @@ This happens when the setup wizard generates a new database password but the Pos
 # Check PostgreSQL logs for details
 docker-compose logs postgres
 ```
+
+**PostgreSQL container health check failures:**
+
+If PostgreSQL shows as "unhealthy" intermittently:
+```bash
+# Check current health status
+docker-compose ps
+
+# View PostgreSQL logs
+docker-compose logs postgres
+
+# Restart just PostgreSQL if needed
+docker-compose restart postgres
+```
+
+The system includes enhanced PostgreSQL health checks with:
+- **90 second startup grace period** - allows more time for database initialization
+- **10 retry attempts** - increased resilience for slower systems
+- **Smart dependency handling** - web interface waits for healthy database
 
 **Traefik routing:**
 ```bash
