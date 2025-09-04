@@ -569,6 +569,35 @@ def start_deployment_monitoring():
     
     return jsonify({'success': True, 'message': 'Monitoring already active'})
 
+def update_service_status():
+    """Update service status for ongoing dashboard monitoring"""
+    global deployment_status
+    
+    try:
+        import docker
+        client = docker.from_env()
+        
+        # Get all containers for this project
+        containers = client.containers.list(all=True)
+        
+        # Update service status
+        for container in containers:
+            service_name = container.name.replace('ca-manager-f-', '').replace('ca-manager-f_', '')
+            if service_name in deployment_status.get('services', {}):
+                deployment_status['services'][service_name] = {
+                    'status': container.status
+                }
+                
+        # Update domain if available from environment
+        if 'domain' not in deployment_status or deployment_status['domain'] == 'localhost':
+            domain = os.environ.get('DOMAIN', 'localhost')
+            if domain and domain != 'localhost':
+                deployment_status['domain'] = domain
+                
+    except Exception as e:
+        # Fall back to basic status if Docker API fails
+        deployment_status['logs'].append(f"Service status update error: {str(e)}")
+
 @app.route('/api/deployment/progress')
 def deployment_progress_stream():
     """Server-Sent Events stream for real-time progress"""
@@ -593,11 +622,15 @@ def deployment_progress_stream():
                     yield f"data: {current_status}\n\n"
                     last_status = current_status
                     
-                    # Stop streaming when deployment is complete or failed
-                    if safe_status['phase'] in ['completed', 'error']:
-                        break
+                # Continue monitoring services even after completion for dashboard view
+                if safe_status['phase'] == 'completed':
+                    # Update service status periodically for ongoing monitoring
+                    try:
+                        update_service_status()
+                    except Exception as service_error:
+                        deployment_status['logs'].append(f"Service monitoring error: {str(service_error)}")
                         
-                time.sleep(1)
+                time.sleep(2 if safe_status['phase'] == 'completed' else 1)
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 break

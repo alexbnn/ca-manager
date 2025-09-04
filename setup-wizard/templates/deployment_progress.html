@@ -207,6 +207,28 @@
             animation: fadeIn 0.5s;
         }
         
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: 1px solid #6c757d;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-family: var(--font-primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #5a6268;
+            border-color: #545b62;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.2);
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -223,6 +245,17 @@
         
         .error-message.show {
             display: block;
+        }
+        
+        /* Dashboard mode styling */
+        .dashboard-mode .header {
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+        }
+        
+        .dashboard-mode .success-message {
+            margin-bottom: 1rem;
         }
     </style>
 </head>
@@ -277,7 +310,18 @@
         
         <div class="success-message" id="successMessage">
             <h2>🎉 Deployment Successful!</h2>
-            <p>Your CA Manager is now ready. Redirecting to your domain...</p>
+            <p>Your CA Manager is now running and ready to use!</p>
+            <div style="margin-top: 1.5rem;">
+                <button id="launchButton" class="btn btn-primary" onclick="launchCAManager()">
+                    🚀 Launch CA Manager
+                </button>
+                <button id="refreshStatus" class="btn btn-secondary" onclick="refreshServiceStatus()" style="margin-left: 1rem;">
+                    🔄 Refresh Status
+                </button>
+            </div>
+            <div style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
+                This dashboard will continue showing service status. Bookmark this page for system monitoring.
+            </div>
         </div>
         
         <div class="error-message" id="errorMessage">
@@ -390,14 +434,22 @@
             // Handle completion
             if (data.phase === 'completed') {
                 document.querySelector('.spinner').style.display = 'none';
-                document.getElementById('currentTask').textContent = 'Deployment complete!';
+                document.getElementById('currentTask').textContent = 'Deployment complete! CA Manager is ready.';
                 document.getElementById('successMessage').classList.add('show');
                 
-                // Redirect after 3 seconds to the user's configured domain
-                setTimeout(() => {
-                    const domain = data.domain || 'localhost';
-                    window.location.href = `https://${domain}/`;
-                }, 3000);
+                // Store domain for launch button
+                window.deploymentDomain = data.domain || 'localhost';
+                
+                // Transform page to dashboard mode
+                document.title = 'CA Manager - Service Dashboard';
+                document.querySelector('h1').textContent = '📊 CA Manager Service Dashboard';
+                document.querySelector('.header p').textContent = 'Monitor your certificate authority infrastructure status';
+                document.body.classList.add('dashboard-mode');
+                
+                // Set up periodic service status refresh for dashboard
+                if (!window.dashboardInterval) {
+                    window.dashboardInterval = setInterval(refreshServiceStatus, 10000); // Every 10 seconds
+                }
             }
             
             // Handle errors
@@ -431,20 +483,18 @@
         }
         
         function startPolling() {
-            // Fallback polling method
+            // Fallback polling method - continues indefinitely for dashboard monitoring
             setInterval(async () => {
                 try {
                     const response = await fetch('/api/deployment/status');
                     const data = await response.json();
                     updateProgress(data);
                     
-                    if (data.phase === 'completed' || data.phase === 'error') {
-                        clearInterval();
-                    }
+                    // Continue polling even after completion for service dashboard
                 } catch (error) {
                     console.error('Polling error:', error);
                 }
-            }, 2000);
+            }, 3000); // Slower polling for dashboard view
         }
         
         // Start monitoring when page loads
@@ -456,6 +506,29 @@
                 eventSource.close();
             }
         });
+        
+        // New functions for service dashboard
+        function launchCAManager() {
+            const domain = window.deploymentDomain || 'localhost';
+            window.open(`https://${domain}/`, '_blank');
+        }
+        
+        function refreshServiceStatus() {
+            // Refresh the service status by fetching latest deployment status
+            fetch('/api/deployment/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateProgress(data);
+                    
+                    // Update page title to show it's now a dashboard
+                    document.title = 'CA Manager - Service Dashboard';
+                    document.querySelector('h1').textContent = '📊 CA Manager Service Dashboard';
+                    document.querySelector('.header p').textContent = 'Monitor your certificate authority infrastructure status';
+                })
+                .catch(error => {
+                    console.error('Failed to refresh status:', error);
+                });
+        }
     </script>
 </body>
 </html>
