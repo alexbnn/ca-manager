@@ -416,24 +416,6 @@ Set `LOG_LEVEL=DEBUG` in your `.env` file for verbose logging.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🤝 Support
-
-- **Issues**: Report bugs and feature requests
-- **Documentation**: Full API documentation available in the web interface
-- **Community**: Join our community for support and discussions
-
-## 🎯 Roadmap
-
-- [ ] REST API documentation
-- [ ] Certificate templates
-- [ ] LDAP integration
-- [ ] HSM support
-- [ ] Kubernetes deployment
-- [ ] Advanced monitoring
-- [ ] CRL Distribution Points
-- [ ] EST (Enrollment over Secure Transport) support
-- [ ] Certificate Transparency logging
-
 ---
 
 **Made with ❤️ for secure certificate management**
