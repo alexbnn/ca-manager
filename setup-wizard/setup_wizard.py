@@ -366,43 +366,52 @@ def monitor_deployment():
         while iteration < max_iterations:
             try:
                 containers = client.containers.list(all=True)
+                ca_manager_containers = [c for c in containers if 'ca-manager-f' in c.name]
                 running_services = 0
                 healthy_services = 0
                 
-                # Update service statuses
-                for container in containers:
-                    if 'ca-manager-f' in container.name:
-                        # Extract service name from container name
-                        name_parts = container.name.split('-')
-                        if len(name_parts) >= 4:
-                            service_name = '-'.join(name_parts[3:-1])  # Handle multi-part service names
-                            
-                            if service_name in deployment_status['services']:
-                                status = container.status
-                                deployment_status['services'][service_name]['status'] = status
-                                
-                                if status == 'running':
-                                    running_services += 1
-                                    
-                                    # Check health if available
-                                    try:
-                                        health = container.attrs.get('State', {}).get('Health', {})
-                                        if health:
-                                            health_status = health.get('Status', 'unknown')
-                                            deployment_status['services'][service_name]['health'] = health_status
-                                            if health_status == 'healthy':
-                                                healthy_services += 1
-                                    except:
-                                        pass
+                # During early iterations (build phase), progress based on time + any containers that appear
+                if iteration < 60:  # First 2 minutes - build phase
+                    base_progress = 10 + (iteration / 60) * 40  # Progress from 10% to 50%
+                    container_bonus = len(ca_manager_containers) * 5  # +5% per container that appears
+                    deployment_status['progress'] = min(int(base_progress + container_bonus), 50)
+                    deployment_status['phase'] = 'building'
+                    deployment_status['current_task'] = f'Building images... ({len(ca_manager_containers)} services created)'
                 
-                # Update progress based on running services
-                if len(services) > 0:
-                    progress = 10 + (running_services / len(services)) * 70
+                # Update service statuses for any containers that exist
+                for container in ca_manager_containers:
+                    # Extract service name from container name
+                    name_parts = container.name.split('-')
+                    if len(name_parts) >= 4:
+                        service_name = '-'.join(name_parts[3:-1])  # Handle multi-part service names
+                        
+                        if service_name in deployment_status['services']:
+                            status = container.status
+                            deployment_status['services'][service_name]['status'] = status
+                            
+                            if status == 'running':
+                                running_services += 1
+                                
+                                # Check health if available
+                                try:
+                                    health = container.attrs.get('State', {}).get('Health', {})
+                                    if health:
+                                        health_status = health.get('Status', 'unknown')
+                                        deployment_status['services'][service_name]['health'] = health_status
+                                        if health_status == 'healthy':
+                                            healthy_services += 1
+                                except:
+                                    pass
+                
+                # After build phase, update progress based on running services
+                if iteration >= 60 and len(services) > 0:
+                    progress = 50 + (running_services / len(services)) * 35  # 50% to 85%
                     deployment_status['progress'] = int(progress)
                     
                     if running_services >= len(services) * 0.8:  # 80% of services running
                         deployment_status['phase'] = 'configuring_ssl'
                         deployment_status['current_task'] = 'Configuring SSL certificates...'
+                        deployment_status['progress'] = min(85 + (running_services / len(services)) * 10, 95)
                         
                         # Check for successful certificate acquisition
                         if check_certificates():
@@ -413,6 +422,9 @@ def monitor_deployment():
                     elif running_services > 0:
                         deployment_status['phase'] = 'starting_services'
                         deployment_status['current_task'] = f'Starting services ({running_services}/{len(services)} running)...'
+                    else:
+                        deployment_status['phase'] = 'starting_services'
+                        deployment_status['current_task'] = f'Waiting for services to start... ({len(ca_manager_containers)} containers created)'
                 
                 # Capture Docker logs for real-time display
                 capture_docker_logs()
