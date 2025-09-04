@@ -840,7 +840,7 @@ def health():
     return jsonify({'status': 'healthy', 'setup_complete': is_setup_complete()})
 
 @app.route('/api/status')
-def deployment_status():
+def get_wizard_status():
     """Get deployment status and warnings"""
     try:
         existing_volumes = check_existing_deployment()
