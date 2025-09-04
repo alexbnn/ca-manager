@@ -332,6 +332,20 @@ def monitor_deployment():
     """Monitor Docker Compose deployment progress"""
     global deployment_status
     
+    # Load domain from generated .env file if not already set
+    if deployment_status.get('domain') == 'localhost' or not deployment_status.get('domain'):
+        try:
+            if os.path.exists('/app/output/.env'):
+                with open('/app/output/.env', 'r') as f:
+                    for line in f:
+                        if line.startswith('DOMAIN='):
+                            domain = line.split('=', 1)[1].strip().strip('"')
+                            if domain:
+                                deployment_status['domain'] = domain
+                            break
+        except:
+            pass
+    
     if not DOCKER_AVAILABLE:
         deployment_status['errors'].append("Docker SDK not available for monitoring")
         deployment_status['phase'] = 'error'
@@ -617,7 +631,22 @@ def start_deployment_monitoring():
     except Exception:
         data = {}
     
-    domain = data.get('domain', 'localhost')
+    # Try to get domain from the generated .env file first, then fall back to request data
+    domain = 'localhost'
+    try:
+        if os.path.exists('/app/output/.env'):
+            with open('/app/output/.env', 'r') as f:
+                for line in f:
+                    if line.startswith('DOMAIN='):
+                        domain = line.split('=', 1)[1].strip().strip('"')
+                        break
+    except:
+        pass
+    
+    # Fall back to request data if not found in .env
+    if domain == 'localhost':
+        domain = data.get('domain', 'localhost')
+    
     deployment_status['domain'] = domain
     
     if deployment_monitor_thread is None or not deployment_monitor_thread.is_alive():
@@ -735,11 +764,22 @@ def update_service_status():
                     'status': container.status
                 }
                 
-        # Update domain if available from environment
+        # Update domain from the generated .env file
         if 'domain' not in deployment_status or deployment_status['domain'] == 'localhost':
-            domain = os.environ.get('DOMAIN', 'localhost')
-            if domain and domain != 'localhost':
-                deployment_status['domain'] = domain
+            try:
+                if os.path.exists('/app/output/.env'):
+                    with open('/app/output/.env', 'r') as f:
+                        for line in f:
+                            if line.startswith('DOMAIN='):
+                                domain = line.split('=', 1)[1].strip().strip('"')
+                                if domain and domain != 'localhost':
+                                    deployment_status['domain'] = domain
+                                break
+            except:
+                # Fall back to environment variable
+                domain = os.environ.get('DOMAIN', 'localhost')
+                if domain and domain != 'localhost':
+                    deployment_status['domain'] = domain
                 
         # Capture recent Docker logs
         capture_docker_logs()

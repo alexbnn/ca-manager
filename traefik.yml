@@ -6,10 +6,10 @@ api:
 certificatesResolvers:
   letsencrypt:
     acme:
+      caServer: https://acme-staging-v02.api.letsencrypt.org/directory
       email: admin@bonnerseptien.com
       storage: /letsencrypt/acme.json
-      httpChallenge:
-        entryPoint: web
+      tlsChallenge: {}
 entryPoints:
   web:
     address: :80
@@ -22,7 +22,7 @@ entryPoints:
     address: :443
 log:
   filePath: /var/log/traefik/traefik.log
-  level: DEBUG
+  level: INFO
 metrics:
   prometheus:
     addRoutersLabels: true
