@@ -18,7 +18,7 @@ tls:
 # HTTP Middlewares
 http:
   middlewares:
-    # Security headers
+    # Security headers - without forced SSL redirect (handled by entrypoint)
     security-headers:
       headers:
         customRequestHeaders:
@@ -31,7 +31,7 @@ http:
           Referrer-Policy: "strict-origin-when-cross-origin"
         contentTypeNosniff: true
         frameDeny: true
-        sslRedirect: true
+        # Removed sslRedirect to allow ACME HTTP challenges
         
     # Rate limiting
     api-rate-limit:

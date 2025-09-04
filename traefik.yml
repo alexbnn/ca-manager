@@ -8,7 +8,8 @@ certificatesResolvers:
     acme:
       email: admin@bonnerseptien.com
       storage: /letsencrypt/acme.json
-      tlsChallenge: {}
+      httpChallenge:
+        entryPoint: web
 entryPoints:
   web:
     address: :80
@@ -21,7 +22,7 @@ entryPoints:
     address: :443
 log:
   filePath: /var/log/traefik/traefik.log
-  level: INFO
+  level: DEBUG
 metrics:
   prometheus:
     addRoutersLabels: true
