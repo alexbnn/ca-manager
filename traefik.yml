@@ -3,6 +3,12 @@ accessLog:
 api:
   dashboard: true
   insecure: true
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@bonnerseptien.com
+      storage: /letsencrypt/acme.json
+      tlsChallenge: {}
 entryPoints:
   web:
     address: :80
@@ -27,10 +33,3 @@ providers:
   file:
     filename: /etc/traefik/traefik-dynamic.yml
     watch: true
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: admin@ca.bonnerseptien.com
-      storage: /letsencrypt/acme.json
-      httpChallenge:
-        entryPoint: web
