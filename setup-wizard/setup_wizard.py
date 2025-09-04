@@ -119,12 +119,11 @@ def update_traefik_config(domain, ssl_type, email=None):
             }
         }
     
-    # Add file provider for self-signed certificates if not using Let's Encrypt
-    if not use_letsencrypt or domain == 'localhost':
-        config['providers']['file'] = {
-            'filename': '/etc/traefik/traefik-dynamic.yml',
-            'watch': True
-        }
+    # Always add file provider for dynamic configuration
+    config['providers']['file'] = {
+        'filename': '/etc/traefik/traefik-dynamic.yml',
+        'watch': True
+    }
     
     return config
 
@@ -192,6 +191,71 @@ def update_docker_compose_labels(domain, ssl_type):
         'ocsp_simulator_labels': ocsp_simulator_labels,
         'ios_simulator_labels': ios_simulator_labels
     }
+
+def create_traefik_dynamic_config():
+    """Create traefik-dynamic.yml configuration"""
+    return """# Traefik Dynamic Configuration
+# This file handles TLS certificates and additional routing rules
+
+# TLS Configuration for self-signed certificates
+tls:
+  options:
+    default:
+      minVersion: "VersionTLS12"
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  
+  certificates:
+    - certFile: /ssl/server.crt
+      keyFile: /ssl/server.key
+
+# HTTP Middlewares
+http:
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Frame-Options: "DENY"
+          X-Content-Type-Options: "nosniff"
+          X-XSS-Protection: "1; mode=block"
+          Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+        contentTypeNosniff: true
+        frameDeny: true
+        sslRedirect: true
+        
+    # Rate limiting
+    api-rate-limit:
+      rateLimit:
+        burst: 10
+        average: 5
+        period: "1m"
+        
+    web-rate-limit:
+      rateLimit:
+        burst: 30
+        average: 10
+        period: "1m"
+        
+    # WebSocket-friendly headers for noVNC
+    websocket-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        # Remove problematic security headers for WebSocket connections
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+        contentTypeNosniff: false
+        frameDeny: false
+
+  # Services can be defined here if needed
+  services: {}
+"""
 
 def create_env_file(config):
     """Create .env file with configuration"""
@@ -323,6 +387,12 @@ def setup_configuration():
             with open(traefik_path, 'w') as f:
                 yaml.dump(traefik_config, f, default_flow_style=False)
             print(f"✅ Written traefik.yml to {traefik_path}")
+            
+            # Write traefik dynamic configuration
+            traefik_dynamic_path = os.path.join(output_dir, 'traefik-dynamic.yml')
+            with open(traefik_dynamic_path, 'w') as f:
+                f.write(create_traefik_dynamic_config())
+            print(f"✅ Written traefik-dynamic.yml to {traefik_dynamic_path}")
             
             # Update docker-compose labels
             labels_dict = update_docker_compose_labels(domain, ssl_type)
