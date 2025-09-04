@@ -8,11 +8,12 @@ services:
       - "8000:8000"
     volumes:
       - .:/app/output:rw  # Mount current directory to save generated configs
-      - /var/run/docker.sock:/var/run/docker.sock  # Access Docker daemon for monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:rw  # Access Docker daemon for monitoring
     environment:
       - FLASK_ENV=production
       - FLASK_APP=setup_wizard.py
     restart: "no"  # Only run when explicitly started
+    privileged: true  # Needed for Docker socket access during deployment
     networks:
       - setup-network
 

@@ -577,7 +577,7 @@ def start_deployment_monitoring():
     return jsonify({'success': True, 'message': 'Monitoring already active'})
 
 def capture_docker_logs():
-    """Capture recent Docker container logs for display - with fallback to simulated progress"""
+    """Capture recent Docker container logs for display"""
     global deployment_status
     
     # Skip log capture if we've already established it's not working
@@ -586,15 +586,16 @@ def capture_docker_logs():
     
     try:
         import docker
+        import os
         
-        # Try to connect with explicit socket path
-        try:
-            client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            client.ping()  # Test connection
-        except:
-            # Try default connection
-            client = docker.from_env()
-            client.ping()  # Test connection
+        # Verify socket exists and is accessible
+        socket_path = '/var/run/docker.sock'
+        if not os.path.exists(socket_path):
+            raise Exception("Docker socket not found at /var/run/docker.sock")
+        
+        # Try to connect to Docker daemon
+        client = docker.DockerClient(base_url='unix:///var/run/docker.sock', timeout=5)
+        client.ping()  # Test connection
         
         # Get all containers for this project
         containers = client.containers.list(all=True, filters={'name': 'ca-manager-f'})
@@ -641,27 +642,21 @@ def capture_docker_logs():
                 deployment_status['logs'] = deployment_status['logs'][-20:]
                         
     except Exception as e:
-        # Mark Docker as unavailable to avoid repeated attempts
+        # Mark Docker as unavailable and log the specific error for debugging
         capture_docker_logs._docker_unavailable = True
         
-        # Add simulated progress messages instead
-        phase = deployment_status.get('phase', 'initializing')
-        progress = deployment_status.get('progress', 0)
+        error_details = str(e)
+        if 'socket' in error_details.lower():
+            debug_msg = "Docker socket access denied - check container permissions"
+        elif 'connection' in error_details.lower():
+            debug_msg = "Cannot connect to Docker daemon"
+        else:
+            debug_msg = f"Docker API error: {error_details[:50]}"
         
-        simulated_messages = []
-        if phase == 'building' and progress < 50:
-            simulated_messages = ['🔨 Building container images...', '📦 Downloading base images...']
-        elif phase == 'starting_services' or (phase == 'building' and progress >= 50):
-            simulated_messages = ['🚀 Starting database services...', '🌐 Initializing web services...']
-        elif phase == 'configuring_ssl':
-            simulated_messages = ['🔒 Configuring SSL certificates...', '🌐 Setting up Traefik proxy...']
-        
-        # Add one simulated message occasionally
-        existing_logs_text = ' '.join(deployment_status.get('logs', [])[-5:])
-        for msg in simulated_messages[:1]:  # Only add one at a time
-            if msg not in existing_logs_text:
-                deployment_status['logs'].append(msg)
-                break
+        # Add debug info only once
+        if not any('Docker API error' in log or 'Docker socket' in log for log in deployment_status.get('logs', [])[-3:]):
+            deployment_status['logs'].append(f"⚠️ {debug_msg}")
+            deployment_status['logs'].append("📋 Monitoring deployment status instead...")
 
 def update_service_status():
     """Update service status for ongoing dashboard monitoring"""
