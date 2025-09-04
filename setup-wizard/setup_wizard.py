@@ -434,29 +434,33 @@ def monitor_deployment_fallback():
     deployment_status['current_task'] = 'Building and starting services...'
     
     # Simulate progress over time since we can't directly monitor Docker
-    max_iterations = 180  # 3 minutes
+    max_iterations = 300  # 5 minutes total
     iteration = 0
     
     while iteration < max_iterations:
         try:
-            # Update progress based on time elapsed (fallback monitoring)
-            progress = min(20 + (iteration / max_iterations) * 70, 90)
-            deployment_status['progress'] = int(progress)
-            
-            if iteration > 60:  # After 1 minute, assume services are starting
+            # More gradual progress that matches real build times
+            if iteration <= 120:  # First 2 minutes: building (20-50%)
+                progress = 20 + (iteration / 120) * 30
+                deployment_status['phase'] = 'building'
+                deployment_status['current_task'] = 'Building Docker images...'
+            elif iteration <= 240:  # Next 2 minutes: starting (50-85%)  
+                progress = 50 + ((iteration - 120) / 120) * 35
                 deployment_status['phase'] = 'starting_services'
-                deployment_status['current_task'] = 'Services are starting...'
-                
-            if iteration > 120:  # After 2 minutes, check for completion
-                deployment_status['phase'] = 'configuring_ssl'
+                deployment_status['current_task'] = 'Starting services...'
+            else:  # Last minute: SSL and completion check (85-100%)
+                progress = 85 + ((iteration - 240) / 60) * 10
+                deployment_status['phase'] = 'configuring_ssl' 
                 deployment_status['current_task'] = 'Configuring SSL certificates...'
                 
-                # Check if we can access the application
-                if check_application_ready():
+                # Check every 10 seconds for completion during SSL phase
+                if iteration % 10 == 0 and check_application_ready():
                     deployment_status['phase'] = 'completed'
                     deployment_status['progress'] = 100
                     deployment_status['current_task'] = 'Deployment completed successfully!'
                     break
+                    
+            deployment_status['progress'] = min(int(progress), 95)  # Cap at 95% until confirmed ready
             
             iteration += 1
             time.sleep(1)
@@ -474,9 +478,23 @@ def monitor_deployment_fallback():
 def check_application_ready():
     """Check if the application is ready by testing HTTP access"""
     try:
+        # Try to access the application via the host's network
+        # Since we're in a container, use the gateway IP
         import urllib.request
-        urllib.request.urlopen('http://localhost:80', timeout=5)
-        return True
+        # Try multiple possible endpoints
+        endpoints = [
+            'http://host.docker.internal:80',
+            'http://172.17.0.1:80',  # Common Docker bridge gateway
+            'http://host.docker.internal:443',
+        ]
+        
+        for endpoint in endpoints:
+            try:
+                urllib.request.urlopen(endpoint, timeout=3)
+                return True
+            except:
+                continue
+        return False
     except:
         return False
 
