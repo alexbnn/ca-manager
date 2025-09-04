@@ -526,7 +526,15 @@ def start_deployment_monitoring():
     """Start deployment monitoring"""
     global deployment_monitor_thread, deployment_status
     
-    data = request.get_json() or {}
+    # Handle both JSON and form data
+    try:
+        if request.is_json:
+            data = request.get_json() or {}
+        else:
+            data = request.form.to_dict() or {}
+    except Exception:
+        data = {}
+    
     domain = data.get('domain', 'localhost')
     deployment_status['domain'] = domain
     
