@@ -147,16 +147,19 @@ echo "🔍 Monitoring for deployment signal..."
             echo "⏳ Waiting for deployment response to complete..."
             sleep 3
             
-            # Stop setup wizard
-            docker-compose -f docker-compose.setup.yml down
-            
-            # Start main application
-            docker-compose up -d
+            # Start main application while keeping wizard running for monitoring
+            echo "🚀 Starting main application deployment..."
+            docker-compose up -d --build
             
             echo ""
-            echo "✅ CA Manager deployment complete!"
+            echo "📊 Deployment started! Monitor progress at: http://localhost:8000/progress"
+            echo "🔄 The setup wizard will show real-time deployment progress"
+            echo "⏳ This process may take 5-10 minutes for first-time setup"
+            
             echo ""
-            echo "🌐 Your CA Manager is now running:"
+            echo "🎉 Deployment monitoring will continue in the browser!"
+            echo ""
+            echo "🌐 Once complete, your CA Manager will be available at:"
             if [ -f ".env" ]; then
                 DOMAIN=$(grep "DOMAIN=" .env | cut -d'=' -f2 | tr -d '"' || echo "localhost")
                 echo "📊 Main Application: https://$DOMAIN/"
@@ -169,8 +172,11 @@ echo "🔍 Monitoring for deployment signal..."
             fi
             echo "📈 Traefik Dashboard: http://localhost:8081/"
             echo ""
+            echo "💡 The setup wizard will transform into a service dashboard when deployment completes"
+            echo "🔄 Press Ctrl+C to stop monitoring (deployment will continue in background)"
             
-            exit 0
+            # Don't exit - keep monitoring active
+            break
         fi
         sleep 2
     done
