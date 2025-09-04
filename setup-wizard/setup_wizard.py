@@ -517,12 +517,23 @@ def deployment_progress():
 @app.route('/api/deployment/status')
 def get_deployment_status():
     """Get current deployment status"""
-    return jsonify(deployment_status)
+    global deployment_status
+    # Create a safe copy for JSON serialization
+    safe_status = {
+        'phase': deployment_status.get('phase', 'waiting'),
+        'progress': deployment_status.get('progress', 0),
+        'current_task': deployment_status.get('current_task', ''),
+        'services': deployment_status.get('services', {}),
+        'logs': deployment_status.get('logs', []),
+        'errors': deployment_status.get('errors', []),
+        'domain': deployment_status.get('domain', 'localhost')
+    }
+    return jsonify(safe_status)
 
 @app.route('/api/deployment/start', methods=['POST'])
 def start_deployment_monitoring():
     """Start deployment monitoring"""
-    global deployment_monitor_thread
+    global deployment_monitor_thread, deployment_status
     
     data = request.get_json() or {}
     domain = data.get('domain', 'localhost')
@@ -545,18 +556,34 @@ def start_deployment_monitoring():
 def deployment_progress_stream():
     """Server-Sent Events stream for real-time progress"""
     def generate():
+        global deployment_status
         last_status = None
         while True:
-            current_status = json.dumps(deployment_status)
-            if current_status != last_status:
-                yield f"data: {current_status}\n\n"
-                last_status = current_status
+            try:
+                # Create a safe copy of deployment_status for JSON serialization
+                safe_status = {
+                    'phase': deployment_status.get('phase', 'waiting'),
+                    'progress': deployment_status.get('progress', 0),
+                    'current_task': deployment_status.get('current_task', ''),
+                    'services': deployment_status.get('services', {}),
+                    'logs': deployment_status.get('logs', []),
+                    'errors': deployment_status.get('errors', []),
+                    'domain': deployment_status.get('domain', 'localhost')
+                }
                 
-                # Stop streaming when deployment is complete or failed
-                if deployment_status['phase'] in ['completed', 'error']:
-                    break
+                current_status = json.dumps(safe_status)
+                if current_status != last_status:
+                    yield f"data: {current_status}\n\n"
+                    last_status = current_status
                     
-            time.sleep(1)
+                    # Stop streaming when deployment is complete or failed
+                    if safe_status['phase'] in ['completed', 'error']:
+                        break
+                        
+                time.sleep(1)
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                break
     
     return Response(generate(), mimetype='text/event-stream')
 
