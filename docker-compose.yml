@@ -285,7 +285,7 @@ services:
       - "traefik.http.services.ocsp.loadbalancer.server.port=8091"
   # Traefik reverse proxy with automatic SSL and service discovery
   traefik:
-    image: traefik:v3.0
+    image: traefik:latest
     ports:
       - "80:80"     # HTTP
       - "443:443"   # HTTPS
