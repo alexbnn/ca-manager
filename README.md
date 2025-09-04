@@ -15,10 +15,10 @@ A complete solution for managing your Public Key Infrastructure with a beautiful
 - **🚀 Traefik Integration** - Modern reverse proxy with automatic SSL/TLS
 
 ### Enterprise Integration
-- **🪟 Microsoft Integration** - Active Directory authentication and certificate templates
+- **🪟 Microsoft Entra ID Integration** - Azure AD authentication with self-service certificate requests
 - **📧 SMTP Configuration** - Email notifications for certificate expiry and events
 - **👥 Multi-User Support** - Role-based access control with audit logging
-- **🔐 LDAP/AD Support** - Enterprise directory integration
+- **🔐 Self-Service Certificates** - Users can request certificates through Entra ID authentication
 - **📊 Certificate Monitoring** - Expiry dashboard and automated alerts
 
 ### Security & Compliance
@@ -80,7 +80,6 @@ This will:
    - 🔐 **SSL Certificate Setup** - Choose Let's Encrypt (staging/production) or self-signed
    - 🏢 **Organization Details** - Configure your PKI information  
    - 🔒 **Security Settings** - Set administrator credentials
-   - 📧 **SMTP Configuration** - Configure email notifications (optional)
 
 3. **Deploy and Monitor**:
    - Click "Deploy CA Manager" on the final step
@@ -108,7 +107,6 @@ This will:
 - **Wizard stays active** for monitoring instead of auto-redirecting
 - **Launch button** automatically uses your configured domain
 - **Clean restart capability** with improved cleanup scripts
-- **SMTP configuration** integrated into setup wizard
 
 ### 5. Access Your CA Manager
 
@@ -160,11 +158,12 @@ SMTP_PASSWORD=your-app-password
 SMTP_USE_TLS=true
 EMAIL_FROM=noreply@your-domain.com
 
-# Microsoft/LDAP Integration (Optional)
-LDAP_SERVER=ldap://your-domain-controller:389
-LDAP_BIND_DN=cn=service-account,ou=Service Accounts,dc=your-domain,dc=com
-LDAP_BIND_PASSWORD=service-account-password
-LDAP_SEARCH_BASE=ou=Users,dc=your-domain,dc=com
+# Microsoft Entra ID Integration (Optional)
+ENTRA_TENANT_ID=your-tenant-id
+ENTRA_CLIENT_ID=your-client-id
+ENTRA_CLIENT_SECRET=your-client-secret
+ENTRA_REDIRECT_URI=https://your-domain.com/auth/callback
+ENABLE_SELF_SERVICE=true
 
 # Application
 AUTHENTICATION_ENABLED=true
