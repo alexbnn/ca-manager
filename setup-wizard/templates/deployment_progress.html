@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CA Manager - Deployment Progress</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 2rem;
+            max-width: 900px;
+            width: 90%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            color: #764ba2;
+            margin-bottom: 0.5rem;
+        }
+        
+        .progress-container {
+            margin: 2rem 0;
+        }
+        
+        .progress-bar {
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 15px;
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .phase-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding: 0 1rem;
+        }
+        
+        .phase {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .phase-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .phase.active .phase-dot {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .phase.completed .phase-dot {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .phase-label {
+            font-size: 0.8rem;
+            text-align: center;
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .service-card {
+            background: #f8f8f8;
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .service-card.running {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+        
+        .service-card.building {
+            background: #fff3e0;
+            border-color: #ff9800;
+        }
+        
+        .service-card.error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+        
+        .service-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .service-name {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        
+        .service-status {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .logs-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 1rem;
+            border-radius: 10px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.25rem;
+        }
+        
+        .current-task {
+            text-align: center;
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            color: #666;
+            min-height: 30px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #764ba2;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            background: linear-gradient(135deg, #4caf50, #8bc34a);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        .success-message.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .error-message {
+            background: #f44336;
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Deploying CA Manager</h1>
+            <p>Please wait while we set up your certificate authority infrastructure...</p>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar">0%</div>
+            </div>
+        </div>
+        
+        <div class="phase-indicator">
+            <div class="phase" id="phase-init">
+                <div class="phase-dot">📦</div>
+                <div class="phase-label">Initialize</div>
+            </div>
+            <div class="phase" id="phase-build">
+                <div class="phase-dot">🔨</div>
+                <div class="phase-label">Build Images</div>
+            </div>
+            <div class="phase" id="phase-start">
+                <div class="phase-dot">▶️</div>
+                <div class="phase-label">Start Services</div>
+            </div>
+            <div class="phase" id="phase-ssl">
+                <div class="phase-dot">🔒</div>
+                <div class="phase-label">SSL Setup</div>
+            </div>
+            <div class="phase" id="phase-complete">
+                <div class="phase-dot">✅</div>
+                <div class="phase-label">Complete</div>
+            </div>
+        </div>
+        
+        <div class="current-task">
+            <span class="spinner"></span>
+            <span id="currentTask">Initializing deployment...</span>
+        </div>
+        
+        <div class="services-grid" id="servicesGrid">
+            <!-- Services will be dynamically added here -->
+        </div>
+        
+        <div class="logs-container" id="logsContainer">
+            <div class="log-entry">🚀 Starting deployment process...</div>
+        </div>
+        
+        <div class="success-message" id="successMessage">
+            <h2>🎉 Deployment Successful!</h2>
+            <p>Your CA Manager is now ready. Redirecting to your domain...</p>
+        </div>
+        
+        <div class="error-message" id="errorMessage">
+            <strong>⚠️ Deployment Error:</strong>
+            <p id="errorText"></p>
+        </div>
+    </div>
+    
+    <script>
+        const services = {
+            'traefik': { icon: '🌐', name: 'Traefik Proxy' },
+            'postgres': { icon: '🗄️', name: 'PostgreSQL' },
+            'redis': { icon: '⚡', name: 'Redis Cache' },
+            'web-interface': { icon: '🖥️', name: 'Web Interface' },
+            'easyrsa-container': { icon: '🔐', name: 'EasyRSA PKI' },
+            'scep-server': { icon: '📱', name: 'SCEP Server' },
+            'ios-scep-simulator': { icon: '📲', name: 'iOS Simulator' },
+            'ocsp-simulator': { icon: '🔍', name: 'OCSP Simulator' },
+            'ocsp-responder': { icon: '✔️', name: 'OCSP Responder' }
+        };
+        
+        const phases = {
+            'initializing': 'phase-init',
+            'building': 'phase-build',
+            'starting': 'phase-start',
+            'configuring_ssl': 'phase-ssl',
+            'completed': 'phase-complete'
+        };
+        
+        let eventSource = null;
+        
+        function initializeServices() {
+            const grid = document.getElementById('servicesGrid');
+            
+            for (const [key, service] of Object.entries(services)) {
+                const card = document.createElement('div');
+                card.className = 'service-card';
+                card.id = `service-${key}`;
+                card.innerHTML = `
+                    <div class="service-icon">${service.icon}</div>
+                    <div class="service-name">${service.name}</div>
+                    <div class="service-status">Pending...</div>
+                `;
+                grid.appendChild(card);
+            }
+        }
+        
+        function updateProgress(data) {
+            // Update progress bar
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${data.progress}%`;
+            progressBar.textContent = `${data.progress}%`;
+            
+            // Update current task
+            if (data.current_task) {
+                document.getElementById('currentTask').textContent = data.current_task;
+            }
+            
+            // Update phases
+            document.querySelectorAll('.phase').forEach(p => p.classList.remove('active', 'completed'));
+            
+            const currentPhase = phases[data.phase];
+            if (currentPhase) {
+                const phaseEl = document.getElementById(currentPhase);
+                phaseEl.classList.add('active');
+                
+                // Mark previous phases as completed
+                const phaseOrder = Object.values(phases);
+                const currentIndex = phaseOrder.indexOf(currentPhase);
+                for (let i = 0; i < currentIndex; i++) {
+                    document.getElementById(phaseOrder[i]).classList.add('completed');
+                }
+            }
+            
+            // Update services
+            if (data.services) {
+                for (const [service, status] of Object.entries(data.services)) {
+                    const card = document.getElementById(`service-${service}`);
+                    if (card) {
+                        const statusEl = card.querySelector('.service-status');
+                        statusEl.textContent = status.status;
+                        
+                        card.className = 'service-card';
+                        if (status.status === 'running') {
+                            card.classList.add('running');
+                            statusEl.textContent = '✅ Running';
+                        } else if (status.status === 'building' || status.status === 'created') {
+                            card.classList.add('building');
+                            statusEl.textContent = '🔨 Building...';
+                        } else if (status.status === 'error' || status.status === 'exited') {
+                            card.classList.add('error');
+                            statusEl.textContent = '❌ Error';
+                        }
+                    }
+                }
+            }
+            
+            // Add logs
+            if (data.logs && data.logs.length > 0) {
+                const logsContainer = document.getElementById('logsContainer');
+                data.logs.forEach(log => {
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.textContent = log;
+                    logsContainer.appendChild(entry);
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                });
+            }
+            
+            // Handle completion
+            if (data.phase === 'completed') {
+                document.querySelector('.spinner').style.display = 'none';
+                document.getElementById('currentTask').textContent = 'Deployment complete!';
+                document.getElementById('successMessage').classList.add('show');
+                
+                // Redirect after 3 seconds to the user's configured domain
+                setTimeout(() => {
+                    const domain = data.domain || 'localhost';
+                    window.location.href = `https://${domain}/`;
+                }, 3000);
+            }
+            
+            // Handle errors
+            if (data.phase === 'error' && data.errors.length > 0) {
+                document.getElementById('errorText').textContent = data.errors.join(', ');
+                document.getElementById('errorMessage').classList.add('show');
+                document.querySelector('.spinner').style.display = 'none';
+            }
+        }
+        
+        function startMonitoring() {
+            // Initialize UI
+            initializeServices();
+            
+            // Start SSE connection for real-time updates
+            eventSource = new EventSource('/api/deployment/progress');
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                updateProgress(data);
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('SSE error:', error);
+                // Fallback to polling if SSE fails
+                startPolling();
+            };
+            
+            // Start deployment monitoring
+            fetch('/api/deployment/start', { method: 'POST' });
+        }
+        
+        function startPolling() {
+            // Fallback polling method
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/deployment/status');
+                    const data = await response.json();
+                    updateProgress(data);
+                    
+                    if (data.phase === 'completed' || data.phase === 'error') {
+                        clearInterval();
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 2000);
+        }
+        
+        // Start monitoring when page loads
+        window.addEventListener('DOMContentLoaded', startMonitoring);
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>

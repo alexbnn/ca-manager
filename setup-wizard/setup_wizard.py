@@ -4,14 +4,23 @@ CA Manager Setup Wizard
 Modern web-based first-time setup for CA Manager deployment
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response
 import os
 import json
 import yaml
 import secrets
 import re
 import subprocess
+import threading
+import time
+import queue
 from pathlib import Path
+try:
+    import docker
+    DOCKER_AVAILABLE = True
+except ImportError:
+    DOCKER_AVAILABLE = False
+    print("⚠️  Docker SDK not available. Deployment monitoring will be limited.")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
@@ -21,6 +30,18 @@ SETUP_CONFIG_FILE = '/app/setup_complete.json'
 TRAEFIK_CONFIG_FILE = '/app/traefik.yml'
 DOCKER_COMPOSE_FILE = '/app/docker-compose.yml'
 ENV_FILE = '/app/.env'
+
+# Deployment monitoring globals
+deployment_status = {
+    'phase': 'waiting',
+    'progress': 0,
+    'current_task': 'Waiting for deployment to start...',
+    'services': {},
+    'logs': [],
+    'errors': [],
+    'domain': 'localhost'
+}
+deployment_monitor_thread = None
 
 def is_setup_complete():
     """Check if setup has been completed"""
@@ -302,6 +323,169 @@ RATELIMIT_STORAGE_URL=redis://redis:6379
 """
     return env_content
 
+def monitor_deployment():
+    """Monitor Docker Compose deployment progress"""
+    global deployment_status
+    
+    if not DOCKER_AVAILABLE:
+        deployment_status['errors'].append("Docker SDK not available for monitoring")
+        return
+    
+    services = [
+        'traefik', 'postgres', 'redis', 'web-interface', 'easyrsa-container',
+        'scep-server', 'ios-scep-simulator', 'ocsp-simulator', 'ocsp-responder'
+    ]
+    
+    # Initialize service status
+    for service in services:
+        deployment_status['services'][service] = {
+            'status': 'pending',
+            'health': 'unknown'
+        }
+    
+    try:
+        client = docker.from_env()
+        deployment_status['phase'] = 'building'
+        deployment_status['progress'] = 5
+        deployment_status['current_task'] = 'Building Docker images...'
+        
+        # Monitor for up to 10 minutes
+        max_iterations = 300  # 300 * 2 seconds = 10 minutes
+        iteration = 0
+        
+        while iteration < max_iterations:
+            try:
+                containers = client.containers.list(all=True)
+                running_services = 0
+                healthy_services = 0
+                
+                # Update service statuses
+                for container in containers:
+                    if 'ca-manager-f' in container.name:
+                        # Extract service name from container name
+                        name_parts = container.name.split('-')
+                        if len(name_parts) >= 4:
+                            service_name = '-'.join(name_parts[3:-1])  # Handle multi-part service names
+                            
+                            if service_name in deployment_status['services']:
+                                status = container.status
+                                deployment_status['services'][service_name]['status'] = status
+                                
+                                if status == 'running':
+                                    running_services += 1
+                                    
+                                    # Check health if available
+                                    try:
+                                        health = container.attrs.get('State', {}).get('Health', {})
+                                        if health:
+                                            health_status = health.get('Status', 'unknown')
+                                            deployment_status['services'][service_name]['health'] = health_status
+                                            if health_status == 'healthy':
+                                                healthy_services += 1
+                                    except:
+                                        pass
+                
+                # Update progress based on running services
+                if len(services) > 0:
+                    progress = 10 + (running_services / len(services)) * 70
+                    deployment_status['progress'] = int(progress)
+                    
+                    if running_services >= len(services) * 0.8:  # 80% of services running
+                        deployment_status['phase'] = 'configuring_ssl'
+                        deployment_status['current_task'] = 'Configuring SSL certificates...'
+                        
+                        # Check for successful certificate acquisition
+                        if check_certificates():
+                            deployment_status['phase'] = 'completed'
+                            deployment_status['progress'] = 100
+                            deployment_status['current_task'] = 'Deployment completed successfully!'
+                            break
+                    elif running_services > 0:
+                        deployment_status['phase'] = 'starting_services'
+                        deployment_status['current_task'] = f'Starting services ({running_services}/{len(services)} running)...'
+                
+                iteration += 1
+                time.sleep(2)
+                
+            except Exception as e:
+                deployment_status['logs'].append(f"Monitoring error: {str(e)}")
+                time.sleep(5)
+                
+    except Exception as e:
+        deployment_status['errors'].append(f"Failed to start deployment monitoring: {str(e)}")
+        deployment_status['phase'] = 'error'
+
+def check_certificates():
+    """Check if Let's Encrypt certificates have been acquired"""
+    try:
+        if not DOCKER_AVAILABLE:
+            return False
+            
+        client = docker.from_env()
+        traefik_container = client.containers.get('ca-manager-f-traefik-1')
+        logs = traefik_container.logs(tail=100).decode('utf-8')
+        
+        success_indicators = [
+            'certificate obtained successfully',
+            'server responded with a certificate',
+            'acme: certificate obtained successfully'
+        ]
+        
+        return any(indicator in logs.lower() for indicator in success_indicators)
+    except:
+        return False
+
+@app.route('/progress')
+def deployment_progress():
+    """Show deployment progress page"""
+    return render_template('deployment_progress.html')
+
+@app.route('/api/deployment/status')
+def get_deployment_status():
+    """Get current deployment status"""
+    return jsonify(deployment_status)
+
+@app.route('/api/deployment/start', methods=['POST'])
+def start_deployment_monitoring():
+    """Start deployment monitoring"""
+    global deployment_monitor_thread
+    
+    data = request.get_json() or {}
+    domain = data.get('domain', 'localhost')
+    deployment_status['domain'] = domain
+    
+    if deployment_monitor_thread is None or not deployment_monitor_thread.is_alive():
+        deployment_status['phase'] = 'initializing'
+        deployment_status['progress'] = 0
+        deployment_status['current_task'] = 'Starting deployment monitoring...'
+        
+        deployment_monitor_thread = threading.Thread(target=monitor_deployment)
+        deployment_monitor_thread.daemon = True
+        deployment_monitor_thread.start()
+        
+        return jsonify({'success': True, 'message': 'Deployment monitoring started'})
+    
+    return jsonify({'success': True, 'message': 'Monitoring already active'})
+
+@app.route('/api/deployment/progress')
+def deployment_progress_stream():
+    """Server-Sent Events stream for real-time progress"""
+    def generate():
+        last_status = None
+        while True:
+            current_status = json.dumps(deployment_status)
+            if current_status != last_status:
+                yield f"data: {current_status}\n\n"
+                last_status = current_status
+                
+                # Stop streaming when deployment is complete or failed
+                if deployment_status['phase'] in ['completed', 'error']:
+                    break
+                    
+            time.sleep(1)
+    
+    return Response(generate(), mimetype='text/event-stream')
+
 @app.route('/')
 def index():
     """Main setup wizard page"""
@@ -360,7 +544,8 @@ def setup_configuration():
             'traefik_config': traefik_config,
             'env_content': create_env_file(config),
             'docker_labels': update_docker_compose_labels(domain, ssl_type),
-            'setup_complete': True
+            'setup_complete': True,
+            'domain': domain  # Include domain for redirect after deployment
         }
         
         # Save configuration files to mounted volume

@@ -893,20 +893,22 @@
                 console.log('Response data:', result); // Debug log
                 
                 if (result.success) {
-                    deployBtn.innerHTML = '<i class="fas fa-check"></i> Deployed Successfully!';
-                    deployBtn.classList.remove('btn-primary');
-                    deployBtn.classList.add('btn-success');
+                    deployBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting Deployment...';
                     
-                    // Show success message
+                    // Start deployment monitoring
+                    const domain = window.setupConfig?.domain || 'localhost';
+                    
+                    // Start the deployment monitoring
+                    fetch('/api/deployment/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ domain: domain })
+                    });
+                    
+                    // Redirect to progress page
                     setTimeout(() => {
-                        alert('✅ CA Manager has been deployed successfully!\\n\\nThe setup wizard will now shut down and the main application will start.\\n\\nYou can access your CA Manager at the domain you configured.');
-                        
-                        // Optional: Redirect to main app after a delay
-                        setTimeout(() => {
-                            const domain = window.setupConfig?.domain || 'localhost';
-                            window.location.href = `https://${domain}/`;
-                        }, 3000);
-                    }, 1000);
+                        window.location.href = '/progress';
+                    }, 1500);
                 } else {
                     throw new Error(result.error || 'Deployment failed');
                 }
