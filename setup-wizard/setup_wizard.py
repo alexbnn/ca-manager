@@ -566,7 +566,7 @@ def start_deployment_monitoring():
         deployment_status['phase'] = 'initializing'
         deployment_status['progress'] = 0
         deployment_status['current_task'] = 'Starting deployment monitoring...'
-        deployment_status['logs'] = ['🚀 Starting deployment process...', '📋 Initializing Docker monitoring...']
+        deployment_status['logs'] = ['🚀 Starting deployment process...', '📋 Monitoring Docker containers...']
         
         deployment_monitor_thread = threading.Thread(target=monitor_deployment)
         deployment_monitor_thread.daemon = True
@@ -577,66 +577,68 @@ def start_deployment_monitoring():
     return jsonify({'success': True, 'message': 'Monitoring already active'})
 
 def capture_docker_logs():
-    """Capture recent Docker Compose logs for display"""
+    """Capture recent Docker container logs for display using Docker API"""
     global deployment_status
     
     try:
-        # Capture recent logs from docker-compose with timestamps
-        import subprocess
-        result = subprocess.run(
-            ['docker', 'compose', 'logs', '--tail=5', '--no-color', '--timestamps'],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            cwd='/app'
-        )
+        import docker
+        client = docker.from_env()
         
-        if result.returncode == 0 and result.stdout.strip():
-            # Split logs and add recent ones
-            log_lines = result.stdout.strip().split('\n')
-            recent_logs = []
-            
-            for line in log_lines:
-                if line.strip():
-                    # Clean up the log line
-                    clean_line = line
+        # Get all containers for this project
+        containers = client.containers.list(all=True, filters={'name': 'ca-manager-f'})
+        recent_logs = []
+        
+        for container in containers:
+            try:
+                # Get recent logs from each container
+                logs = container.logs(tail=3, timestamps=True, since=int(time.time()) - 30).decode('utf-8', errors='ignore')
+                
+                if logs.strip():
+                    service_name = container.name.replace('ca-manager-f-', '').replace('ca-manager-f_', '').replace('-1', '')
                     
-                    # Remove container prefix and timestamp for cleaner display
-                    if '|' in line:
-                        parts = line.split('|', 1)
-                        if len(parts) > 1:
-                            service_name = parts[0].split()[-1]
-                            log_content = parts[1].strip()
+                    for line in logs.strip().split('\n'):
+                        if line.strip():
+                            # Clean up the log line
+                            log_content = line
                             
-                            # Skip common noise
-                            if any(skip in log_content.lower() for skip in ['listening on', 'started server', 'ready to accept']):
-                                continue
-                                
-                            # Truncate timestamp if present
-                            if log_content.startswith('20') and 'T' in log_content[:20]:
+                            # Remove timestamp if present
+                            if line.startswith('20') and 'T' in line[:20]:
                                 try:
-                                    timestamp_end = log_content.index(' ', 10)
-                                    log_content = log_content[timestamp_end+1:]
+                                    timestamp_end = line.index(' ', 10)
+                                    log_content = line[timestamp_end+1:]
                                 except:
                                     pass
-                                    
-                            clean_line = f"{service_name}: {log_content}"[:90]
-                    
-                    recent_logs.append(clean_line)
-            
-            # Add new logs that aren't already in the list
+                            
+                            # Skip common noise
+                            if any(skip in log_content.lower() for skip in [
+                                'listening on', 'started server', 'ready to accept',
+                                'database system is ready', 'listening for connections'
+                            ]):
+                                continue
+                                
+                            # Format for display
+                            if log_content.strip():
+                                clean_line = f"{service_name}: {log_content.strip()}"[:85]
+                                recent_logs.append(clean_line)
+                                
+            except Exception as container_error:
+                # Skip containers we can't read logs from
+                continue
+        
+        # Add new logs that aren't already in the list
+        if recent_logs:
             existing_logs_text = ' '.join(deployment_status.get('logs', [])[-10:])
-            for log in recent_logs[-8:]:  # Last 8 to avoid flooding
-                if log not in existing_logs_text:
+            for log in recent_logs[-6:]:  # Last 6 to avoid flooding
+                if log not in existing_logs_text and len(log) > 10:
                     deployment_status['logs'].append(log)
                     
             # Keep logs list reasonable size
-            if len(deployment_status['logs']) > 40:
-                deployment_status['logs'] = deployment_status['logs'][-30:]
+            if len(deployment_status['logs']) > 35:
+                deployment_status['logs'] = deployment_status['logs'][-25:]
                         
     except Exception as e:
         # Don't spam errors, just log once
-        error_msg = f"Docker logs unavailable: {str(e)[:50]}"
+        error_msg = f"Container logs unavailable: {str(e)[:40]}"
         if not any('logs unavailable' in log for log in deployment_status.get('logs', [])[-3:]):
             deployment_status['logs'].append(error_msg)
 
