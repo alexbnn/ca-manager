@@ -439,33 +439,24 @@ def monitor_deployment_fallback():
     
     while iteration < max_iterations:
         try:
-            # Check if docker-compose is still running
-            result = subprocess.run(['docker-compose', 'ps', '-q'], 
-                                  capture_output=True, text=True, cwd='/app')
+            # Update progress based on time elapsed (fallback monitoring)
+            progress = min(20 + (iteration / max_iterations) * 70, 90)
+            deployment_status['progress'] = int(progress)
             
-            if result.returncode == 0:
-                container_ids = result.stdout.strip().split('\n')
-                running_containers = [cid for cid in container_ids if cid.strip()]
+            if iteration > 60:  # After 1 minute, assume services are starting
+                deployment_status['phase'] = 'starting_services'
+                deployment_status['current_task'] = 'Services are starting...'
                 
-                if len(running_containers) > 0:
-                    # Update progress based on time elapsed
-                    progress = min(20 + (iteration / max_iterations) * 70, 90)
-                    deployment_status['progress'] = int(progress)
-                    
-                    if iteration > 60:  # After 2 minutes, assume services are starting
-                        deployment_status['phase'] = 'starting_services'
-                        deployment_status['current_task'] = 'Services are starting...'
-                        
-                    if iteration > 120:  # After 4 minutes, check for completion
-                        deployment_status['phase'] = 'configuring_ssl'
-                        deployment_status['current_task'] = 'Configuring SSL certificates...'
-                        
-                        # Check if we can access the application
-                        if check_application_ready():
-                            deployment_status['phase'] = 'completed'
-                            deployment_status['progress'] = 100
-                            deployment_status['current_task'] = 'Deployment completed successfully!'
-                            break
+            if iteration > 120:  # After 2 minutes, check for completion
+                deployment_status['phase'] = 'configuring_ssl'
+                deployment_status['current_task'] = 'Configuring SSL certificates...'
+                
+                # Check if we can access the application
+                if check_application_ready():
+                    deployment_status['phase'] = 'completed'
+                    deployment_status['progress'] = 100
+                    deployment_status['current_task'] = 'Deployment completed successfully!'
+                    break
             
             iteration += 1
             time.sleep(1)
