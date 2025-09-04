@@ -74,7 +74,7 @@ def generate_secure_password():
     """Generate a secure password"""
     return secrets.token_urlsafe(16)
 
-def update_traefik_config(domain, ssl_type, email=None):
+def update_traefik_config(domain, ssl_type, email=None, letsencrypt_env='production'):
     """Update Traefik configuration with domain and SSL settings"""
     config = {
         'api': {
@@ -123,10 +123,12 @@ def update_traefik_config(domain, ssl_type, email=None):
     if use_letsencrypt and email and domain != 'localhost':
         acme_config = {
             'email': email,
-            'storage': '/letsencrypt/acme.json',
-            # Use Let's Encrypt staging to avoid rate limits during testing
-            'caServer': 'https://acme-staging-v02.api.letsencrypt.org/directory'
+            'storage': '/letsencrypt/acme.json'
         }
+        
+        # Add staging server if staging environment selected
+        if letsencrypt_env == 'staging':
+            acme_config['caServer'] = 'https://acme-staging-v02.api.letsencrypt.org/directory'
         
         # Configure challenge type based on SSL type
         # Default to HTTP challenge for better compatibility with port forwarding
@@ -795,7 +797,8 @@ def setup_configuration():
         }
         
         # Update Traefik configuration
-        traefik_config = update_traefik_config(domain, ssl_type, email)
+        letsencrypt_env = data.get('letsencrypt_env', 'production')
+        traefik_config = update_traefik_config(domain, ssl_type, email, letsencrypt_env)
         
         # Create configuration files (in production, these would be written to mounted volumes)
         config_output = {

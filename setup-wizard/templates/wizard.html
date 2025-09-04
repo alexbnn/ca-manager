@@ -461,6 +461,28 @@
                                 Required for Let's Encrypt certificate registration and notifications
                             </small>
                         </div>
+
+                        <div class="form-group" id="letsencrypt-env-group" style="display: none;">
+                            <label>Let's Encrypt Environment</label>
+                            <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                                <div class="radio-option">
+                                    <input type="radio" name="letsencrypt_env" value="production" id="letsencrypt-prod" checked>
+                                    <label for="letsencrypt-prod" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <span>Production</span>
+                                    </label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" name="letsencrypt_env" value="staging" id="letsencrypt-staging">
+                                    <label for="letsencrypt-staging" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <span>Staging</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <small style="color: var(--gray-500); margin-top: 0.5rem; display: block;">
+                                <strong>Production:</strong> Real certificates, rate limited (5 per week)<br>
+                                <strong>Staging:</strong> Test certificates (untrusted), no rate limits
+                            </small>
+                        </div>
                     </div>
 
                     <!-- Step 3: Organization Details -->
@@ -589,11 +611,15 @@
                 this.classList.add('selected');
                 
                 const emailGroup = document.getElementById('email-group');
+                const letsencryptEnvGroup = document.getElementById('letsencrypt-env-group');
+                
                 if (radio.value === 'letsencrypt-http' || radio.value === 'letsencrypt-tls') {
                     emailGroup.style.display = 'block';
+                    letsencryptEnvGroup.style.display = 'block';
                     document.getElementById('email').required = true;
                 } else {
                     emailGroup.style.display = 'none';
+                    letsencryptEnvGroup.style.display = 'none';
                     document.getElementById('email').required = false;
                 }
             });
