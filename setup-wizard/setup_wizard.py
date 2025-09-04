@@ -346,6 +346,26 @@ def monitor_deployment():
         except:
             pass
     
+    # Check if deployment is already completed before starting monitoring
+    if deployment_status.get('phase') == 'completed':
+        # Verify that services are still running and SSL is working
+        try:
+            if check_certificates():
+                deployment_status['logs'].append("✅ Deployment already completed and verified")
+                return
+            else:
+                # SSL check failed, continue monitoring to re-verify
+                deployment_status['logs'].append("🔄 Re-verifying deployment completion...")
+                deployment_status['phase'] = 'configuring_ssl'
+                deployment_status['progress'] = 95
+                deployment_status['current_task'] = 'Re-verifying SSL certificates...'
+        except:
+            # SSL check failed, continue monitoring
+            deployment_status['logs'].append("🔄 Re-verifying deployment completion...")
+            deployment_status['phase'] = 'configuring_ssl'
+            deployment_status['progress'] = 95
+            deployment_status['current_task'] = 'Re-verifying SSL certificates...'
+    
     if not DOCKER_AVAILABLE:
         deployment_status['errors'].append("Docker SDK not available for monitoring")
         deployment_status['phase'] = 'error'
@@ -650,10 +670,24 @@ def start_deployment_monitoring():
     deployment_status['domain'] = domain
     
     if deployment_monitor_thread is None or not deployment_monitor_thread.is_alive():
-        deployment_status['phase'] = 'initializing'
-        deployment_status['progress'] = 0
-        deployment_status['current_task'] = 'Starting deployment monitoring...'
-        deployment_status['logs'] = ['🚀 Starting deployment process...', '📋 Monitoring Docker containers...']
+        # Check if deployment is already completed before resetting status
+        current_phase = deployment_status.get('phase', 'waiting')
+        if current_phase == 'completed':
+            # Deployment already complete, don't reset - just ensure monitoring continues
+            return jsonify({'success': True, 'message': 'Deployment already completed'})
+        elif current_phase == 'error':
+            # Reset from error state to allow retry
+            deployment_status['phase'] = 'initializing'
+            deployment_status['progress'] = 0
+            deployment_status['current_task'] = 'Retrying deployment monitoring...'
+            deployment_status['logs'] = ['🔄 Retrying deployment process...', '📋 Monitoring Docker containers...']
+            deployment_status['errors'] = []
+        else:
+            # Normal startup - reset status
+            deployment_status['phase'] = 'initializing'
+            deployment_status['progress'] = 0
+            deployment_status['current_task'] = 'Starting deployment monitoring...'
+            deployment_status['logs'] = ['🚀 Starting deployment process...', '📋 Monitoring Docker containers...']
         
         deployment_monitor_thread = threading.Thread(target=monitor_deployment)
         deployment_monitor_thread.daemon = True
