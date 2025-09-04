@@ -414,6 +414,9 @@ def monitor_deployment():
                         deployment_status['phase'] = 'starting_services'
                         deployment_status['current_task'] = f'Starting services ({running_services}/{len(services)} running)...'
                 
+                # Capture Docker logs for real-time display
+                capture_docker_logs()
+                
                 iteration += 1
                 time.sleep(2)
                 
@@ -461,6 +464,9 @@ def monitor_deployment_fallback():
                     break
                     
             deployment_status['progress'] = min(int(progress), 95)  # Cap at 95% until confirmed ready
+            
+            # Capture Docker logs even in fallback mode
+            capture_docker_logs()
             
             iteration += 1
             time.sleep(1)
@@ -560,6 +566,7 @@ def start_deployment_monitoring():
         deployment_status['phase'] = 'initializing'
         deployment_status['progress'] = 0
         deployment_status['current_task'] = 'Starting deployment monitoring...'
+        deployment_status['logs'] = ['🚀 Starting deployment process...', '📋 Initializing Docker monitoring...']
         
         deployment_monitor_thread = threading.Thread(target=monitor_deployment)
         deployment_monitor_thread.daemon = True
@@ -568,6 +575,70 @@ def start_deployment_monitoring():
         return jsonify({'success': True, 'message': 'Deployment monitoring started'})
     
     return jsonify({'success': True, 'message': 'Monitoring already active'})
+
+def capture_docker_logs():
+    """Capture recent Docker Compose logs for display"""
+    global deployment_status
+    
+    try:
+        # Capture recent logs from docker-compose with timestamps
+        import subprocess
+        result = subprocess.run(
+            ['docker', 'compose', 'logs', '--tail=5', '--no-color', '--timestamps'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd='/app'
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            # Split logs and add recent ones
+            log_lines = result.stdout.strip().split('\n')
+            recent_logs = []
+            
+            for line in log_lines:
+                if line.strip():
+                    # Clean up the log line
+                    clean_line = line
+                    
+                    # Remove container prefix and timestamp for cleaner display
+                    if '|' in line:
+                        parts = line.split('|', 1)
+                        if len(parts) > 1:
+                            service_name = parts[0].split()[-1]
+                            log_content = parts[1].strip()
+                            
+                            # Skip common noise
+                            if any(skip in log_content.lower() for skip in ['listening on', 'started server', 'ready to accept']):
+                                continue
+                                
+                            # Truncate timestamp if present
+                            if log_content.startswith('20') and 'T' in log_content[:20]:
+                                try:
+                                    timestamp_end = log_content.index(' ', 10)
+                                    log_content = log_content[timestamp_end+1:]
+                                except:
+                                    pass
+                                    
+                            clean_line = f"{service_name}: {log_content}"[:90]
+                    
+                    recent_logs.append(clean_line)
+            
+            # Add new logs that aren't already in the list
+            existing_logs_text = ' '.join(deployment_status.get('logs', [])[-10:])
+            for log in recent_logs[-8:]:  # Last 8 to avoid flooding
+                if log not in existing_logs_text:
+                    deployment_status['logs'].append(log)
+                    
+            # Keep logs list reasonable size
+            if len(deployment_status['logs']) > 40:
+                deployment_status['logs'] = deployment_status['logs'][-30:]
+                        
+    except Exception as e:
+        # Don't spam errors, just log once
+        error_msg = f"Docker logs unavailable: {str(e)[:50]}"
+        if not any('logs unavailable' in log for log in deployment_status.get('logs', [])[-3:]):
+            deployment_status['logs'].append(error_msg)
 
 def update_service_status():
     """Update service status for ongoing dashboard monitoring"""
@@ -593,6 +664,9 @@ def update_service_status():
             domain = os.environ.get('DOMAIN', 'localhost')
             if domain and domain != 'localhost':
                 deployment_status['domain'] = domain
+                
+        # Capture recent Docker logs
+        capture_docker_logs()
                 
     except Exception as e:
         # Fall back to basic status if Docker API fails
