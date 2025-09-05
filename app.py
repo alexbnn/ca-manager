@@ -2197,12 +2197,13 @@ def get_ocsp_health():
         try:
             # Try to reach the OCSP responder health endpoint
             health_response = requests.get(
-                f"{TERMINAL_CONTAINER_URL.replace('/execute', '')}/../ocsp-responder:8091/health",
+                "http://ocsp-responder:8091/health",
                 timeout=5
             )
             response_time = round((time.time() - start_time) * 1000, 2)
             ocsp_healthy = health_response.status_code == 200
-        except:
+        except Exception as e:
+            logging.debug(f"OCSP health check failed: {e}")
             response_time = None
             ocsp_healthy = False
         
@@ -2210,9 +2211,14 @@ def get_ocsp_health():
         ca_manager_healthy = True  # We're in the CA manager
         easyrsa_healthy = False
         try:
-            easyrsa_response = requests.get(f"{TERMINAL_CONTAINER_URL.replace('/execute', '')}/health", timeout=5)
+            # Fix URL construction for EasyRSA health check
+            easyrsa_url = TERMINAL_CONTAINER_URL.replace('/execute', '')
+            if not easyrsa_url.endswith('/'):
+                easyrsa_url += '/'
+            easyrsa_response = requests.get(f"{easyrsa_url}health", timeout=5)
             easyrsa_healthy = easyrsa_response.status_code == 200
-        except:
+        except Exception as e:
+            logging.debug(f"EasyRSA health check failed: {e}")
             pass
         
         overall_status = 'healthy' if (ocsp_healthy and easyrsa_healthy) else 'degraded'
