@@ -12,12 +12,13 @@ CREATE TABLE IF NOT EXISTS email_verifications (
     verified_at TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,          -- Token expires after 15 minutes
     ip_address VARCHAR(45),
-    user_agent TEXT,
-    
-    INDEX idx_email_verifications_email (email),
-    INDEX idx_email_verifications_token (token),
-    INDEX idx_email_verifications_expires (expires_at)
+    user_agent TEXT
 );
+
+-- Create indexes for email_verifications table
+CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_expires ON email_verifications(expires_at);
 
 -- Store allowed email domains for self-service registration
 CREATE TABLE IF NOT EXISTS allowed_email_domains (
@@ -27,10 +28,11 @@ CREATE TABLE IF NOT EXISTS allowed_email_domains (
     allow_subdomains BOOLEAN DEFAULT false,
     enabled BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100),
-    
-    INDEX idx_allowed_domains_enabled (enabled)
+    created_by VARCHAR(100)
 );
+
+-- Create index for allowed_email_domains table
+CREATE INDEX IF NOT EXISTS idx_allowed_domains_enabled ON allowed_email_domains(enabled);
 
 -- Add verification status to certificate_requests
 ALTER TABLE certificate_requests 
