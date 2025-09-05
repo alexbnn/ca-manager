@@ -4063,11 +4063,23 @@ def get_smtp_config():
                 'last_test_message': config_row['last_test_message']
             }
         else:
-            config = {}
+            # Return default empty config structure to prevent JavaScript errors
+            config = {
+                'smtp_server': '',
+                'smtp_port': 587,
+                'smtp_username': '',
+                'smtp_password': '',
+                'sender_email': '',
+                'sender_name': '',
+                'use_tls': True,
+                'last_test_status': None,
+                'last_test_message': 'SMTP not configured'
+            }
         
         return jsonify({
             'status': 'success',
-            'config': config
+            'config': config,
+            'configured': bool(config_row)
         })
         
     except Exception as e:
