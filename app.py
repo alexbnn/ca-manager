@@ -3949,7 +3949,7 @@ def get_logo():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/logo', methods=['POST'])
-@auth_required(roles=['admin'])
+@auth_required(permission='admin')
 def upload_logo():
     """Upload a custom logo"""
     try:
@@ -4009,7 +4009,7 @@ def upload_logo():
         return jsonify({'error': 'Failed to upload logo'}), 500
 
 @app.route('/api/logo', methods=['DELETE'])
-@auth_required(roles=['admin'])
+@auth_required(permission='admin')
 def reset_logo():
     """Reset to default logo"""
     try:
