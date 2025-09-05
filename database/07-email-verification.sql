@@ -40,11 +40,10 @@ ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS verification_token VARCHAR(64),
 ADD COLUMN IF NOT EXISTS verification_completed_at TIMESTAMP;
 
--- Add some default allowed domains (examples - should be configured by admin)
+-- Add a default example domain (should be configured by admin)
 INSERT INTO allowed_email_domains (domain, description, allow_subdomains, created_by) 
 VALUES 
-    ('bonner.com', 'Primary organization domain', true, 'system'),
-    ('example.com', 'Test domain', false, 'system')
+    ('example.com', 'Example domain - replace with your organization domain', false, 'system')
 ON CONFLICT (domain) DO NOTHING;
 
 -- Function to clean up expired verification tokens
