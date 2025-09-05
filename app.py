@@ -135,7 +135,8 @@ def initialize_database():
                 '03-tenant-schema.sql',
                 '04-ocsp-schema.sql',
                 '05-system-config.sql',
-                '06-intermediate-ca-schema.sql'
+                '06-intermediate-ca-schema.sql',
+                '07-email-verification.sql'
             ]
             
             for schema_file in schema_files:
@@ -156,6 +157,29 @@ def initialize_database():
             logging.info("Database initialization completed successfully")
         else:
             logging.info("Database already initialized")
+            
+            # Check for missing email verification tables (migration for existing databases)
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'allowed_email_domains'
+                );
+            """)
+            
+            email_table_exists = cursor.fetchone()['exists']
+            
+            if not email_table_exists:
+                logging.info("Email verification tables missing. Running migration...")
+                try:
+                    with open('/app/database/07-email-verification.sql', 'r') as f:
+                        migration_sql = f.read()
+                    cursor.execute(migration_sql)
+                    conn.commit()
+                    logging.info("Email verification migration completed successfully")
+                except Exception as e:
+                    logging.error(f"Email verification migration failed: {e}")
+                    conn.rollback()
         
         cursor.close()
         conn.close()
