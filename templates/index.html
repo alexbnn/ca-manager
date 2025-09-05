@@ -2002,7 +2002,50 @@
             <!-- Tab Content: User Management -->
             {% if user.is_admin %}
             <div class="tab-content" id="user-management">
-                <div class="section" id="userManagementSection">
+                <!-- Logo Management Section -->
+                <div class="section" id="logoManagementSection">
+                <h2><span class="section-icon">🎨</span>Logo Management</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Customize the system logo to match your organization's branding.
+                </p>
+                
+                <div class="logo-management" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+                        <div>
+                            <h4 style="margin-bottom: 0.5rem;">Current Logo</h4>
+                            <img id="currentLogoPreview" src="/static/images/extreme-networks-logo.png" alt="Current Logo" 
+                                 style="max-height: 60px; max-width: 200px; background: white; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                        
+                        <div style="flex: 1; min-width: 250px;">
+                            <h4 style="margin-bottom: 0.5rem;">Upload New Logo</h4>
+                            <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml" 
+                                   style="display: none;">
+                            <div class="button-grid" style="margin-top: 0.5rem;">
+                                <button class="btn btn-primary" onclick="selectLogoFile()">
+                                    📁 Choose Logo
+                                </button>
+                                <button class="btn btn-success" id="uploadLogoBtn" onclick="uploadLogo()" disabled>
+                                    📤 Upload Logo
+                                </button>
+                                <button class="btn btn-warning" onclick="resetLogo()">
+                                    🔄 Reset to Default
+                                </button>
+                            </div>
+                            <p id="selectedFileName" style="margin-top: 0.5rem; color: var(--medium-gray); font-size: 0.875rem;"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="logo-requirements" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dee2e6;">
+                        <p style="color: var(--medium-gray); font-size: 0.875rem; margin: 0;">
+                            <strong>Requirements:</strong> PNG, JPG, JPEG, GIF, or SVG • Max size: 5MB • Recommended: 200x60px
+                        </p>
+                    </div>
+                </div>
+                </div>
+                
+                <!-- User Management Section -->
+                <div class="section" id="userManagementSection" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
                 <h2><span class="section-icon">5</span>User Management</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage user accounts and permissions for the PKI system.
@@ -2973,6 +3016,7 @@
                     loadVersionInfo().catch(e => console.error('loadVersionInfo error:', e));
                     loadAvailableBranches().catch(e => console.error('loadAvailableBranches error:', e));
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
+                    loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
                 }, 100);
             }
         }
@@ -5700,6 +5744,169 @@ Dependencies:
             }
         }
 
+        // Logo Management Functions
+        async function loadCurrentLogo() {
+            try {
+                const response = await fetch('/api/logo');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Update header logo
+                    document.querySelector('.logo').src = data.logo_url + '?t=' + Date.now();
+                    // Update preview in settings
+                    const preview = document.getElementById('currentLogoPreview');
+                    if (preview) {
+                        preview.src = data.logo_url + '?t=' + Date.now();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading current logo:', error);
+            }
+        }
+
+        function selectLogoFile() {
+            document.getElementById('logoFileInput').click();
+        }
+
+        // Handle file selection
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoFileInput = document.getElementById('logoFileInput');
+            if (logoFileInput) {
+                logoFileInput.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    const uploadBtn = document.getElementById('uploadLogoBtn');
+                    const fileNameDisplay = document.getElementById('selectedFileName');
+                    
+                    if (file) {
+                        // Validate file
+                        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/svg+xml'];
+                        const maxSize = 5 * 1024 * 1024; // 5MB
+                        
+                        if (!allowedTypes.includes(file.type)) {
+                            showStatus('❌ Invalid file type. Please use PNG, JPG, JPEG, GIF, or SVG.', 'error');
+                            this.value = '';
+                            uploadBtn.disabled = true;
+                            fileNameDisplay.textContent = '';
+                            return;
+                        }
+                        
+                        if (file.size > maxSize) {
+                            showStatus('❌ File too large. Maximum size is 5MB.', 'error');
+                            this.value = '';
+                            uploadBtn.disabled = true;
+                            fileNameDisplay.textContent = '';
+                            return;
+                        }
+                        
+                        uploadBtn.disabled = false;
+                        fileNameDisplay.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                        
+                        // Show preview
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const preview = document.getElementById('currentLogoPreview');
+                            if (preview) {
+                                preview.src = e.target.result;
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        uploadBtn.disabled = true;
+                        fileNameDisplay.textContent = '';
+                    }
+                });
+            }
+        });
+
+        async function uploadLogo() {
+            const fileInput = document.getElementById('logoFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('❌ Please select a file first', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('logo', file);
+            
+            try {
+                showStatus('📤 Uploading logo...', 'loading');
+                
+                const response = await fetch('/api/logo', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('✅ Logo uploaded successfully!', 'success');
+                    
+                    // Update header logo immediately
+                    document.querySelector('.logo').src = data.logo_url + '?t=' + Date.now();
+                    
+                    // Clear file selection
+                    fileInput.value = '';
+                    document.getElementById('uploadLogoBtn').disabled = true;
+                    document.getElementById('selectedFileName').textContent = '';
+                    
+                } else {
+                    showStatus(`❌ ${data.error || 'Failed to upload logo'}`, 'error');
+                    // Reload current logo on failure
+                    loadCurrentLogo();
+                }
+                
+            } catch (error) {
+                showStatus('❌ Network error occurred', 'error');
+                console.error('Logo upload error:', error);
+                loadCurrentLogo();
+            }
+        }
+
+        async function resetLogo() {
+            if (!confirm('Are you sure you want to reset to the default logo?')) {
+                return;
+            }
+            
+            try {
+                showStatus('🔄 Resetting logo...', 'loading');
+                
+                const response = await fetch('/api/logo', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('✅ Logo reset to default!', 'success');
+                    
+                    // Update both header and preview logos
+                    const defaultLogoUrl = '/static/images/extreme-networks-logo.png?t=' + Date.now();
+                    document.querySelector('.logo').src = defaultLogoUrl;
+                    const preview = document.getElementById('currentLogoPreview');
+                    if (preview) {
+                        preview.src = defaultLogoUrl;
+                    }
+                    
+                    // Clear any file selection
+                    const fileInput = document.getElementById('logoFileInput');
+                    if (fileInput) {
+                        fileInput.value = '';
+                        document.getElementById('uploadLogoBtn').disabled = true;
+                        document.getElementById('selectedFileName').textContent = '';
+                    }
+                    
+                } else {
+                    showStatus(`❌ ${data.error || 'Failed to reset logo'}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('❌ Network error occurred', 'error');
+                console.error('Logo reset error:', error);
+            }
+        }
+
         // Auto-hide status messages - now handled by notification system
 
         // Guided Tour Implementation
@@ -6290,6 +6497,9 @@ Dependencies:
 
             // Check if this is a first-time user
             checkIfFirstTimeUser();
+            
+            // Load current logo on page load
+            loadCurrentLogo().catch(e => console.error('Error loading logo on page load:', e));
         });
 
         // Email Domain Management Functions  

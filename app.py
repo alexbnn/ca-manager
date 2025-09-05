@@ -3923,6 +3923,113 @@ def delete_email_domain(domain):
         return jsonify({'error': 'Internal server error'}), 500
 
 # ================================
+# Logo Management Endpoints
+# ================================
+
+@app.route('/api/logo', methods=['GET'])
+def get_logo():
+    """Get the current logo path"""
+    try:
+        # Check if custom logo exists
+        custom_logo_path = '/app/static/images/custom-logo.png'
+        if os.path.exists(custom_logo_path):
+            return jsonify({
+                'status': 'success',
+                'logo_url': '/static/images/custom-logo.png',
+                'is_custom': True
+            })
+        else:
+            return jsonify({
+                'status': 'success', 
+                'logo_url': '/static/images/extreme-networks-logo.png',
+                'is_custom': False
+            })
+    except Exception as e:
+        logging.error(f"Error getting logo: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/logo', methods=['POST'])
+@auth_required(roles=['admin'])
+def upload_logo():
+    """Upload a custom logo"""
+    try:
+        if 'logo' not in request.files:
+            return jsonify({'error': 'No logo file provided'}), 400
+        
+        file = request.files['logo']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Check file extension
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'svg'}
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        
+        if file_ext not in allowed_extensions:
+            return jsonify({'error': f'Invalid file type. Allowed types: {", ".join(allowed_extensions)}'}), 400
+        
+        # Check file size (max 5MB)
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            return jsonify({'error': 'File too large. Maximum size is 5MB'}), 400
+        
+        # Create directory if it doesn't exist
+        logo_dir = '/app/static/images'
+        os.makedirs(logo_dir, exist_ok=True)
+        
+        # Save the file as custom-logo with original extension
+        custom_logo_path = f'/app/static/images/custom-logo.{file_ext}'
+        
+        # Remove any existing custom logo files
+        for ext in allowed_extensions:
+            old_logo = f'/app/static/images/custom-logo.{ext}'
+            if os.path.exists(old_logo):
+                os.remove(old_logo)
+        
+        # Save new logo
+        file.save(custom_logo_path)
+        
+        # Also create a symlink to custom-logo.png for consistency
+        symlink_path = '/app/static/images/custom-logo.png'
+        if os.path.exists(symlink_path) or os.path.islink(symlink_path):
+            os.remove(symlink_path)
+        if file_ext != 'png':
+            os.symlink(f'custom-logo.{file_ext}', symlink_path)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Logo uploaded successfully',
+            'logo_url': f'/static/images/custom-logo.{file_ext}'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error uploading logo: {e}")
+        return jsonify({'error': 'Failed to upload logo'}), 500
+
+@app.route('/api/logo', methods=['DELETE'])
+@auth_required(roles=['admin'])
+def reset_logo():
+    """Reset to default logo"""
+    try:
+        # Remove all custom logo files
+        logo_dir = '/app/static/images'
+        for file in os.listdir(logo_dir):
+            if file.startswith('custom-logo.'):
+                os.remove(os.path.join(logo_dir, file))
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Logo reset to default',
+            'logo_url': '/static/images/extreme-networks-logo.png'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error resetting logo: {e}")
+        return jsonify({'error': 'Failed to reset logo'}), 500
+
+# ================================
 # SMTP Configuration Endpoints
 # ================================
 
