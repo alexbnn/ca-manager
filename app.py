@@ -3930,20 +3930,25 @@ def delete_email_domain(domain):
 def get_logo():
     """Get the current logo path"""
     try:
-        # Check if custom logo exists
-        custom_logo_path = '/app/static/images/custom-logo.png'
-        if os.path.exists(custom_logo_path):
-            return jsonify({
-                'status': 'success',
-                'logo_url': '/static/images/custom-logo.png',
-                'is_custom': True
-            })
-        else:
-            return jsonify({
-                'status': 'success', 
-                'logo_url': '/static/images/extreme-networks-logo.png',
-                'is_custom': False
-            })
+        # Check if custom logo exists with any supported extension
+        logo_dir = '/app/static/images'
+        allowed_extensions = ['png', 'jpg', 'jpeg', 'gif', 'svg']
+        
+        for ext in allowed_extensions:
+            custom_logo_path = f'{logo_dir}/custom-logo.{ext}'
+            if os.path.exists(custom_logo_path):
+                return jsonify({
+                    'status': 'success',
+                    'logo_url': f'/static/images/custom-logo.{ext}',
+                    'is_custom': True
+                })
+        
+        # No custom logo found, return default
+        return jsonify({
+            'status': 'success', 
+            'logo_url': '/static/images/extreme-networks-logo.png',
+            'is_custom': False
+        })
     except Exception as e:
         logging.error(f"Error getting logo: {e}")
         return jsonify({'error': 'Internal server error'}), 500
@@ -3990,13 +3995,6 @@ def upload_logo():
         
         # Save new logo
         file.save(custom_logo_path)
-        
-        # Also create a symlink to custom-logo.png for consistency
-        symlink_path = '/app/static/images/custom-logo.png'
-        if os.path.exists(symlink_path) or os.path.islink(symlink_path):
-            os.remove(symlink_path)
-        if file_ext != 'png':
-            os.symlink(f'custom-logo.{file_ext}', symlink_path)
         
         return jsonify({
             'status': 'success',
