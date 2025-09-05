@@ -305,7 +305,7 @@
 <body>
     <div class="login-container">
         <div class="logo-section">
-            <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+            <img id="loginLogo" src="/static/images/extreme-networks-logo.png" alt="Logo" class="logo">
             <h1>PKI Management</h1>
             <p>Secure access to certificate operations</p>
         </div>
@@ -463,6 +463,18 @@
             })
             .catch(error => {
                 console.log('IDP not configured or disabled');
+            });
+        
+        // Load custom logo if available
+        fetch('/api/logo')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('loginLogo').src = data.logo_url + '?t=' + Date.now();
+                }
+            })
+            .catch(error => {
+                console.log('Could not load custom logo');
             });
     </script>
 </body>

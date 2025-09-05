@@ -446,7 +446,7 @@
     <div class="container">
         <div class="header">
             <div class="logo-section">
-                <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                <img id="certRequestLogo" src="/static/images/extreme-networks-logo.png" alt="Logo" class="logo">
                 <h1>PKI Certificate Portal</h1>
             </div>
             <p>Request network authentication certificates for 802.1X/EAP-TLS</p>
@@ -1116,6 +1116,18 @@
 
         // Initialize
         loadTemplates();
+        
+        // Load custom logo if available
+        fetch('/api/logo')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('certRequestLogo').src = data.logo_url + '?t=' + Date.now();
+                }
+            })
+            .catch(error => {
+                console.log('Could not load custom logo');
+            });
     </script>
 </body>
 </html>
