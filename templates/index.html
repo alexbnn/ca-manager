@@ -1595,7 +1595,7 @@
             {% if 'admin' in user.roles or 'operator' in user.roles %}
             <div class="tab-content active" id="ca-management">
                 <div class="section">
-                    <h2><span class="section-icon">1</span>PKI Initialization</h2>
+                    <h2><span class="section-icon">🔧</span>PKI Initialization</h2>
                     <div class="button-grid">
                         <button class="btn btn-primary" id="initPKI">Initialize PKI</button>
                         <button class="btn btn-info" id="checkStatus">Check PKI Status</button>
@@ -1605,7 +1605,7 @@
                 
                 <!-- Certificate Authority Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">1</span>Certificate Authority</h2>
+                    <h2><span class="section-icon">🏛️</span>Certificate Authority</h2>
                     <div class="button-grid">
                         <button class="btn btn-primary" id="buildCA">Build CA</button>
                         <button class="btn btn-info" id="generateCRL">Generate CRL</button>
@@ -1621,7 +1621,7 @@
                 {% if 'admin' in user.roles or 'operator' in user.roles %}
                 <!-- Certificate Creation Section -->
                 <div class="section">
-                    <h2><span class="section-icon">2</span>Certificate Creation</h2>
+                    <h2><span class="section-icon">📝</span>Certificate Creation</h2>
                     <div class="form-group">
                         <label for="certName">Certificate Name:</label>
                         <input type="text" id="certName" placeholder="Enter certificate name (e.g., client1, server1)">
@@ -1642,7 +1642,7 @@
                 {% endif %}
                 
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">2</span>Certificate Operations</h2>
+                    <h2><span class="section-icon">⚙️</span>Certificate Operations</h2>
                     <div class="form-group">
                         <label for="operationCertName">Certificate Name:</label>
                         <input type="text" id="operationCertName" placeholder="Enter certificate name">
@@ -1661,7 +1661,7 @@
                 
                 <!-- Certificate Tracking Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">2</span>Certificate Tracking</h2>
+                    <h2><span class="section-icon">📊</span>Certificate Tracking</h2>
                     
                     <!-- Search and Filter Controls -->
                     <div class="search-controls">
@@ -1726,7 +1726,7 @@
             {% if 'admin' in user.roles or 'operator' in user.roles %}
             <div class="tab-content" id="protocols">
                 <div class="section scep-section">
-                <h2><span class="section-icon">3</span>SCEP Device Enrollment</h2>
+                <h2><span class="section-icon">📱</span>SCEP Device Enrollment</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     SCEP (Simple Certificate Enrollment Protocol) enables automatic certificate enrollment for network devices.
                     Configure your devices to use these endpoints for automated certificate management.
@@ -1771,7 +1771,7 @@
                 
                 <!-- OCSP Section -->
                 <div class="section ocsp-section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">3</span>OCSP (Online Certificate Status Protocol)</h2>
+                    <h2><span class="section-icon">🔍</span>OCSP (Online Certificate Status Protocol)</h2>
                     <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                         OCSP allows real-time certificate status validation. Use this endpoint to check if certificates are valid, revoked, or unknown.
                         The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
@@ -1795,7 +1795,7 @@
             {% if 'admin' in user.roles or 'operator' in user.roles %}
             <div class="tab-content" id="ocsp">
                 <div class="section ocsp-section">
-                <h2><span class="section-icon">3</span>OCSP (Online Certificate Status Protocol)</h2>
+                <h2><span class="section-icon">🔍</span>OCSP (Online Certificate Status Protocol)</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     OCSP allows real-time certificate status validation. Use this endpoint to check if certificates are valid, revoked, or unknown.
                     The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
@@ -1819,7 +1819,7 @@
             {% if 'admin' in user.roles or 'operator' in user.roles %}
             <div class="tab-content" id="approvals">
                 <div class="section" id="approvals-section">
-                <h2><span class="section-icon">4</span>Certificate Request Approvals</h2>
+                <h2><span class="section-icon">✅</span>Certificate Request Approvals</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Review and approve pending certificate requests from the self-service portal.
                 </p>
@@ -1838,7 +1838,7 @@
                 <!-- Email Domain Whitelist Section -->
                 {% if user.is_admin %}
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">4</span>Email Domain Whitelist</h2>
+                <h2><span class="section-icon">📧</span>Email Domain Whitelist</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage which email domains are allowed to request 802.1X certificates.
                 </p>
@@ -1884,7 +1884,7 @@
             {% if user.is_admin %}
             <div class="tab-content" id="settings-old-disabled">
                 <div class="section" id="domains-section">
-                <h2><span class="section-icon">5</span>Email Domain Whitelist</h2>
+                <h2><span class="section-icon">📧</span>Email Domain Whitelist</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage which email domains are allowed to request 802.1X certificates.
                 </p>
@@ -1927,7 +1927,7 @@
             <!-- Tab Content: SMTP Config -->
             <div class="tab-content" id="smtp-old-disabled">
                 <div class="section" id="smtp-section">
-                <h2><span class="section-icon">5</span>SMTP Email Configuration</h2>
+                <h2><span class="section-icon">📮</span>SMTP Email Configuration</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Configure SMTP settings for sending email verifications.
                 </p>
@@ -1938,7 +1938,7 @@
             <!-- Tab Content: Certificate Tracking -->
             <div class="tab-content" id="cert-tracking">
                 <div class="section">
-                <h2><span class="section-icon">2</span>Certificate Tracking</h2>
+                <h2><span class="section-icon">📊</span>Certificate Tracking</h2>
                 
                 <!-- Search and Filter Controls -->
                 <div class="search-controls">
@@ -2046,7 +2046,7 @@
                 
                 <!-- User Management Section -->
                 <div class="section" id="userManagementSection" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">5</span>User Management</h2>
+                <h2><span class="section-icon">👥</span>User Management</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage user accounts and permissions for the PKI system.
                 </p>
