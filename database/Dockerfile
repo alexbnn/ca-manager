@@ -13,3 +13,4 @@ COPY 04-ocsp-schema.sql /docker-entrypoint-initdb.d/
 COPY 05-system-config.sql /docker-entrypoint-initdb.d/
 COPY 06-intermediate-ca-schema.sql /docker-entrypoint-initdb.d/
 COPY 07-email-verification.sql /docker-entrypoint-initdb.d/
+COPY 10-smtp-config.sql /docker-entrypoint-initdb.d/
