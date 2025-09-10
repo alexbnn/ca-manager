@@ -92,7 +92,7 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', '25'))
 SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'false').lower() == 'true'
-SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@ca.bonnerseptien.com')
+SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@localhost')
 EMAIL_VERIFICATION_REQUIRED = os.getenv('EMAIL_VERIFICATION_REQUIRED', 'true').lower() == 'true'
 
 def get_db_connection():
@@ -3236,7 +3236,7 @@ def start_certificate_request_verification():
         conn.close()
         
         # Send verification email
-        domain = os.getenv('DOMAIN', 'ca.bonnerseptien.com')
+        domain = os.getenv('DOMAIN', 'localhost')
         verification_url = f"https://{domain}/verify-email?token={verification_token}"
         
         if send_verification_email(email, verification_code, verification_url):
