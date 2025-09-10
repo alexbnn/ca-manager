@@ -3112,11 +3112,15 @@
                     <!-- Redirect URI Information -->
                     <div class="info-box" style="margin-top: 25px; background: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 4px solid #2196f3;">
                         <h4 style="color: #1976d2; margin-bottom: 10px;">📌 Required Redirect URIs</h4>
-                        <p style="margin-bottom: 10px;">Add these redirect URIs to your OAuth application settings:</p>
+                        <p style="margin-bottom: 10px;">Add ALL your domain variations to your OAuth application settings:</p>
                         <ul style="margin-left: 20px; color: #424242;">
                             <li><strong>Google:</strong> <code id="googleRedirectUri">https://your-domain.com/auth/google/callback</code></li>
                             <li><strong>Microsoft:</strong> <code id="microsoftRedirectUri">https://your-domain.com/auth/microsoft/callback</code></li>
                         </ul>
+                        <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 10px; border-left: 3px solid #ffc107;">
+                            <strong>⚠️ Dynamic URI Support:</strong> The redirect URI is now dynamically generated based on the domain you're accessing from. 
+                            Make sure to add ALL domains you'll use (e.g., ca.yourdomain.com, localhost:5000, etc.) to your OAuth app settings in Google/Microsoft.
+                        </div>
                     </div>
                 </div>
                 

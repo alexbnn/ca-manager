@@ -55,7 +55,7 @@ docker-compose ps
 # Verify web interface is responding
 echo "🌐 Verifying web interface..."
 sleep 5
-if curl -k -s https://ca.bonner.com/health > /dev/null; then
+if curl -k -s https://ca.bonnerseptien.com/health > /dev/null; then
     echo "✅ Web interface is responding"
 else
     echo "⚠️  Web interface may still be starting up"
@@ -70,5 +70,5 @@ echo "   • Version Management section in General Settings"
 echo "   • Branch switching and update capabilities"
 echo "   • GitHub integration for latest version checking"
 echo ""
-echo "🔗 Access your CA Manager at: https://ca.bonner.com"
+echo "🔗 Access your CA Manager at: https://ca.bonnerseptien.com"
 echo "⚙️  Version management is available in General Settings tab"

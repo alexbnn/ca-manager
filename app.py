@@ -92,7 +92,7 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', '25'))
 SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'false').lower() == 'true'
-SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@ca.bonner.com')
+SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@ca.bonnerseptien.com')
 EMAIL_VERIFICATION_REQUIRED = os.getenv('EMAIL_VERIFICATION_REQUIRED', 'true').lower() == 'true'
 
 def get_db_connection():
@@ -656,10 +656,6 @@ def microsoft_login():
         tenant_id_result = cursor.fetchone()
         tenant_id = tenant_id_result['config_value'] if tenant_id_result else 'common'
         
-        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('idp_redirect_uri_base',))
-        redirect_base_result = cursor.fetchone()
-        redirect_base = redirect_base_result['config_value'] if redirect_base_result else 'https://ca.bonner.com'
-        
         cursor.close()
         conn.close()
         
@@ -672,9 +668,16 @@ def microsoft_login():
         if not client_id or not client_secret:
             return jsonify({'error': 'Microsoft OAuth not properly configured'}), 400
         
+        # Dynamically construct redirect URI based on request host
+        # This ensures it works with any domain without hardcoding
+        scheme = 'https' if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+        host = request.headers.get('X-Forwarded-Host', request.host)
+        redirect_uri = f'{scheme}://{host}/auth/microsoft/callback'
+        
+        logger.info(f"Dynamic redirect URI: {redirect_uri}")
+        
         # Create MSAL app directly
         authority = f'https://login.microsoftonline.com/{tenant_id}'
-        redirect_uri = f'{redirect_base}/auth/microsoft/callback'
         
         app_msal = msal.ConfidentialClientApplication(
             client_id=client_id,
@@ -726,10 +729,6 @@ def microsoft_callback():
         tenant_id_result = cursor.fetchone()
         tenant_id = tenant_id_result['config_value'] if tenant_id_result else 'common'
         
-        cursor.execute("SELECT config_value FROM system_config WHERE config_key = %s", ('idp_redirect_uri_base',))
-        redirect_base_result = cursor.fetchone()
-        redirect_base = redirect_base_result['config_value'] if redirect_base_result else 'https://ca.bonner.com'
-        
         cursor.close()
         
         # Verify state for CSRF protection
@@ -743,9 +742,15 @@ def microsoft_callback():
             conn.close()
             return jsonify({'error': 'No authorization code received'}), 400
         
+        # Dynamically construct redirect URI based on request host
+        scheme = 'https' if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+        host = request.headers.get('X-Forwarded-Host', request.host)
+        redirect_uri = f'{scheme}://{host}/auth/microsoft/callback'
+        
+        logger.info(f"Dynamic redirect URI for callback: {redirect_uri}")
+        
         # Create MSAL app and exchange code for token
         authority = f'https://login.microsoftonline.com/{tenant_id}'
-        redirect_uri = f'{redirect_base}/auth/microsoft/callback'
         
         app_msal = msal.ConfidentialClientApplication(
             client_id,
@@ -3231,7 +3236,7 @@ def start_certificate_request_verification():
         conn.close()
         
         # Send verification email
-        domain = os.getenv('DOMAIN', 'ca.bonner.com')
+        domain = os.getenv('DOMAIN', 'ca.bonnerseptien.com')
         verification_url = f"https://{domain}/verify-email?token={verification_token}"
         
         if send_verification_email(email, verification_code, verification_url):

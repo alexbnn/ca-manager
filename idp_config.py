@@ -253,6 +253,17 @@ class IDPConfig:
     # OAuth2 Redirect URIs (must be registered with IDP)
     @classmethod
     def get_redirect_uri_base(cls):
+        """Get redirect URI base, dynamically from request if available, otherwise from DB"""
+        try:
+            from flask import request
+            if request:
+                # Dynamically construct URI based on current request
+                scheme = 'https' if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https' else 'http'
+                host = request.headers.get('X-Forwarded-Host', request.host)
+                return f'{scheme}://{host}'
+        except:
+            pass
+        # Fallback to database config
         return cls._get_config_from_db('idp_redirect_uri_base', 'https://localhost')
     
     @classmethod  
