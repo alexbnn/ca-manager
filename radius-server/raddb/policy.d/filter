@@ -1,0 +1,16 @@
+# Filter policies for attributes
+
+# Accounting response filter
+attr_filter.accounting_response {
+    &Reply-Message := "Accounting OK"
+}
+
+# Access reject filter  
+attr_filter.access_reject {
+    &Reply-Message := "Access denied"
+}
+
+# Pre-proxy filter
+attr_filter.pre-proxy {
+    noop
+}

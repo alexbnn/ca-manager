@@ -58,6 +58,7 @@ services:
       # Enable version management functionality
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/app/source:ro
+      - ./proxy-installer:/opt/proxy-installer
     deploy:
       resources:
         limits:
@@ -254,6 +255,46 @@ services:
       - "traefik.http.routers.ocsp-simulator.tls=true"
       - "traefik.http.services.ocsp-simulator.loadbalancer.server.port=4000"
       - "traefik.http.routers.ocsp-simulator.tls.certResolver=letsencrypt"
+  # RADIUS Server for 802.1x EAP-TLS Authentication
+  radius-server:
+    build:
+      context: ./radius-server
+      dockerfile: Dockerfile
+    hostname: radius-server
+    ports:
+      - "1812:1812/udp"  # RADIUS Authentication
+      - "1813:1813/udp"  # RADIUS Accounting
+    networks:
+      - easyrsa-network
+    restart: unless-stopped
+    depends_on:
+      easyrsa-container:
+        condition: service_started
+      web-interface:
+        condition: service_started
+    environment:
+      - CA_MANAGER_URL=http://web-interface:5000
+      - EASYRSA_CONTAINER_URL=http://easyrsa-container:8080
+      - RADIUS_SECRET=your-radius-secret-here
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+    volumes:
+      # Persist logs
+      - radius-logs:/var/log/radius
+      # Configuration volume (writable for certificate updates)
+      - radius-config:/etc/raddb
+      # Mount scripts as read-only
+      - ./radius-server/scripts:/opt/radius-scripts:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    labels:
+      - "traefik.enable=false"  # RADIUS doesn't need HTTP routing
+
   # OCSP Responder - Online Certificate Status Protocol
   ocsp-responder:
     build:
@@ -360,6 +401,10 @@ volumes:
   scep-logs:
     driver: local
   ocsp-logs:
+    driver: local
+  radius-logs:
+    driver: local
+  radius-config:
     driver: local
   traefik-logs:
     driver: local

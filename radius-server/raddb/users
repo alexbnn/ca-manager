@@ -1,0 +1,7 @@
+# RADIUS users file
+# Not used for EAP-TLS certificate authentication
+# but required by FreeRADIUS default configuration
+
+# Default entry for certificate-based auth
+DEFAULT Auth-Type := Accept
+    Reply-Message = "Certificate authentication successful"

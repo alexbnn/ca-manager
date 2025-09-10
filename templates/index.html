@@ -1548,13 +1548,16 @@
                 <li><button class="tab-item" onclick="switchTab('protocols')" id="tab-protocols">
                     <span class="tab-icon">3</span>Device Protocols
                 </button></li>
+                <li><button class="tab-item" onclick="switchTab('radius')" id="tab-radius">
+                    <span class="tab-icon">4</span>RADIUS Server
+                </button></li>
                 <li><button class="tab-item" onclick="switchTab('approvals')" id="tab-approvals">
-                    <span class="tab-icon">4</span>Request Approvals & Domain Whitelist
+                    <span class="tab-icon">5</span>Request Approvals & Domain Whitelist
                 </button></li>
                 {% endif %}
                 {% if user.is_admin %}
                 <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
-                    <span class="tab-icon">5</span>General Settings
+                    <span class="tab-icon">6</span>General Settings
                 </button></li>
                 {% endif %}
             </ul>
@@ -1801,8 +1804,8 @@
                     The OCSP responder provides RFC 6960 compliant responses for certificate status queries.
                 </p>
                 <div class="form-group">
-                    <label for="ocspUrl">OCSP Responder URL:</label>
-                    <input type="text" id="ocspUrl" value="Loading..." readonly 
+                    <label for="ocspUrl2">OCSP Responder URL:</label>
+                    <input type="text" id="ocspUrl2" value="Loading..." readonly 
                            class="scep-url-field" onclick="this.select()">
                 </div>
                 
@@ -1810,6 +1813,238 @@
                     <button class="btn btn-info" id="showOCSPInfo">Show OCSP Details</button>
                     <button class="btn btn-secondary" id="testOCSPHealth">Test OCSP Health</button>
                     <button class="btn btn-primary" id="openOCSPSimulator">🔍 OCSP Simulator</button>
+                </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Tab Content: RADIUS Server -->
+            {% if 'admin' in user.roles or 'operator' in user.roles %}
+            <div class="tab-content" id="radius">
+                <!-- RADIUS Server Status Section -->
+                <div class="section">
+                <h2><span class="section-icon">📡</span>RADIUS Server Status</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Monitor and manage your FreeRADIUS server for 802.1x EAP-TLS authentication.
+                </p>
+                
+                <div class="radius-status-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div class="status-card" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h4>Server Status</h4>
+                        <div id="radiusServerStatus" style="font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem;">
+                            <span style="color: #666;">⏳ Checking...</span>
+                        </div>
+                    </div>
+                    <div class="status-card" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h4>Authentication Requests</h4>
+                        <div id="radiusTotalRequests" style="font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem; color: #0066cc;">0</div>
+                    </div>
+                    <div class="status-card" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h4>Successful Auths</h4>
+                        <div id="radiusSuccessfulAuths" style="font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem; color: #28a745;">0</div>
+                    </div>
+                    <div class="status-card" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h4>Failed Attempts</h4>
+                        <div id="radiusFailedAuths" style="font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem; color: #dc3545;">0</div>
+                    </div>
+                </div>
+
+                <div class="button-grid">
+                    <button class="btn btn-info" onclick="refreshRadiusStatus()">🔄 Refresh Status</button>
+                    <button class="btn btn-primary" onclick="syncRadiusCertificates()">🔐 Sync Certificates</button>
+                    <button class="btn btn-secondary" onclick="viewRadiusLogs()">📋 View Logs</button>
+                </div>
+                </div>
+
+                <!-- RADIUS Certificates Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔐</span>RADIUS Certificates</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Manage certificates used by the RADIUS server for EAP-TLS authentication.
+                </p>
+
+                <div class="certificate-status" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                        <div>
+                            <strong>CA Certificate:</strong>
+                            <div id="radiusCACertStatus" style="margin-top: 0.5rem;">
+                                <span style="color: #666;">⏳ Loading...</span>
+                            </div>
+                        </div>
+                        <div>
+                            <strong>Server Certificate:</strong>
+                            <div id="radiusServerCertStatus" style="margin-top: 0.5rem;">
+                                <span style="color: #666;">⏳ Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-grid">
+                    <button class="btn btn-success" onclick="generateRadiusServerCert()">🎫 Generate New Server Cert</button>
+                    <button class="btn btn-warning" onclick="syncRadiusCertificates()">🔄 Sync from CA Manager</button>
+                </div>
+                </div>
+
+                <!-- RADIUS Clients Management Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🌐</span>RADIUS Clients</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure network devices (access points, switches) that can send authentication requests to your RADIUS server.
+                </p>
+
+                <div class="button-grid" style="margin-bottom: 1.5rem;">
+                    <button class="btn btn-primary" onclick="showAddClientForm()">➕ Add RADIUS Client</button>
+                    <button class="btn btn-info" onclick="refreshRadiusClients()">🔄 Refresh Clients</button>
+                </div>
+
+                <!-- Add Client Form -->
+                <div id="addClientForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4>Add New RADIUS Client</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div class="form-group">
+                            <label for="clientName">Client Name:</label>
+                            <input type="text" id="clientName" placeholder="e.g., Access Point 01" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="clientIP">IP Address/Network:</label>
+                            <input type="text" id="clientIP" placeholder="e.g., 192.168.1.10 or 192.168.0.0/24" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="clientSecret">Shared Secret:</label>
+                            <input type="password" id="clientSecret" placeholder="Strong shared secret" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="clientType">NAS Type:</label>
+                            <select id="clientType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="other">Other</option>
+                                <option value="cisco">Cisco</option>
+                                <option value="juniper">Juniper</option>
+                                <option value="aruba">Aruba</option>
+                                <option value="ubiquiti">Ubiquiti</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="button-grid" style="margin-top: 1rem;">
+                        <button class="btn btn-success" onclick="addRadiusClient()">✅ Add Client</button>
+                        <button class="btn btn-secondary" onclick="hideAddClientForm()">❌ Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Clients List -->
+                <div id="radiusClientsList" class="clients-list">
+                    <!-- RADIUS clients will be loaded here -->
+                </div>
+                </div>
+
+                <!-- Authentication Logs Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">📊</span>Authentication Logs</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    View recent RADIUS authentication attempts and troubleshoot connection issues.
+                </p>
+
+                <div class="button-grid" style="margin-bottom: 1.5rem;">
+                    <button class="btn btn-info" onclick="openRadiusLogsModal()">📋 View Logs</button>
+                </div>
+                </div>
+
+                <!-- RadSec Proxy Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🌐</span>RadSec Proxy (Extreme Networks)</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Deploy a RadSec proxy to connect your RADIUS server to Extreme Networks Cloud Platform.
+                </p>
+
+                <!-- RadSec Status -->
+                <div id="radsecStatus" class="status-card" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e9ecef; border-radius: 8px; background: #f8f9fa;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div id="radsecStatusIcon" style="font-size: 1.5rem;">⚪</div>
+                        <div style="flex: 1;">
+                            <div id="radsecStatusText" style="font-weight: bold;">RadSec Proxy: Not Deployed</div>
+                            <div id="radsecStatusDetails" style="font-size: 0.875rem; color: #666; margin-top: 0.25rem;">
+                                Ready for deployment
+                            </div>
+                        </div>
+                        <button id="radsecStatusRefresh" class="btn btn-info" onclick="refreshRadsecStatus()">🔄</button>
+                    </div>
+                </div>
+
+                <!-- Deployment Form -->
+                <div id="radsecDeploymentForm" style="background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                    <h4>🚀 Deploy RadSec Proxy</h4>
+                    <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
+                        Paste the deployment command from your Extreme Networks Cloud Platform dashboard:
+                    </p>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: bold;">
+                            Extreme Networks Deployment Command:
+                        </label>
+                        <textarea id="extremeCommand" 
+                                  placeholder="curl -L https://oh-uz.extremecloudiq.com/proxy-installer/master-installer.sh | sudo bash -s -- -o deploy -t YOUR_TOKEN_HERE"
+                                  style="width: 100%; height: 80px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.85rem; resize: vertical;"
+                                  onchange="parseExtremeCommand()"></textarea>
+                    </div>
+
+                    <!-- Parsed Token Info -->
+                    <div id="tokenInfo" style="display: none; background: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 4px; padding: 1rem; margin-bottom: 1rem;">
+                        <h5>📋 Parsed Token Information:</h5>
+                        <div style="font-family: monospace; font-size: 0.85rem;">
+                            <div><strong>Server:</strong> <span id="tokenServer">-</span></div>
+                            <div><strong>Site ID:</strong> <span id="tokenSiteId">-</span></div>
+                            <div><strong>Proxy ID:</strong> <span id="tokenProxyId">-</span></div>
+                            <div><strong>Workspace:</strong> <span id="tokenWorkspace">-</span></div>
+                            <div><strong>Token Expires:</strong> <span id="tokenExpiry">-</span></div>
+                        </div>
+                    </div>
+
+                    <div class="button-grid">
+                        <button class="btn btn-success" onclick="deployRadsecProxy()" id="deployRadsecBtn">
+                            🚀 Deploy RadSec Proxy
+                        </button>
+                        <button class="btn btn-warning" onclick="removeRadsecProxy()" id="removeRadsecBtn" style="display: none;">
+                            🗑️ Remove Proxy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- RadSec Management -->
+                <div id="radsecManagement" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                    <h4>⚙️ RadSec Proxy Management</h4>
+                    
+                    <div class="button-grid">
+                        <button class="btn btn-info" onclick="viewRadsecLogs()">📋 View Logs</button>
+                        <button class="btn btn-secondary" onclick="updateRadsecCerts()">🔄 Update Certificates</button>
+                        <button class="btn btn-warning" onclick="restartRadsecProxy()">🔄 Restart Proxy</button>
+                        <button class="btn btn-danger" onclick="troubleshootRadsec()">🔧 Troubleshoot</button>
+                    </div>
+                </div>
+
+                </div>
+
+                <!-- RADIUS Configuration Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">⚙️</span>Configuration Guide</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Instructions for configuring your network devices to use this RADIUS server.
+                </p>
+
+                <div class="config-instructions" style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 1.5rem;">
+                    <h4>📋 Quick Setup Guide</h4>
+                    <ol style="margin-left: 1.5rem; margin-top: 1rem;">
+                        <li><strong>RADIUS Server Settings:</strong>
+                            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                                <li>IP Address: <code id="radiusServerIP">[Your Server IP]</code></li>
+                                <li>Authentication Port: <code>1812</code></li>
+                                <li>Accounting Port: <code>1813</code></li>
+                                <li>Protocol: <code>EAP-TLS</code></li>
+                            </ul>
+                        </li>
+                        <li><strong>Client Certificate:</strong> Issue certificates for devices using the CA Manager certificate creation tools</li>
+                        <li><strong>Root CA:</strong> Install your CA certificate on client devices for server verification</li>
+                        <li><strong>Shared Secret:</strong> Configure the shared secret in your network device settings</li>
+                    </ol>
                 </div>
                 </div>
             </div>
@@ -1882,8 +2117,9 @@
             <!-- OLD System Settings Tab - COMMENTED OUT
             <!-- Tab Content: System Settings (Email Domains + SMTP + User Management) -->
             {% if user.is_admin %}
-            <div class="tab-content" id="settings-old-disabled">
-                <div class="section" id="domains-section">
+            <!-- DISABLED OLD Settings Tab - keeping for reference but not displayed -->
+            <div class="tab-content" id="settings-old-disabled" style="display: none;">
+                <div class="section" id="domains-section-old">
                 <h2><span class="section-icon">📧</span>Email Domain Whitelist</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
                     Manage which email domains are allowed to request 802.1X certificates.
@@ -1895,16 +2131,16 @@
                 </div>
 
                 <!-- Add Domain Form -->
-                <div id="add-domain-form" class="form-container" style="display: none; margin-top: 1rem; background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                <div id="add-domain-form-old" class="form-container" style="display: none; margin-top: 1rem; background: var(--light-gray); padding: 1rem; border-radius: 8px;">
                     <h3 style="margin-bottom: 1rem;">Add Email Domain</h3>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="newEmailDomain" style="display: block; margin-bottom: 0.5rem;">Domain Name *</label>
-                            <input type="text" id="newEmailDomain" placeholder="example.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                            <label for="newEmailDomain-old" style="display: block; margin-bottom: 0.5rem;">Domain Name *</label>
+                            <input type="text" id="newEmailDomain-old" placeholder="example.com" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
                         </div>
                         <div class="form-group" style="margin-top: 1rem;">
-                            <label for="domainDescription" style="display: block; margin-bottom: 0.5rem;">Description</label>
-                            <input type="text" id="domainDescription" placeholder="Optional description" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                            <label for="domainDescription-old" style="display: block; margin-bottom: 0.5rem;">Description</label>
+                            <input type="text" id="domainDescription-old" placeholder="Optional description" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
                         </div>
                         <div class="form-group" style="margin-top: 1rem;">
                             <label style="display: flex; align-items: center;">
@@ -1942,8 +2178,8 @@
                 
                 <!-- Search and Filter Controls -->
                 <div class="search-controls">
-                    <input type="text" id="searchCerts" placeholder="Search certificates...">
-                    <select id="filterType">
+                    <input type="text" id="searchCerts-smtp" placeholder="Search certificates...">
+                    <select id="filterType-smtp">
                         <option value="">All Types</option>
                         <option value="issued">Issued</option>
                         <option value="request">Pending</option>
@@ -2158,78 +2394,6 @@
                     <div class="status-card">
                         <h3>IDP Status</h3>
                         <div id="idpStatusContent"></div>
-                    </div>
-                </div>
-                </div>
-                
-                <!-- Version Management Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">🔄</span>Version Management</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Manage CA Manager version updates and branch switching directly from the dashboard.
-                </p>
-                
-                <div class="version-management">
-                    <div class="current-version-info" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                        <h4 style="margin-bottom: 0.5rem;">Current Version Information</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                            <div>
-                                <strong>Current Branch:</strong> <span id="currentBranch" style="color: var(--primary-color);">Loading...</span>
-                            </div>
-                            <div>
-                                <strong>Latest Commit:</strong> <span id="currentCommit" style="font-family: monospace;">Loading...</span>
-                            </div>
-                            <div>
-                                <strong>Last Updated:</strong> <span id="lastUpdated">Loading...</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="update-controls">
-                        <h3 style="margin-bottom: 1rem;">Update Options</h3>
-                        
-                        <div class="form-group" style="margin-bottom: 1.5rem;">
-                            <label for="branchSelect">Select Branch:</label>
-                            <select id="branchSelect" style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                <option value="">Loading branches...</option>
-                            </select>
-                            <small style="display: block; margin-top: 0.25rem; color: var(--medium-gray);">
-                                Choose a branch to switch to or update from
-                            </small>
-                        </div>
-                        
-                        <div class="button-grid" style="gap: 1rem; margin-bottom: 1.5rem;">
-                            <button class="btn btn-info" onclick="checkForUpdates()">
-                                🔍 Check for Updates
-                            </button>
-                            <button class="btn btn-warning" onclick="updateCurrentBranch()">
-                                🔄 Update Current Branch
-                            </button>
-                            <button class="btn btn-primary" onclick="switchBranch()" id="switchBranchBtn" disabled>
-                                🔀 Switch to Selected Branch
-                            </button>
-                        </div>
-                        
-                        <div id="updateStatus" style="margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none;"></div>
-                        
-                        <div class="update-progress" id="updateProgress" style="display: none; margin-top: 1rem;">
-                            <h4>Update Progress</h4>
-                            <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 30px; margin: 0.5rem 0;">
-                                <div id="progressBar" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
-                            </div>
-                            <div id="progressText" style="font-family: monospace; font-size: 0.875rem; color: var(--medium-gray); margin-top: 0.5rem;"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="config-instructions" style="margin-top: 2rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 15px;">
-                        <h3 style="margin-bottom: 1rem; color: #856404;">⚠️ Important Notes</h3>
-                        <ul style="color: #856404; margin-left: 1.5rem;">
-                            <li>Updates will restart the CA Manager service temporarily</li>
-                            <li>All configuration and certificates are preserved during updates</li>
-                            <li>Database and persistent data remain intact</li>
-                            <li>The update process typically takes 1-2 minutes</li>
-                            <li>Ensure you have a backup before switching major versions</li>
-                        </ul>
                     </div>
                 </div>
                 </div>
@@ -2927,8 +3091,8 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="certValidityDays">Certificate Validity (days):</label>
-                            <input type="number" id="certValidityDays" value="365" min="30" max="3650">
+                            <label for="certValidityDays-idp">Certificate Validity (days):</label>
+                            <input type="number" id="certValidityDays-idp" value="365" min="30" max="3650">
                         </div>
                         
                         <div class="form-group">
@@ -2961,6 +3125,81 @@
                     <button type="submit" class="btn btn-primary">Save Configuration</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- RADIUS Logs Modal -->
+    <div id="radiusLogsModal" class="modal">
+        <div class="modal-content" style="max-width: 90%; width: 1200px; height: 80vh; display: flex; flex-direction: column;">
+            <span class="close" onclick="closeRadiusLogsModal()">&times;</span>
+            <h3 style="margin-bottom: 1rem;">📊 RADIUS Authentication Logs</h3>
+            
+            <!-- Search and Controls Bar -->
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center;">
+                <input type="text" id="logsSearchInput" placeholder="🔍 Search logs..." 
+                       style="flex: 1; padding: 0.5rem; border: 1px solid #444; background: #1a1a1a; color: #0f0; font-family: monospace; border-radius: 4px;"
+                       onkeyup="searchRadiusLogs()">
+                <button class="btn btn-info" onclick="refreshRadiusLogsInModal()">🔄 Refresh</button>
+                <button class="btn btn-secondary" onclick="exportRadiusLogs()">📥 Export</button>
+                <button class="btn btn-warning" onclick="clearRadiusLogs()">🗑️ Clear</button>
+                <select id="logLevelFilter" onchange="filterRadiusLogs()" 
+                        style="padding: 0.5rem; border: 1px solid #444; background: #1a1a1a; color: #0f0; font-family: monospace; border-radius: 4px;">
+                    <option value="all">All Levels</option>
+                    <option value="success">✅ Success</option>
+                    <option value="error">❌ Error</option>
+                    <option value="warning">⚠️ Warning</option>
+                    <option value="info">ℹ️ Info</option>
+                </select>
+            </div>
+            
+            <!-- Terminal-style Log Display -->
+            <div id="radiusLogsTerminal" style="
+                flex: 1;
+                background: #0a0a0a;
+                color: #0f0;
+                font-family: 'Courier New', monospace;
+                font-size: 13px;
+                padding: 1rem;
+                border: 2px solid #333;
+                border-radius: 4px;
+                overflow-y: auto;
+                overflow-x: auto;
+                white-space: pre;
+                box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
+                position: relative;
+            ">
+                <div id="terminalHeader" style="
+                    color: #0f0;
+                    margin-bottom: 1rem;
+                    padding-bottom: 0.5rem;
+                    border-bottom: 1px solid #0f0;
+                    opacity: 0.8;
+                ">
+RADIUS Authentication Log Monitor v1.0
+=====================================
+[Press ESC to close] [Use search to filter logs]
+                </div>
+                <div id="radiusLogsContent" style="line-height: 1.4;">
+                    <span style="color: #888;">Loading logs...</span>
+                </div>
+            </div>
+            
+            <!-- Status Bar -->
+            <div style="
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 12px;
+                color: #0f0;
+                display: flex;
+                justify-content: space-between;
+            ">
+                <span id="logCount">0 logs loaded</span>
+                <span id="lastUpdateTime">Last update: Never</span>
+            </div>
         </div>
     </div>
 
@@ -3013,10 +3252,17 @@
             if (tabId === 'user-management') {
                 // Load version information and available branches for General Settings
                 setTimeout(() => {
-                    loadVersionInfo().catch(e => console.error('loadVersionInfo error:', e));
-                    loadAvailableBranches().catch(e => console.error('loadAvailableBranches error:', e));
+                    // Version management removed
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
                     loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
+                }, 100);
+            } else if (tabId === 'radius') {
+                // Load RADIUS data when tab is selected
+                setTimeout(() => {
+                    refreshRadiusStatus().catch(e => console.error('refreshRadiusStatus error:', e));
+                    refreshRadsecStatus().catch(e => console.error('refreshRadsecStatus error:', e));
+                    loadRadiusCertificates().catch(e => console.error('loadRadiusCertificates error:', e));
+                    refreshRadiusClients().catch(e => console.error('refreshRadiusClients error:', e));
                 }, 100);
             }
         }
@@ -4826,7 +5072,12 @@
             try {
                 const domain = window.location.hostname.replace(/^[^.]*\./, ''); // Extract domain
                 const ocspUrl = `https://ca.${domain}/ocsp`;
+                if (document.getElementById('ocspUrl')) {
                 document.getElementById('ocspUrl').value = ocspUrl;
+            }
+            if (document.getElementById('ocspUrl2')) {
+                document.getElementById('ocspUrl2').value = ocspUrl;
+            }
             } catch (error) {
                 console.error('Failed to load OCSP URL:', error);
                 document.getElementById('ocspUrl').value = 'Error loading OCSP URL';
@@ -7022,46 +7273,9 @@ Dependencies:
             }
         });
 
-        // Version Management Functions
-        async function loadVersionInfo() {
-            try {
-                const response = await fetch('/api/version-info', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (response.ok) {
-                    document.getElementById('currentBranch').textContent = data.branch || 'Unknown';
-                    document.getElementById('currentCommit').textContent = data.commit ? data.commit.substring(0, 8) : 'Unknown';
-                    
-                    // Format last updated date to local time
-                    let lastUpdatedText = 'Unknown';
-                    if (data.last_updated && data.last_updated !== 'Unknown' && data.last_updated !== 'Container rebuild required for full version info') {
-                        try {
-                            const date = new Date(data.last_updated);
-                            lastUpdatedText = date.toLocaleString(undefined, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true
-                            });
-                        } catch (e) {
-                            lastUpdatedText = data.last_updated; // Fallback to original if parsing fails
-                        }
-                    }
-                    document.getElementById('lastUpdated').textContent = lastUpdatedText;
-                } else {
-                    showStatus('Failed to load version information', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading version info:', error);
-                showStatus('Error loading version information', 'error');
-            }
-        }
-
+        // Version Management Functions - REMOVED
+        /*
+        async function loadVersionInfo() { ... }
         async function loadAvailableBranches() {
             try {
                 const response = await fetch('/api/available-branches', {
@@ -7273,6 +7487,830 @@ Dependencies:
                     showStatus('Error monitoring update progress', 'error');
                     hideUpdateProgress();
                 }
+            }
+        }
+        */
+
+        // RADIUS Management Functions
+        async function refreshRadiusStatus() {
+            try {
+                showStatus('Refreshing RADIUS status...', 'loading');
+                
+                const response = await fetch('/api/radius/status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const status = data.radius_status;
+                    
+                    // Update status display
+                    const statusElement = document.getElementById('radiusServerStatus');
+                    if (status.server_running) {
+                        statusElement.innerHTML = '<span style="color: #28a745;">🟢 Running</span>';
+                    } else {
+                        statusElement.innerHTML = '<span style="color: #dc3545;">🔴 Stopped</span>';
+                    }
+                    
+                    // Update statistics
+                    document.getElementById('radiusTotalRequests').textContent = status.total_requests || 0;
+                    document.getElementById('radiusSuccessfulAuths').textContent = status.successful_auths || 0;
+                    document.getElementById('radiusFailedAuths').textContent = status.failed_auths || 0;
+                    
+                    showStatus('RADIUS status refreshed successfully', 'success');
+                } else {
+                    showStatus('Failed to refresh RADIUS status: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error refreshing RADIUS status:', error);
+                showStatus('Error refreshing RADIUS status', 'error');
+            }
+        }
+
+        async function syncRadiusCertificates() {
+            try {
+                showStatus('Syncing certificates with RADIUS server...', 'loading');
+                
+                const response = await fetch('/api/radius/sync-certificates', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('Certificates synced successfully', 'success');
+                    // Refresh certificate status
+                    loadRadiusCertificates();
+                } else {
+                    showStatus('Failed to sync certificates: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error syncing certificates:', error);
+                showStatus('Error syncing certificates', 'error');
+            }
+        }
+
+        async function loadRadiusCertificates() {
+            try {
+                const response = await fetch('/api/radius/certificates', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const certs = data.certificates;
+                    
+                    // Update CA certificate status
+                    const caCertStatus = document.getElementById('radiusCACertStatus');
+                    if (certs.ca_certificate && certs.ca_certificate.present) {
+                        caCertStatus.innerHTML = `<span style="color: #28a745;">✅ Present (expires: ${certs.ca_certificate.expires})</span>`;
+                    } else {
+                        caCertStatus.innerHTML = '<span style="color: #dc3545;">❌ Missing</span>';
+                    }
+                    
+                    // Update server certificate status
+                    const serverCertStatus = document.getElementById('radiusServerCertStatus');
+                    if (certs.server_certificate && certs.server_certificate.present) {
+                        serverCertStatus.innerHTML = `<span style="color: #28a745;">✅ Present (expires: ${certs.server_certificate.expires})</span>`;
+                    } else {
+                        serverCertStatus.innerHTML = '<span style="color: #dc3545;">❌ Missing</span>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading RADIUS certificates:', error);
+            }
+        }
+
+        async function generateRadiusServerCert() {
+            if (!confirm('Generate a new RADIUS server certificate? This will replace the current certificate.')) {
+                return;
+            }
+            
+            try {
+                showStatus('Generating new RADIUS server certificate...', 'loading');
+                
+                // Use existing certificate generation API
+                const response = await fetch('/api/generate-certificate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        common_name: 'radius-server',
+                        type: 'server',
+                        key_type: 'rsa',
+                        key_size: '2048'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('RADIUS server certificate generated successfully', 'success');
+                    // Sync the new certificate to RADIUS
+                    setTimeout(() => syncRadiusCertificates(), 1000);
+                } else {
+                    showStatus('Failed to generate certificate: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error generating certificate:', error);
+                showStatus('Error generating RADIUS server certificate', 'error');
+            }
+        }
+
+        function showAddClientForm() {
+            document.getElementById('addClientForm').style.display = 'block';
+        }
+
+        function hideAddClientForm() {
+            document.getElementById('addClientForm').style.display = 'none';
+            // Clear form fields
+            document.getElementById('clientName').value = '';
+            document.getElementById('clientIP').value = '';
+            document.getElementById('clientSecret').value = '';
+            document.getElementById('clientType').value = 'other';
+        }
+
+        async function addRadiusClient() {
+            try {
+                const name = document.getElementById('clientName').value.trim();
+                const ip_address = document.getElementById('clientIP').value.trim();
+                const shared_secret = document.getElementById('clientSecret').value.trim();
+                const nas_type = document.getElementById('clientType').value;
+                
+                if (!name || !ip_address || !shared_secret) {
+                    showStatus('Please fill in all required fields', 'error');
+                    return;
+                }
+                
+                showStatus('Adding RADIUS client...', 'loading');
+                
+                const response = await fetch('/api/radius/clients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: name,
+                        ip_address: ip_address,
+                        shared_secret: shared_secret,
+                        nas_type: nas_type
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('RADIUS client added successfully', 'success');
+                    hideAddClientForm();
+                    refreshRadiusClients();
+                } else {
+                    showStatus('Failed to add client: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error adding RADIUS client:', error);
+                showStatus('Error adding RADIUS client', 'error');
+            }
+        }
+
+        async function refreshRadiusClients() {
+            try {
+                const response = await fetch('/api/radius/clients', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const clientsList = document.getElementById('radiusClientsList');
+                    
+                    if (data.clients && data.clients.length > 0) {
+                        let html = '<div style="background: #fff; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden;">';
+                        html += '<div style="background: #f8f9fa; padding: 1rem; font-weight: bold; border-bottom: 1px solid #e9ecef;">Configured RADIUS Clients</div>';
+                        
+                        data.clients.forEach(client => {
+                            const isEnabled = client.status === 'enabled';
+                            const statusBadge = isEnabled 
+                                ? '<span style="color: green; font-weight: bold;">✅ Enabled</span>' 
+                                : '<span style="color: orange; font-weight: bold;">⚠️ Disabled</span>';
+                            
+                            html += `
+                                <div style="padding: 1rem; border-bottom: 1px solid #f1f3f4; ${!isEnabled ? 'background-color: #f8f9fa;' : ''}">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; flex-grow: 1;">
+                                            <div><strong>Name:</strong> ${client.name}</div>
+                                            <div><strong>IP:</strong> ${client.ip}</div>
+                                            <div><strong>Type:</strong> ${client.type}</div>
+                                            <div><strong>Status:</strong> ${statusBadge}</div>
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            ${isEnabled 
+                                                ? `<button class="btn btn-warning" onclick="toggleRadiusClient('${client.client_id || client.name}', 'disable')">⏸️ Disable</button>`
+                                                : `<button class="btn btn-success" onclick="toggleRadiusClient('${client.client_id || client.name}', 'enable')">▶️ Enable</button>`
+                                            }
+                                            <button class="btn btn-danger" onclick="deleteRadiusClient('${client.client_id || client.name}')">🗑️ Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div>';
+                        clientsList.innerHTML = html;
+                    } else {
+                        clientsList.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No RADIUS clients configured</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error refreshing RADIUS clients:', error);
+            }
+        }
+
+        async function toggleRadiusClient(clientName, action) {
+            try {
+                showStatus(`${action === 'enable' ? 'Enabling' : 'Disabling'} RADIUS client ${clientName}...`, 'loading');
+                
+                const response = await fetch(`/api/radius/clients/${encodeURIComponent(clientName)}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: action }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus(`RADIUS client ${clientName} ${action}d successfully`, 'success');
+                    refreshRadiusClients();
+                } else {
+                    showStatus(data.message || `Failed to ${action} RADIUS client`, 'error');
+                }
+            } catch (error) {
+                console.error(`Error ${action}ing RADIUS client:`, error);
+                showStatus(`Error ${action}ing RADIUS client`, 'error');
+            }
+        }
+
+        async function deleteRadiusClient(clientName) {
+            if (!confirm(`Are you sure you want to PERMANENTLY DELETE RADIUS client "${clientName}"?\n\nThis action cannot be undone. Consider disabling the client instead if you might need it later.`)) {
+                return;
+            }
+            
+            try {
+                showStatus(`Deleting RADIUS client ${clientName}...`, 'loading');
+                
+                const deleteUrl = `/api/radius/clients/${encodeURIComponent(clientName)}`;
+                console.log('Deleting RADIUS client at URL:', deleteUrl);
+                
+                const response = await fetch(deleteUrl, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus(`RADIUS client ${clientName} deleted successfully`, 'success');
+                    refreshRadiusClients();
+                } else {
+                    showStatus(data.message || 'Failed to delete RADIUS client', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting RADIUS client:', error);
+                showStatus('Error deleting RADIUS client', 'error');
+            }
+        }
+
+        async function refreshRadiusLogs() {
+            try {
+                showStatus('Loading RADIUS logs...', 'loading');
+                
+                const response = await fetch('/api/radius/logs', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const logsList = document.getElementById('radiusLogsList');
+                    
+                    if (data.logs && data.logs.length > 0) {
+                        let html = '';
+                        data.logs.forEach(log => {
+                            const typeColor = log.type === 'AUTH_SUCCESS' ? '#28a745' : '#dc3545';
+                            const typeIcon = log.type === 'AUTH_SUCCESS' ? '✅' : '❌';
+                            
+                            html += `
+                                <div style="padding: 0.75rem; border-bottom: 1px solid #e9ecef; font-family: monospace; font-size: 0.85rem;">
+                                    <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center;">
+                                        <span style="color: ${typeColor};">${typeIcon}</span>
+                                        <div>
+                                            <strong>${log.timestamp}</strong> - ${log.message}<br>
+                                            <small style="color: #666;">User: ${log.username}, NAS: ${log.nas_ip}, Cert: ${log.certificate_cn}</small>
+                                        </div>
+                                        <span style="color: ${typeColor}; font-weight: bold;">${log.type}</span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        logsList.innerHTML = html;
+                        showStatus(`Loaded ${data.logs.length} log entries`, 'success');
+                    } else {
+                        logsList.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No authentication logs found</div>';
+                        showStatus('No logs found', 'info');
+                    }
+                } else {
+                    showStatus('Failed to load logs: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error loading RADIUS logs:', error);
+                showStatus('Error loading RADIUS logs', 'error');
+            }
+        }
+
+        // Store logs globally for search/filter
+        let allRadiusLogs = [];
+        let filteredLogs = [];
+
+        function openRadiusLogsModal() {
+            document.getElementById('radiusLogsModal').style.display = 'block';
+            refreshRadiusLogsInModal();
+            
+            // Add ESC key listener
+            document.addEventListener('keydown', handleLogsModalEsc);
+        }
+
+        function closeRadiusLogsModal() {
+            document.getElementById('radiusLogsModal').style.display = 'none';
+            document.removeEventListener('keydown', handleLogsModalEsc);
+        }
+
+        function handleLogsModalEsc(event) {
+            if (event.key === 'Escape') {
+                closeRadiusLogsModal();
+            }
+        }
+
+        async function refreshRadiusLogsInModal() {
+            try {
+                const logsContent = document.getElementById('radiusLogsContent');
+                logsContent.innerHTML = '<span style="color: #0f0;">Fetching logs from RADIUS server...</span>';
+                
+                const response = await fetch('/api/radius/logs', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    allRadiusLogs = data.logs || [];
+                    displayRadiusLogs(allRadiusLogs);
+                    updateLogStatus();
+                } else {
+                    logsContent.innerHTML = '<span style="color: #f00;">ERROR: Failed to load logs</span>';
+                }
+            } catch (error) {
+                console.error('Error loading RADIUS logs:', error);
+                document.getElementById('radiusLogsContent').innerHTML = '<span style="color: #f00;">ERROR: ' + error.message + '</span>';
+            }
+        }
+
+        function displayRadiusLogs(logs) {
+            const logsContent = document.getElementById('radiusLogsContent');
+            
+            if (!logs || logs.length === 0) {
+                logsContent.innerHTML = '<span style="color: #888;">No logs available. Waiting for authentication attempts...</span>';
+                return;
+            }
+            
+            let terminalOutput = '';
+            logs.forEach(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString();
+                let color = '#0f0'; // Default green
+                let prefix = '[INFO]';
+                
+                if (log.type === 'AUTH_SUCCESS') {
+                    color = '#0f0';
+                    prefix = '[SUCCESS]';
+                } else if (log.type === 'AUTH_FAILURE') {
+                    color = '#f00';
+                    prefix = '[FAILURE]';
+                } else if (log.type === 'WARNING') {
+                    color = '#ff0';
+                    prefix = '[WARNING]';
+                }
+                
+                terminalOutput += `<span style="color: #888;">${timestamp}</span> <span style="color: ${color};">${prefix}</span> `;
+                terminalOutput += `<span style="color: #fff;">${log.message}</span>\n`;
+                
+                if (log.username) {
+                    terminalOutput += `    └─ User: <span style="color: #0ff;">${log.username}</span>`;
+                    if (log.nas_ip) terminalOutput += ` | NAS: <span style="color: #0ff;">${log.nas_ip}</span>`;
+                    if (log.certificate_cn) terminalOutput += ` | Cert CN: <span style="color: #0ff;">${log.certificate_cn}</span>`;
+                    terminalOutput += '\n';
+                }
+                terminalOutput += '\n';
+            });
+            
+            logsContent.innerHTML = terminalOutput;
+            
+            // Auto-scroll to bottom
+            const terminal = document.getElementById('radiusLogsTerminal');
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function searchRadiusLogs() {
+            const searchTerm = document.getElementById('logsSearchInput').value.toLowerCase();
+            const levelFilter = document.getElementById('logLevelFilter').value;
+            
+            if (!searchTerm && levelFilter === 'all') {
+                displayRadiusLogs(allRadiusLogs);
+                return;
+            }
+            
+            filteredLogs = allRadiusLogs.filter(log => {
+                let matchesSearch = true;
+                let matchesLevel = true;
+                
+                if (searchTerm) {
+                    const searchableContent = [
+                        log.message || '',
+                        log.username || '',
+                        log.nas_ip || '',
+                        log.certificate_cn || '',
+                        log.timestamp || ''
+                    ].join(' ').toLowerCase();
+                    
+                    matchesSearch = searchableContent.includes(searchTerm);
+                }
+                
+                if (levelFilter !== 'all') {
+                    if (levelFilter === 'success') matchesLevel = log.type === 'AUTH_SUCCESS';
+                    else if (levelFilter === 'error') matchesLevel = log.type === 'AUTH_FAILURE';
+                    else if (levelFilter === 'warning') matchesLevel = log.type === 'WARNING';
+                    else if (levelFilter === 'info') matchesLevel = log.type === 'INFO';
+                }
+                
+                return matchesSearch && matchesLevel;
+            });
+            
+            displayRadiusLogs(filteredLogs);
+        }
+
+        function filterRadiusLogs() {
+            searchRadiusLogs();
+        }
+
+        function updateLogStatus() {
+            const logCount = document.getElementById('logCount');
+            const lastUpdate = document.getElementById('lastUpdateTime');
+            
+            const currentLogs = filteredLogs.length > 0 ? filteredLogs : allRadiusLogs;
+            logCount.textContent = `${currentLogs.length} logs loaded`;
+            lastUpdate.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+        }
+
+        function viewRadiusLogs() {
+            openRadiusLogsModal();
+        }
+
+        function exportRadiusLogs() {
+            if (allRadiusLogs.length === 0) {
+                showStatus('No logs to export', 'warning');
+                return;
+            }
+            
+            // Create CSV content
+            let csvContent = 'Timestamp,Type,Message,Username,NAS IP,Certificate CN\n';
+            allRadiusLogs.forEach(log => {
+                csvContent += `"${log.timestamp}","${log.type}","${log.message}","${log.username || ''}","${log.nas_ip || ''}","${log.certificate_cn || ''}"\n`;
+            });
+            
+            // Download CSV file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `radius_logs_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('Logs exported successfully', 'success');
+        }
+
+        async function clearRadiusLogs() {
+            if (!confirm('Clear all RADIUS authentication logs? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                // For now, just clear the display
+                allRadiusLogs = [];
+                filteredLogs = [];
+                displayRadiusLogs([]);
+                updateLogStatus();
+                showStatus('Logs cleared', 'success');
+                
+                // TODO: Add backend endpoint to clear logs from server
+            } catch (error) {
+                console.error('Error clearing logs:', error);
+                showStatus('Failed to clear logs', 'error');
+            }
+        }
+
+        // RadSec Proxy Functions
+        let parsedToken = null;
+
+        function parseExtremeCommand() {
+            const command = document.getElementById('extremeCommand').value.trim();
+            const tokenInfo = document.getElementById('tokenInfo');
+            
+            try {
+                // Extract token from command using regex
+                const tokenMatch = command.match(/-t\s+([^\s]+)/);
+                if (!tokenMatch) {
+                    tokenInfo.style.display = 'none';
+                    return;
+                }
+                
+                const token = tokenMatch[1];
+                
+                // Parse JWT token (split by dots and decode base64)
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                    throw new Error('Invalid JWT format');
+                }
+                
+                // Decode payload (second part)
+                const payload = JSON.parse(atob(parts[1]));
+                parsedToken = {
+                    token: token,
+                    payload: payload.payload || payload,
+                    exp: payload.exp,
+                    server_url: (payload.payload || payload).server_base_url || 'Unknown'
+                };
+                
+                // Update UI with parsed info
+                document.getElementById('tokenServer').textContent = parsedToken.server_url;
+                document.getElementById('tokenSiteId').textContent = parsedToken.payload.site_id || 'Unknown';
+                document.getElementById('tokenProxyId').textContent = parsedToken.payload.proxy_id || 'Unknown';
+                document.getElementById('tokenWorkspace').textContent = parsedToken.payload.workspace_id || 'Unknown';
+                
+                // Format expiry time
+                if (parsedToken.exp) {
+                    const expiryDate = new Date(parsedToken.exp * 1000);
+                    const now = new Date();
+                    const isExpired = expiryDate < now;
+                    
+                    document.getElementById('tokenExpiry').innerHTML = 
+                        `${expiryDate.toLocaleString()} ${isExpired ? '<span style="color: red;">(EXPIRED)</span>' : '<span style="color: green;">(Valid)</span>'}`;
+                }
+                
+                tokenInfo.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error parsing token:', error);
+                tokenInfo.style.display = 'none';
+                showStatus('Invalid deployment command format', 'error');
+            }
+        }
+
+        async function refreshRadsecStatus() {
+            try {
+                const response = await fetch('/api/radsec/status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const statusIcon = document.getElementById('radsecStatusIcon');
+                const statusText = document.getElementById('radsecStatusText');
+                const statusDetails = document.getElementById('radsecStatusDetails');
+                const management = document.getElementById('radsecManagement');
+                const removeBtn = document.getElementById('removeRadsecBtn');
+                const deployForm = document.getElementById('radsecDeploymentForm');
+                
+                if (response.ok && data.status === 'success') {
+                    if (data.deployed) {
+                        statusIcon.textContent = data.running ? '🟢' : '🟡';
+                        statusText.textContent = `RadSec Proxy: ${data.running ? 'Running' : 'Deployed but Stopped'}`;
+                        statusDetails.textContent = `Connected to: ${data.server || 'Unknown'} | Proxy ID: ${data.proxy_id || 'Unknown'}`;
+                        management.style.display = 'block';
+                        removeBtn.style.display = 'inline-block';
+                        deployForm.style.display = 'none';
+                    } else {
+                        statusIcon.textContent = '⚪';
+                        statusText.textContent = 'RadSec Proxy: Not Deployed';
+                        statusDetails.textContent = 'Ready for deployment';
+                        management.style.display = 'none';
+                        removeBtn.style.display = 'none';
+                        deployForm.style.display = 'block';
+                    }
+                } else {
+                    statusIcon.textContent = '❌';
+                    statusText.textContent = 'RadSec Proxy: Error';
+                    statusDetails.textContent = data.message || 'Unable to check status';
+                }
+            } catch (error) {
+                console.error('Error checking RadSec status:', error);
+                document.getElementById('radsecStatusIcon').textContent = '❌';
+                document.getElementById('radsecStatusText').textContent = 'RadSec Proxy: Connection Error';
+                document.getElementById('radsecStatusDetails').textContent = 'Unable to connect to service';
+            }
+        }
+
+        async function deployRadsecProxy() {
+            if (!parsedToken) {
+                showStatus('Please paste and parse a valid deployment command first', 'error');
+                return;
+            }
+            
+            // Check if token is expired
+            if (parsedToken.exp && new Date(parsedToken.exp * 1000) < new Date()) {
+                showStatus('Deployment token has expired. Please get a new one from Extreme Networks.', 'error');
+                return;
+            }
+            
+            try {
+                const deployBtn = document.getElementById('deployRadsecBtn');
+                deployBtn.disabled = true;
+                deployBtn.textContent = '🚀 Deploying...';
+                
+                showStatus('Deploying RadSec proxy...', 'loading');
+                
+                const response = await fetch('/api/radsec/deploy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: parsedToken.token,
+                        server_url: parsedToken.server_url,
+                        site_id: parsedToken.payload.site_id,
+                        proxy_id: parsedToken.payload.proxy_id,
+                        workspace_id: parsedToken.payload.workspace_id
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('RadSec proxy deployed successfully!', 'success');
+                    refreshRadsecStatus();
+                } else {
+                    showStatus(data.message || 'Failed to deploy RadSec proxy', 'error');
+                }
+            } catch (error) {
+                console.error('Error deploying RadSec proxy:', error);
+                showStatus('Error deploying RadSec proxy', 'error');
+            } finally {
+                const deployBtn = document.getElementById('deployRadsecBtn');
+                deployBtn.disabled = false;
+                deployBtn.textContent = '🚀 Deploy RadSec Proxy';
+            }
+        }
+
+        async function removeRadsecProxy() {
+            if (!confirm('Are you sure you want to remove the RadSec proxy?\n\nThis will disconnect your RADIUS server from Extreme Networks Cloud Platform.')) {
+                return;
+            }
+            
+            try {
+                showStatus('Removing RadSec proxy...', 'loading');
+                
+                const response = await fetch('/api/radsec/remove', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('RadSec proxy removed successfully', 'success');
+                    refreshRadsecStatus();
+                    // Clear the form
+                    document.getElementById('extremeCommand').value = '';
+                    document.getElementById('tokenInfo').style.display = 'none';
+                    parsedToken = null;
+                } else {
+                    showStatus(data.message || 'Failed to remove RadSec proxy', 'error');
+                }
+            } catch (error) {
+                console.error('Error removing RadSec proxy:', error);
+                showStatus('Error removing RadSec proxy', 'error');
+            }
+        }
+
+        async function viewRadsecLogs() {
+            try {
+                showStatus('Fetching RadSec logs...', 'loading');
+                
+                const response = await fetch('/api/radsec/logs', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    // Open logs in a modal similar to RADIUS logs
+                    const logContent = data.logs.join('\n');
+                    
+                    // For now, show in alert (can be enhanced with modal later)
+                    const logWindow = window.open('', 'RadSec Logs', 'width=800,height=600,scrollbars=yes');
+                    logWindow.document.write(`
+                        <html>
+                            <head><title>RadSec Proxy Logs</title></head>
+                            <body style="font-family: monospace; background: #000; color: #0f0; padding: 1rem;">
+                                <h2>RadSec Proxy Logs</h2>
+                                <pre>${logContent}</pre>
+                            </body>
+                        </html>
+                    `);
+                    logWindow.document.close();
+                } else {
+                    showStatus(data.message || 'Failed to fetch logs', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching RadSec logs:', error);
+                showStatus('Error fetching RadSec logs', 'error');
+            }
+        }
+
+        async function updateRadsecCerts() {
+            try {
+                showStatus('Updating RadSec certificates...', 'loading');
+                
+                const response = await fetch('/api/radsec/update-certs', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('RadSec certificates updated successfully', 'success');
+                    refreshRadsecStatus();
+                } else {
+                    showStatus(data.message || 'Failed to update certificates', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating RadSec certificates:', error);
+                showStatus('Error updating RadSec certificates', 'error');
+            }
+        }
+
+        async function restartRadsecProxy() {
+            try {
+                showStatus('Restarting RadSec proxy...', 'loading');
+                
+                const response = await fetch('/api/radsec/restart', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('RadSec proxy restarted successfully', 'success');
+                    setTimeout(() => refreshRadsecStatus(), 2000);
+                } else {
+                    showStatus(data.message || 'Failed to restart proxy', 'error');
+                }
+            } catch (error) {
+                console.error('Error restarting RadSec proxy:', error);
+                showStatus('Error restarting RadSec proxy', 'error');
+            }
+        }
+
+        async function troubleshootRadsec() {
+            try {
+                showStatus('Running RadSec troubleshooting...', 'loading');
+                
+                const response = await fetch('/api/radsec/troubleshoot', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    // Display troubleshooting results
+                    const results = data.results.join('\n');
+                    const troubleshootWindow = window.open('', 'RadSec Troubleshoot', 'width=800,height=600,scrollbars=yes');
+                    troubleshootWindow.document.write(`
+                        <html>
+                            <head><title>RadSec Proxy Troubleshooting</title></head>
+                            <body style="font-family: monospace; background: #000; color: #0f0; padding: 1rem;">
+                                <h2>RadSec Proxy Troubleshooting Results</h2>
+                                <pre>${results}</pre>
+                            </body>
+                        </html>
+                    `);
+                    troubleshootWindow.document.close();
+                    showStatus('Troubleshooting completed', 'success');
+                } else {
+                    showStatus(data.message || 'Failed to run troubleshooting', 'error');
+                }
+            } catch (error) {
+                console.error('Error running RadSec troubleshooting:', error);
+                showStatus('Error running RadSec troubleshooting', 'error');
             }
         }
 
@@ -7502,11 +8540,37 @@ Dependencies:
         window.hideAddDomainForm = hideAddDomainForm;
         window.showError = showError;
         window.showMessage = showMessage;
-        window.loadVersionInfo = loadVersionInfo;
-        window.loadAvailableBranches = loadAvailableBranches;
-        window.checkForUpdates = checkForUpdates;
-        window.updateCurrentBranch = updateCurrentBranch;
-        window.switchBranch = switchBranch;
+        // Version management functions removed
+        // RADIUS management functions
+        window.refreshRadiusStatus = refreshRadiusStatus;
+        window.syncRadiusCertificates = syncRadiusCertificates;
+        window.loadRadiusCertificates = loadRadiusCertificates;
+        window.generateRadiusServerCert = generateRadiusServerCert;
+        window.showAddClientForm = showAddClientForm;
+        window.hideAddClientForm = hideAddClientForm;
+        window.addRadiusClient = addRadiusClient;
+        window.refreshRadiusClients = refreshRadiusClients;
+        window.toggleRadiusClient = toggleRadiusClient;
+        window.deleteRadiusClient = deleteRadiusClient;
+        window.refreshRadiusLogs = refreshRadiusLogs;
+        window.openRadiusLogsModal = openRadiusLogsModal;
+        window.closeRadiusLogsModal = closeRadiusLogsModal;
+        window.refreshRadiusLogsInModal = refreshRadiusLogsInModal;
+        window.searchRadiusLogs = searchRadiusLogs;
+        window.filterRadiusLogs = filterRadiusLogs;
+        window.viewRadiusLogs = viewRadiusLogs;
+        window.exportRadiusLogs = exportRadiusLogs;
+        window.clearRadiusLogs = clearRadiusLogs;
+        
+        // RadSec Proxy functions
+        window.parseExtremeCommand = parseExtremeCommand;
+        window.refreshRadsecStatus = refreshRadsecStatus;
+        window.deployRadsecProxy = deployRadsecProxy;
+        window.removeRadsecProxy = removeRadsecProxy;
+        window.viewRadsecLogs = viewRadsecLogs;
+        window.updateRadsecCerts = updateRadsecCerts;
+        window.restartRadsecProxy = restartRadsecProxy;
+        window.troubleshootRadsec = troubleshootRadsec;
         window.toggleBackupPasswordVisibility = toggleBackupPasswordVisibility;
         window.toggleRestorePasswordVisibility = toggleRestorePasswordVisibility;
         window.showBackupInfo = showBackupInfo;

@@ -1,0 +1,47 @@
+# Virtual server for EAP-TLS certificate verification
+
+server check-eap-tls {
+    authorize {
+        # Update the outer request with certificate information
+        update request {
+            &User-Name := "%{TLS-Client-Cert-Subject}"
+            &TLS-Client-Cert-Serial := "%{TLS-Client-Cert-Serial}"
+            &TLS-Client-Cert-Expiration := "%{TLS-Client-Cert-Expiration}"
+            &TLS-Client-Cert-Common-Name := "%{TLS-Client-Cert-Common-Name}"
+        }
+
+        # Log certificate information
+        exec
+
+        # Always accept valid certificates
+        # The TLS module has already verified the certificate against CA
+        # and checked the CRL
+        ok
+    }
+
+    # No authentication needed - certificate verification is sufficient
+    authenticate {
+    }
+
+    # Post-authentication
+    post-auth {
+        # Log successful certificate authentication
+        linelog
+        
+        # You can add VLAN assignment here based on certificate attributes
+        # Example:
+        # if (&TLS-Client-Cert-Common-Name =~ /^admin-/) {
+        #     update reply {
+        #         &Tunnel-Type = VLAN
+        #         &Tunnel-Medium-Type = IEEE-802
+        #         &Tunnel-Private-Group-Id = "100"  # Admin VLAN
+        #     }
+        # } else {
+        #     update reply {
+        #         &Tunnel-Type = VLAN
+        #         &Tunnel-Medium-Type = IEEE-802
+        #         &Tunnel-Private-Group-Id = "200"  # User VLAN
+        #     }
+        # }
+    }
+}

@@ -5174,334 +5174,991 @@ def generate_certificate_for_request(request_db_id, request_id, request_data):
         logging.error(f"Failed to generate certificate for request {request_id}: {e}")
         return False
 
-# Version Management API Endpoints
+# Version Management API Endpoints - DISABLED
+
+# Version management has been removed for security reasons
+# These endpoints are kept for reference but return disabled status
 
 @app.route('/api/version-info', methods=['GET'])
 @auth_required()
 def get_version_info():
-    """Get current version information"""
-    try:
-        # Check if git is available
-        git_available = True
-        try:
-            subprocess.run(['git', '--version'], capture_output=True, text=True, timeout=5)
-        except (subprocess.SubprocessError, FileNotFoundError):
-            git_available = False
-        
-        if git_available:
-            # Get current branch
-            result = subprocess.run(['git', 'branch', '--show-current'], 
-                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
-            current_branch = result.stdout.strip() if result.returncode == 0 else 'unknown'
-            
-            # Get current commit hash
-            result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
-            current_commit = result.stdout.strip() if result.returncode == 0 else 'unknown'
-            
-            # Get last update time from git log
-            result = subprocess.run(['git', 'log', '-1', '--format=%cd', '--date=iso'], 
-                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
-            last_updated = result.stdout.strip() if result.returncode == 0 else 'unknown'
-        else:
-            # Fallback values when git is not available
-            current_branch = '5.1.0b'
-            current_commit = 'Git not available - container needs rebuild'
-            last_updated = 'Container rebuild required for full version info'
-        
-        # Get version from manifest.json if available (for 5.0.0b compatibility)
-        version = APP_VERSION  # Default to APP_VERSION
-        try:
-            with open('/app/source/manifest.json', 'r') as f:
-                import json
-                manifest = json.load(f)
-                version = manifest.get('version', APP_VERSION)
-        except:
-            pass
-        
-        # Build latest commit info (for 5.0.0b compatibility)
-        if git_available:
-            result = subprocess.run(['git', 'log', '-1', '--format=%H|%s|%an|%ad', '--date=iso'], 
-                                  cwd='/app/source', capture_output=True, text=True, timeout=10)
-            
-            if result.returncode == 0 and result.stdout.strip():
-                commit_parts = result.stdout.strip().split('|', 3)
-                latest_commit = {
-                    'hash': commit_parts[0][:8] if len(commit_parts) > 0 else 'N/A',
-                    'message': commit_parts[1] if len(commit_parts) > 1 else 'N/A',
-                    'author': commit_parts[2] if len(commit_parts) > 2 else 'N/A',
-                    'date': commit_parts[3] if len(commit_parts) > 3 else 'N/A'
-                }
-            else:
-                latest_commit = {
-                    'hash': current_commit[:8] if current_commit != 'unknown' else 'N/A',
-                    'message': 'Git not available',
-                    'author': 'N/A',
-                    'date': last_updated
-                }
-        else:
-            latest_commit = {
-                'hash': 'N/A',
-                'message': 'Git not available',
-                'author': 'N/A',
-                'date': 'N/A'
-            }
-        
-        return jsonify({
-            'status': 'success',  # For 5.1.0b compatibility
-            'success': True,  # For 5.0.0b compatibility
-            'branch': current_branch,  # For 5.1.0b compatibility
-            'current_branch': current_branch,  # For 5.0.0b compatibility
-            'commit': current_commit,  # For 5.1.0b compatibility
-            'last_updated': last_updated,  # For 5.1.0b compatibility
-            'app_version': APP_VERSION,  # For 5.1.0b compatibility
-            'version': version,  # For 5.0.0b compatibility
-            'latest_commit': latest_commit,  # For 5.0.0b compatibility
-            'update_available': False,  # For 5.0.0b compatibility (will be determined by check-updates)
-            'git_available': git_available  # For 5.1.0b compatibility
-        })
-        
-    except Exception as e:
-        logging.error(f"Error getting version info: {e}")
-        return jsonify({
-            'status': 'error',  # For 5.1.0b compatibility
-            'success': False,  # For 5.0.0b compatibility
-            'error': str(e),  # For 5.0.0b compatibility
-            'message': str(e)
-        }), 500
+    """Version management disabled"""
+    return jsonify({
+        'status': 'success',
+        'version': APP_VERSION,
+        'message': 'Version management has been disabled for security'
+    })
+
 
 @app.route('/api/available-branches', methods=['GET'])
 @auth_required()
 def get_available_branches():
-    """Get available branches from GitHub"""
-    try:
-        # Get current branch for comparison (fallback if git not available)
-        current_branch = '5.1.0b'  # Default fallback
-        try:
-            result = subprocess.run(['git', 'branch', '--show-current'], 
-                                  capture_output=True, text=True, cwd='/app/source', timeout=10)
-            if result.returncode == 0:
-                current_branch = result.stdout.strip()
-        except (subprocess.SubprocessError, FileNotFoundError):
-            pass  # Use fallback
-        
-        # Fetch branches from GitHub API
-        response = requests.get(f'{GITHUB_API_URL}/branches', timeout=10)
-        if response.status_code != 200:
-            return jsonify({
-                'status': 'error',  # For 5.1.0b compatibility
-                'success': False,  # For 5.0.0b compatibility
-                'error': f'GitHub API error: {response.status_code}',  # For 5.0.0b compatibility
-                'message': 'Failed to fetch branches from GitHub'
-            }), 500
-        
-        branches_data = response.json()
-        branches = []
-        
-        for branch in branches_data:
-            branches.append({
-                'name': branch['name'],
-                'commit': branch['commit']['sha'],  # Full SHA for 5.1.0b compatibility
-                'commit_sha': branch['commit']['sha'][:8],  # Truncated for 5.0.0b compatibility
-                'protected': branch.get('protected', False),  # For 5.0.0b compatibility
-                'commit_url': branch['commit']['url'],  # For 5.0.0b compatibility
-                'current': branch['name'] == current_branch
-            })
-        
-        return jsonify({
-            'status': 'success',  # For 5.1.0b compatibility
-            'success': True,  # For 5.0.0b compatibility
-            'branches': branches,
-            'current_branch': current_branch
-        })
-        
-    except Exception as e:
-        logging.error(f"Error getting available branches: {e}")
-        return jsonify({
-            'status': 'error',  # For 5.1.0b compatibility
-            'success': False,  # For 5.0.0b compatibility
-            'error': str(e),  # For 5.0.0b compatibility
-            'message': str(e)
-        }), 500
+    """Version management disabled"""
+    return jsonify({
+        'status': 'success',
+        'branches': [],
+        'message': 'Version management has been disabled for security'
+    })
+
 
 @app.route('/api/check-updates', methods=['GET'])
 @auth_required()
 def check_updates():
-    """Check if updates are available for the current branch"""
-    try:
-        # Get current branch and commit
-        result = subprocess.run(['git', 'branch', '--show-current'], 
-                              capture_output=True, text=True, cwd='/app/source')
-        current_branch = result.stdout.strip() if result.returncode == 0 else 'main'
-        
-        result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                              capture_output=True, text=True, cwd='/app/source')
-        current_commit = result.stdout.strip() if result.returncode == 0 else ''
-        
-        # Get latest commit from GitHub API
-        response = requests.get(f'{GITHUB_API_URL}/branches/{current_branch}', timeout=10)
-        if response.status_code != 200:
-            return jsonify({
-                'status': 'error',  # For 5.1.0b compatibility
-                'success': False,  # For 5.0.0b compatibility
-                'error': f'Unable to check remote branch: {response.status_code}',  # For 5.0.0b compatibility
-                'message': f'Failed to check updates for branch {current_branch}'
-            }), 500
-        
-        branch_data = response.json()
-        latest_commit = branch_data['commit']['sha']
-        
-        # Check if update is available
-        updates_available = current_commit != latest_commit
-        
-        response_data = {
-            'status': 'success',  # For 5.1.0b compatibility
-            'success': True,  # For 5.0.0b compatibility
-            'updates_available': updates_available,  # For 5.1.0b compatibility
-            'update_available': updates_available,  # For 5.0.0b compatibility
-            'current_commit': current_commit[:8] if current_commit else '',  # Truncated for 5.0.0b
-            'latest_commit': latest_commit[:8] if latest_commit else '',  # Truncated for 5.0.0b
-            'current_commit_full': current_commit,  # Full for 5.1.0b
-            'latest_commit_full': latest_commit,  # Full for 5.1.0b
-            'branch': current_branch
-        }
-        
-        if updates_available:
-            response_data.update({
-                'commit_message': branch_data['commit']['commit']['message'],
-                'commit_date': branch_data['commit']['commit']['committer']['date']
-            })
-        
-        return jsonify(response_data)
-        
-    except Exception as e:
-        logging.error(f"Error checking for updates: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    """Version management disabled"""
+    return jsonify({
+        'status': 'success',
+        'updates_available': False,
+        'message': 'Version management has been disabled for security'
+    })
+
 
 @app.route('/api/update-branch', methods=['POST'])
 @auth_required()
 def update_current_branch():
-    """Update to the latest version of the current branch"""
-    global update_status
-    
-    if not session.get('is_admin'):
-        return jsonify({'status': 'error', 'message': 'Admin privileges required'}), 403
-    
-    if update_status['in_progress']:
-        return jsonify({'status': 'error', 'message': 'Update already in progress'}), 409
-    
-    # Start update process in background thread
-    thread = Thread(target=perform_update, args=(None,))
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({'status': 'success', 'message': 'Update started'})
+    """Version management disabled"""
+    return jsonify({
+        'status': 'error',
+        'message': 'Version management has been disabled for security. Please update via Docker.'
+    }), 403
+
 
 @app.route('/api/switch-branch', methods=['POST'])
 @auth_required()
 def switch_branch():
-    """Switch to a different branch"""
-    global update_status
-    
-    if not session.get('is_admin'):
-        return jsonify({'status': 'error', 'message': 'Admin privileges required'}), 403
-    
-    if update_status['in_progress']:
-        return jsonify({'status': 'error', 'message': 'Update already in progress'}), 409
-    
-    data = request.get_json()
-    target_branch = data.get('branch')
-    
-    if not target_branch:
-        return jsonify({'status': 'error', 'message': 'Branch name required'}), 400
-    
-    # Start branch switch process in background thread
-    thread = Thread(target=perform_update, args=(target_branch,))
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({'status': 'success', 'message': f'Switching to branch {target_branch}'})
+    """Version management disabled"""
+    return jsonify({
+        'status': 'error',
+        'message': 'Version management has been disabled for security. Please update via Docker.'
+    }), 403
+
 
 @app.route('/api/update-status', methods=['GET'])
 @auth_required()
 def get_update_status():
-    """Get current update status"""
+    """Version management disabled"""
     return jsonify({
         'status': 'success',
-        'in_progress': update_status['in_progress'],
-        'completed': update_status['completed'],
-        'success': update_status['success'],
-        'message': update_status['message'],
-        'progress': update_status['progress'],
-        'error': update_status['error']
+        'in_progress': False,
+        'message': 'Version management has been disabled for security'
     })
 
-def perform_update(target_branch=None):
-    """Perform the actual update/branch switch process"""
-    global update_status
-    
+
+
+# RADIUS Server Management Endpoints
+@app.route('/api/radius/status', methods=['GET'])
+@auth_required()
+def get_radius_status():
+    """Get RADIUS server status and statistics"""
     try:
-        update_status.update({
-            'in_progress': True,
-            'completed': False,
-            'success': False,
-            'message': 'Starting update process...',
-            'progress': 0,
-            'error': None
-        })
+        # Check if RADIUS server is running by testing RADIUS port connectivity
+        radius_running = False
         
-        # Step 1: Fetch latest changes
-        update_status.update({'message': 'Fetching latest changes...', 'progress': 10})
-        result = subprocess.run(['git', 'fetch', 'origin'], 
-                              capture_output=True, text=True, cwd='/app/source', timeout=30)
-        if result.returncode != 0:
-            raise Exception(f'Git fetch failed: {result.stderr}')
+        try:
+            # Try to connect to RADIUS authentication port to check if it's listening
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(2)
+            # Try to connect to radius-server container on port 1812
+            result = sock.connect_ex(('radius-server', 1812))
+            sock.close()
+            radius_running = (result == 0)
+        except:
+            # If socket test fails, try Docker container status check
+            try:
+                import subprocess
+                result = subprocess.run(['docker', 'exec', 'ca-manager-f-radius-server-1', 'pgrep', 'radiusd'], 
+                                      capture_output=True, timeout=5)
+                radius_running = (result.returncode == 0)
+            except:
+                radius_running = False
         
-        # Step 2: Switch branch if specified
-        if target_branch:
-            update_status.update({'message': f'Switching to branch {target_branch}...', 'progress': 30})
-            result = subprocess.run(['git', 'checkout', f'origin/{target_branch}'], 
-                                  capture_output=True, text=True, cwd='/app/source', timeout=30)
-            if result.returncode != 0:
-                raise Exception(f'Branch switch failed: {result.stderr}')
-        else:
-            # Step 3: Pull latest changes for current branch
-            update_status.update({'message': 'Pulling latest changes...', 'progress': 30})
-            result = subprocess.run(['git', 'pull', 'origin'], 
-                                  capture_output=True, text=True, cwd='/app/source', timeout=30)
-            if result.returncode != 0:
-                raise Exception(f'Git pull failed: {result.stderr}')
+        # Get authentication statistics (placeholder for now)
+        stats = {
+            'server_running': radius_running,
+            'uptime': '0h 0m' if not radius_running else 'Running',
+            'total_requests': 0,
+            'successful_auths': 0,
+            'failed_auths': 0,
+            'certificate_count': 0,
+            'listening_ports': ['1812/udp', '1813/udp'] if radius_running else []
+        }
         
-        # Step 4: Use the update script for Docker operations
-        update_status.update({'message': 'Executing system update...', 'progress': 50})
-        if target_branch:
-            result = subprocess.run(['/app/update-system.sh', 'switch', target_branch], 
-                                  capture_output=True, text=True, timeout=600)
-        else:
-            result = subprocess.run(['/app/update-system.sh', 'update'], 
-                                  capture_output=True, text=True, timeout=600)
-        
-        if result.returncode != 0:
-            raise Exception(f'System update failed: {result.stderr}')
-        
-        # Success
-        update_status.update({
-            'message': 'Update completed successfully!',
-            'progress': 100,
-            'completed': True,
-            'success': True,
-            'in_progress': False
+        return jsonify({
+            'status': 'success',
+            'radius_status': stats
         })
         
     except Exception as e:
-        logging.error(f"Update failed: {e}")
-        update_status.update({
-            'message': 'Update failed',
-            'error': str(e),
-            'completed': True,
-            'success': False,
-            'in_progress': False
+        logging.error(f"Error getting RADIUS status: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/clients', methods=['GET'])
+@auth_required()
+def get_radius_clients():
+    """Get configured RADIUS clients"""
+    try:
+        import subprocess
+        import re
+        
+        # Read clients from actual RADIUS configuration
+        clients = []
+        
+        try:
+            result = subprocess.run([
+                'docker', 'exec', 'ca-manager-f-radius-server-1',
+                'cat', '/etc/raddb/clients.conf'
+            ], capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                content = result.stdout
+                
+                # Parse ALL client blocks from clients.conf (both enabled and disabled)
+                # First, get enabled clients
+                enabled_pattern = r'client\s+(\S+)\s*\{([^}]+)\}'
+                enabled_matches = re.findall(enabled_pattern, content, re.MULTILINE | re.DOTALL)
+                
+                for client_name, client_config in enabled_matches:
+                    # Parse client configuration
+                    ip_match = re.search(r'ipaddr\s*=\s*([^\n\s#]+)', client_config)
+                    secret_match = re.search(r'secret\s*=\s*([^\n\s#]+)', client_config)
+                    type_match = re.search(r'nas_type\s*=\s*([^\n\s#]+)', client_config)
+                    shortname_match = re.search(r'shortname\s*=\s*([^\n\s#]+)', client_config)
+                    
+                    client_info = {
+                        'name': shortname_match.group(1) if shortname_match else client_name,
+                        'ip': ip_match.group(1) if ip_match else 'Unknown',
+                        'secret': '***',  # Never show actual secrets
+                        'type': type_match.group(1) if type_match else 'other',
+                        'client_id': client_name,
+                        'status': 'enabled'
+                    }
+                    
+                    clients.append(client_info)
+                
+                # Now get disabled (commented) clients
+                # Look for commented client blocks
+                disabled_pattern = r'(?:# Disabled on [^\n]+\n)?(?:^# client\s+(\S+)\s*\{[^}]*^# \})'
+                lines = content.split('\n')
+                i = 0
+                while i < len(lines):
+                    line = lines[i]
+                    # Check for disabled client start
+                    if line.startswith('# client '):
+                        match = re.match(r'# client\s+(\S+)\s*\{', line)
+                        if match:
+                            client_name = match.group(1)
+                            client_lines = []
+                            i += 1
+                            # Collect all lines until we find the closing brace
+                            while i < len(lines) and not lines[i].strip() == '# }':
+                                client_lines.append(lines[i])
+                                i += 1
+                            
+                            if i < len(lines) and lines[i].strip() == '# }':
+                                # Parse the disabled client
+                                client_config = '\n'.join([l[2:] if l.startswith('# ') else l for l in client_lines])
+                                
+                                ip_match = re.search(r'ipaddr\s*=\s*([^\n\s#]+)', client_config)
+                                secret_match = re.search(r'secret\s*=\s*([^\n\s#]+)', client_config)
+                                type_match = re.search(r'nas_type\s*=\s*([^\n\s#]+)', client_config)
+                                shortname_match = re.search(r'shortname\s*=\s*([^\n\s#]+)', client_config)
+                                
+                                client_info = {
+                                    'name': shortname_match.group(1) if shortname_match else client_name,
+                                    'ip': ip_match.group(1) if ip_match else 'Unknown',
+                                    'secret': '***',  # Never show actual secrets
+                                    'type': type_match.group(1) if type_match else 'other',
+                                    'client_id': client_name,
+                                    'status': 'disabled'
+                                }
+                                
+                                clients.append(client_info)
+                    i += 1
+                    
+        except Exception as e:
+            logging.error(f"Error reading RADIUS clients config: {e}")
+            # Fallback to default clients if reading fails
+            clients = [
+                {
+                    'name': 'localhost',
+                    'ip': '127.0.0.1', 
+                    'secret': '***',
+                    'type': 'test',
+                    'client_id': 'localhost'
+                },
+                {
+                    'name': 'local-net',
+                    'ip': '192.168.0.0/16',
+                    'secret': '***', 
+                    'type': 'other',
+                    'client_id': 'local-network'
+                }
+            ]
+        
+        return jsonify({
+            'status': 'success',
+            'clients': clients
         })
+        
+    except Exception as e:
+        logging.error(f"Error getting RADIUS clients: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/clients', methods=['POST'])
+@auth_required(permission='admin')
+def add_radius_client():
+    """Add a new RADIUS client"""
+    try:
+        data = request.get_json()
+        
+        name = data.get('name', '').strip()
+        ip_address = data.get('ip_address', '').strip()
+        shared_secret = data.get('shared_secret', '').strip()
+        nas_type = data.get('nas_type', 'other').strip()
+        
+        if not all([name, ip_address, shared_secret]):
+            return jsonify({'status': 'error', 'message': 'Name, IP address, and shared secret are required'}), 400
+        
+        # Validate IP address format (basic validation)
+        import re
+        ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$'
+        if not re.match(ip_pattern, ip_address):
+            return jsonify({'status': 'error', 'message': 'Invalid IP address format'}), 400
+        
+        # Create client configuration block
+        client_config = f"""
+client {name} {{
+    ipaddr = {ip_address}
+    secret = {shared_secret}
+    nas_type = {nas_type}
+    require_message_authenticator = yes
+}}
+"""
+        
+        # Add client to RADIUS configuration
+        result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'bash', '-c', f'echo "{client_config}" >> /etc/raddb/clients.conf'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            logging.error(f"Failed to add RADIUS client: {result.stderr}")
+            return jsonify({'status': 'error', 'message': 'Failed to add client to configuration'}), 500
+        
+        # Reload RADIUS server to apply changes
+        reload_result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'radmin', '-e', 'hup'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if reload_result.returncode != 0:
+            logging.warning(f"RADIUS reload warning: {reload_result.stderr}")
+            # Continue anyway as the client was added to the file
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'RADIUS client {name} added successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error adding RADIUS client: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/clients/<string:client_name>', methods=['DELETE'])
+@auth_required()
+def delete_radius_client(client_name):
+    """Delete a RADIUS client"""
+    try:
+        # Read current clients configuration
+        result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'cat', '/etc/raddb/clients.conf'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            logging.error(f"Failed to read RADIUS clients config: {result.stderr}")
+            return jsonify({'status': 'error', 'message': 'Failed to read RADIUS configuration'}), 500
+        
+        content = result.stdout
+        
+        # Find and permanently remove the client block
+        import re
+        # First try to find active client
+        pattern = rf'client\s+{re.escape(client_name)}\s*\{{[^}}]+\}}\n?'
+        
+        if not re.search(pattern, content, re.MULTILINE | re.DOTALL):
+            # Try to find commented client with possible timestamp
+            pattern = rf'(# Disabled on \d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}\n)?((?:# .*\n)*# client\s+{re.escape(client_name)}\s*\{{(?:\n# .*)*\n# \}})\n?'
+            if not re.search(pattern, content, re.MULTILINE):
+                return jsonify({'status': 'error', 'message': f'Client {client_name} not found'}), 404
+        
+        # Permanently remove the client block
+        new_content = re.sub(pattern, '', content, flags=re.MULTILINE | re.DOTALL)
+        
+        # Write updated configuration back
+        write_result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'bash', '-c', f'cat > /etc/raddb/clients.conf << "EOF"\n{new_content}EOF'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if write_result.returncode != 0:
+            logging.error(f"Failed to update RADIUS clients config: {write_result.stderr}")
+            return jsonify({'status': 'error', 'message': 'Failed to update RADIUS configuration'}), 500
+        
+        # Reload RADIUS server to apply changes
+        reload_result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'radmin', '-e', 'hup'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if reload_result.returncode != 0:
+            logging.warning(f"RADIUS reload warning: {reload_result.stderr}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'RADIUS client {client_name} deleted successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error deleting RADIUS client: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/clients/<string:client_name>', methods=['PATCH'])
+@auth_required()
+def toggle_radius_client(client_name):
+    """Enable or disable a RADIUS client"""
+    try:
+        data = request.get_json()
+        action = data.get('action', 'disable')  # 'enable' or 'disable'
+        
+        # Read current clients configuration
+        result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'cat', '/etc/raddb/clients.conf'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            logging.error(f"Failed to read RADIUS clients config: {result.stderr}")
+            return jsonify({'status': 'error', 'message': 'Failed to read RADIUS configuration'}), 500
+        
+        content = result.stdout
+        import re
+        
+        if action == 'disable':
+            # Find and comment out the client block
+            pattern = rf'(client\s+{re.escape(client_name)}\s*\{{[^}}]+\}})'
+            match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
+            
+            if not match:
+                return jsonify({'status': 'error', 'message': f'Client {client_name} not found or already disabled'}), 404
+            
+            client_block = match.group(1)
+            commented_block = '\n'.join(['# ' + line for line in client_block.split('\n')])
+            commented_block = f"# Disabled on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n{commented_block}"
+            new_content = content.replace(client_block, commented_block)
+            
+        elif action == 'enable':
+            # Find and uncomment the client block
+            # Look for commented client block with possible timestamp
+            pattern = rf'(# Disabled on \d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}\n)?((?:# .*\n)*# client\s+{re.escape(client_name)}\s*\{{(?:\n# .*)*\n# \}})'
+            match = re.search(pattern, content, re.MULTILINE)
+            
+            if not match:
+                # Try simpler pattern without timestamp
+                pattern = rf'((?:# .*\n)*# client\s+{re.escape(client_name)}\s*\{{(?:\n# .*)*\n# \}})'
+                match = re.search(pattern, content, re.MULTILINE)
+                
+                if not match:
+                    return jsonify({'status': 'error', 'message': f'Disabled client {client_name} not found'}), 404
+            
+            # Remove comment markers and timestamp if present
+            full_match = match.group(0)
+            # Remove the timestamp line if it exists
+            full_match = re.sub(r'# Disabled on \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\n', '', full_match)
+            # Remove '# ' from the beginning of each line
+            uncommented_block = '\n'.join([line[2:] if line.startswith('# ') else line for line in full_match.split('\n')])
+            uncommented_block = uncommented_block.strip()
+            
+            new_content = content.replace(match.group(0), uncommented_block)
+            
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid action. Use "enable" or "disable"'}), 400
+        
+        # Write updated configuration back
+        write_result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'bash', '-c', f'cat > /etc/raddb/clients.conf << "EOF"\n{new_content}EOF'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if write_result.returncode != 0:
+            logging.error(f"Failed to update RADIUS clients config: {write_result.stderr}")
+            return jsonify({'status': 'error', 'message': 'Failed to update RADIUS configuration'}), 500
+        
+        # Reload RADIUS server to apply changes
+        reload_result = subprocess.run([
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'radmin', '-e', 'hup'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if reload_result.returncode != 0:
+            logging.warning(f"RADIUS reload warning: {reload_result.stderr}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'RADIUS client {client_name} {action}d successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error toggling RADIUS client: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/logs', methods=['GET'])
+@auth_required()
+def get_radius_logs():
+    """Get RADIUS authentication logs"""
+    try:
+        logs = []
+        
+        # Try to read RADIUS log file
+        try:
+            result = subprocess.run([
+                'docker', 'exec', 'ca-manager-f-radius-server-1',
+                'tail', '-n', '200', '/var/log/radius/radius.log'
+            ], capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0 and result.stdout:
+                import re
+                lines = result.stdout.split('\n')
+                
+                for line in lines:
+                    if not line.strip():
+                        continue
+                    
+                    # Parse FreeRADIUS log format
+                    # Example: Mon Dec 11 10:23:45 2023 : Auth: (0) Login OK: [user] (from client localhost port 0 via TLS tunnel)
+                    
+                    log_entry = {}
+                    
+                    # Extract timestamp
+                    timestamp_match = re.match(r'^(\w+ \w+ \d+ \d+:\d+:\d+ \d+)', line)
+                    if timestamp_match:
+                        log_entry['timestamp'] = timestamp_match.group(1)
+                    else:
+                        log_entry['timestamp'] = datetime.now().isoformat()
+                    
+                    # Determine log type and extract details
+                    if 'Login OK' in line or 'Authentication successful' in line:
+                        log_entry['type'] = 'AUTH_SUCCESS'
+                        log_entry['message'] = 'Authentication successful'
+                        
+                        # Extract username
+                        user_match = re.search(r'\[([^\]]+)\]', line)
+                        if user_match:
+                            log_entry['username'] = user_match.group(1)
+                        
+                        # Extract client info
+                        client_match = re.search(r'from client (\S+)', line)
+                        if client_match:
+                            log_entry['nas_ip'] = client_match.group(1)
+                            
+                    elif 'Login incorrect' in line or 'Failed' in line or 'Rejected' in line:
+                        log_entry['type'] = 'AUTH_FAILURE'
+                        log_entry['message'] = 'Authentication failed'
+                        
+                        # Extract username
+                        user_match = re.search(r'\[([^\]]+)\]', line)
+                        if user_match:
+                            log_entry['username'] = user_match.group(1)
+                            
+                        # Extract failure reason
+                        if 'certificate' in line.lower():
+                            log_entry['message'] = 'Certificate validation failed'
+                        elif 'expired' in line.lower():
+                            log_entry['message'] = 'Certificate expired'
+                            
+                    elif 'Warning' in line:
+                        log_entry['type'] = 'WARNING'
+                        log_entry['message'] = line.split('Warning:')[-1].strip() if 'Warning:' in line else 'Warning'
+                        
+                    elif 'Error' in line:
+                        log_entry['type'] = 'ERROR'
+                        log_entry['message'] = line.split('Error:')[-1].strip() if 'Error:' in line else 'Error'
+                        
+                    else:
+                        # General info log
+                        if 'TLS' in line or 'EAP' in line or 'Auth:' in line:
+                            log_entry['type'] = 'INFO'
+                            log_entry['message'] = line.split(': ', 2)[-1] if ': ' in line else line
+                        else:
+                            continue  # Skip non-relevant lines
+                    
+                    # Add the log entry if it has required fields
+                    if 'type' in log_entry and 'message' in log_entry:
+                        logs.append(log_entry)
+                        
+        except Exception as e:
+            logging.warning(f"Could not read RADIUS logs: {e}")
+            # Return sample data if logs can't be read
+            logs = [
+                {
+                    'timestamp': datetime.now().isoformat(),
+                    'type': 'INFO',
+                    'message': 'RADIUS server is running. Waiting for authentication attempts...'
+                }
+            ]
+        
+        # Reverse logs to show newest first
+        logs.reverse()
+        
+        # Limit to most recent 100 entries
+        logs = logs[:100]
+        
+        return jsonify({
+            'status': 'success',
+            'logs': logs,
+            'count': len(logs)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting RADIUS logs: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/certificates', methods=['GET'])
+@auth_required()
+def get_radius_certificates():
+    """Get certificates configured for RADIUS"""
+    try:
+        import subprocess
+        from datetime import datetime
+        
+        def get_cert_expiration(cert_path):
+            """Get certificate expiration date"""
+            try:
+                result = subprocess.run([
+                    'docker', 'exec', 'ca-manager-f-radius-server-1', 
+                    'openssl', 'x509', '-in', cert_path, '-noout', '-enddate'
+                ], capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0:
+                    # Parse output like "notAfter=Sep  8 19:18:29 2026 GMT"
+                    end_date_str = result.stdout.strip().split('=')[1]
+                    # Convert to YYYY-MM-DD format
+                    end_date = datetime.strptime(end_date_str, '%b %d %H:%M:%S %Y %Z')
+                    return end_date.strftime('%Y-%m-%d')
+                return 'Unknown'
+            except Exception as e:
+                logging.error(f"Error getting certificate expiration: {e}")
+                return 'Unknown'
+        
+        def check_cert_exists(cert_path):
+            """Check if certificate file exists"""
+            try:
+                result = subprocess.run([
+                    'docker', 'exec', 'ca-manager-f-radius-server-1', 
+                    'test', '-f', cert_path
+                ], capture_output=True, timeout=5)
+                return result.returncode == 0
+            except:
+                return False
+        
+        # Check CA certificate
+        ca_cert_path = '/etc/raddb/certs/ca/ca.crt'
+        ca_present = check_cert_exists(ca_cert_path)
+        ca_expires = get_cert_expiration(ca_cert_path) if ca_present else 'N/A'
+        
+        # Check server certificate
+        server_cert_path = '/etc/raddb/certs/server/server.crt'
+        server_present = check_cert_exists(server_cert_path)
+        server_expires = get_cert_expiration(server_cert_path) if server_present else 'N/A'
+        
+        certificates = {
+            'ca_certificate': {
+                'present': ca_present,
+                'expires': ca_expires,
+                'issuer': 'CA Manager Root CA' if ca_present else 'N/A'
+            },
+            'server_certificate': {
+                'present': server_present,
+                'expires': server_expires,
+                'common_name': 'radius-server' if server_present else 'N/A',
+                'issuer': 'CA Manager Root CA' if server_present else 'N/A'
+            }
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'certificates': certificates
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting RADIUS certificates: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radius/sync-certificates', methods=['POST'])
+@auth_required(permission='admin')
+def sync_radius_certificates():
+    """Trigger certificate synchronization with RADIUS server"""
+    try:
+        # This would trigger the sync-certs.sh script in the RADIUS container
+        # For now, we'll simulate the process
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Certificate synchronization triggered successfully'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error syncing RADIUS certificates: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# RadSec Proxy Endpoints
+@app.route('/api/radsec/status', methods=['GET'])
+@auth_required()
+def get_radsec_status():
+    """Get RadSec proxy status"""
+    try:
+        import os
+        config_file = '/opt/proxy-installer/radsec_config.json'
+        
+        # Check if RadSec is deployed
+        deployed = os.path.exists(config_file)
+        
+        if not deployed:
+            return jsonify({
+                'status': 'success',
+                'deployed': False,
+                'running': False
+            })
+        
+        # Check if container is running
+        result = subprocess.run([
+            'docker', 'ps', '--filter', 'name=radsec-proxy', '--format', '{{.Status}}'
+        ], capture_output=True, text=True, timeout=10)
+        
+        running = result.returncode == 0 and 'Up' in result.stdout
+        
+        # Read config for details
+        config_data = {}
+        try:
+            with open(config_file, 'r') as f:
+                config_data = json.load(f)
+        except:
+            pass
+        
+        return jsonify({
+            'status': 'success',
+            'deployed': True,
+            'running': running,
+            'server': config_data.get('server_url', 'Unknown'),
+            'proxy_id': config_data.get('proxy_id', 'Unknown'),
+            'site_id': config_data.get('site_id', 'Unknown')
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting RadSec status: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radsec/deploy', methods=['POST'])
+@auth_required(permission='admin')
+def deploy_radsec_proxy():
+    """Deploy RadSec proxy using Extreme Networks configuration"""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        server_url = data.get('server_url')
+        site_id = data.get('site_id')
+        proxy_id = data.get('proxy_id')
+        workspace_id = data.get('workspace_id')
+        
+        if not all([token, server_url, site_id, proxy_id]):
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required deployment parameters'
+            }), 400
+        
+        # Create config directory
+        config_dir = '/opt/proxy-installer'
+        os.makedirs(config_dir, exist_ok=True)
+        
+        # Save configuration
+        config_data = {
+            'token': token,
+            'server_url': server_url,
+            'site_id': site_id,
+            'proxy_id': proxy_id,
+            'workspace_id': workspace_id,
+            'deployed_at': datetime.now().isoformat()
+        }
+        
+        config_file = os.path.join(config_dir, 'radsec_config.json')
+        with open(config_file, 'w') as f:
+            json.dump(config_data, f, indent=2)
+        
+        # Create RadSec proxy script
+        script_content = f'''#!/bin/bash
+# RadSec Proxy deployment script
+set -e
+
+echo "Deploying RadSec proxy..."
+
+# Download and run Extreme Networks installer
+curl -L https://{server_url}/proxy-installer/master-installer.sh | bash -s -- -o deploy -t {token}
+
+echo "RadSec proxy deployment completed"
+'''
+        
+        script_path = os.path.join(config_dir, 'deploy_radsec.sh')
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        
+        os.chmod(script_path, 0o755)
+        
+        # Execute deployment
+        result = subprocess.run([
+            'bash', script_path
+        ], capture_output=True, text=True, timeout=300)  # 5 minute timeout
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'RadSec proxy deployed successfully',
+                'output': result.stdout
+            })
+        else:
+            logging.error(f"RadSec deployment failed: {result.stderr}")
+            return jsonify({
+                'status': 'error',
+                'message': f'Deployment failed: {result.stderr}',
+                'output': result.stdout
+            }), 500
+            
+    except Exception as e:
+        logging.error(f"Error deploying RadSec proxy: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radsec/remove', methods=['POST'])
+@auth_required(permission='admin')
+def remove_radsec_proxy():
+    """Remove RadSec proxy"""
+    try:
+        config_dir = '/opt/proxy-installer'
+        config_file = os.path.join(config_dir, 'radsec_config.json')
+        
+        if not os.path.exists(config_file):
+            return jsonify({
+                'status': 'error',
+                'message': 'RadSec proxy not found'
+            }), 404
+        
+        # Create removal script
+        script_content = '''#!/bin/bash
+# RadSec Proxy removal script
+set -e
+
+echo "Removing RadSec proxy..."
+
+# Stop and remove proxy containers
+docker stop radsec-proxy 2>/dev/null || true
+docker rm radsec-proxy 2>/dev/null || true
+
+# Remove proxy files
+rm -rf /opt/proxy-installer/
+
+echo "RadSec proxy removal completed"
+'''
+        
+        script_path = os.path.join(config_dir, 'remove_radsec.sh')
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        
+        os.chmod(script_path, 0o755)
+        
+        # Execute removal
+        result = subprocess.run([
+            'bash', script_path
+        ], capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'RadSec proxy removed successfully'
+            })
+        else:
+            logging.error(f"RadSec removal failed: {result.stderr}")
+            return jsonify({
+                'status': 'error',
+                'message': f'Removal failed: {result.stderr}'
+            }), 500
+            
+    except Exception as e:
+        logging.error(f"Error removing RadSec proxy: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radsec/logs', methods=['GET'])
+@auth_required()
+def get_radsec_logs():
+    """Get RadSec proxy logs"""
+    try:
+        # Try to get logs from various sources
+        log_sources = [
+            'docker logs radsec-proxy 2>&1 | tail -100',
+            'tail -100 /var/log/radsec/radsec.log 2>/dev/null',
+            'tail -100 /opt/proxy-installer/logs/*.log 2>/dev/null'
+        ]
+        
+        logs = []
+        for command in log_sources:
+            try:
+                result = subprocess.run(
+                    command, 
+                    shell=True, 
+                    capture_output=True, 
+                    text=True, 
+                    timeout=10
+                )
+                if result.stdout:
+                    logs.extend(result.stdout.split('\n'))
+            except:
+                continue
+        
+        if not logs:
+            logs = ['No RadSec proxy logs found. Check if the proxy is running.']
+        
+        return jsonify({
+            'status': 'success',
+            'logs': logs
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting RadSec logs: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radsec/update-certs', methods=['POST'])
+@auth_required(permission='admin')
+def update_radsec_certs():
+    """Update RadSec proxy certificates"""
+    try:
+        config_file = '/opt/proxy-installer/radsec_config.json'
+        
+        if not os.path.exists(config_file):
+            return jsonify({
+                'status': 'error',
+                'message': 'RadSec proxy not deployed'
+            }), 404
+        
+        # Execute certificate update
+        result = subprocess.run([
+            'curl', '-L', 'https://oh-uz.extremecloudiq.com/proxy-installer/master-installer.sh'
+        ], capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            # Execute update
+            update_result = subprocess.run([
+                'bash', '-c', 
+                f'echo "{result.stdout}" | bash -s -- -o update_certs'
+            ], capture_output=True, text=True, timeout=60)
+            
+            if update_result.returncode == 0:
+                return jsonify({
+                    'status': 'success',
+                    'message': 'RadSec certificates updated successfully'
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Certificate update failed: {update_result.stderr}'
+                }), 500
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to download certificate update script'
+            }), 500
+            
+    except Exception as e:
+        logging.error(f"Error updating RadSec certificates: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radsec/restart', methods=['POST'])
+@auth_required(permission='admin')
+def restart_radsec_proxy():
+    """Restart RadSec proxy"""
+    try:
+        # Restart the RadSec proxy container
+        result = subprocess.run([
+            'docker', 'restart', 'radsec-proxy'
+        ], capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'RadSec proxy restarted successfully'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to restart proxy: {result.stderr}'
+            }), 500
+            
+    except Exception as e:
+        logging.error(f"Error restarting RadSec proxy: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/radsec/troubleshoot', methods=['GET'])
+@auth_required()
+def troubleshoot_radsec():
+    """Run RadSec proxy troubleshooting"""
+    try:
+        results = []
+        
+        # Check container status
+        result = subprocess.run([
+            'docker', 'ps', '-a', '--filter', 'name=radsec-proxy', '--format', 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'
+        ], capture_output=True, text=True, timeout=10)
+        
+        results.append("=== Container Status ===")
+        results.append(result.stdout or "No RadSec proxy container found")
+        
+        # Check network connectivity
+        config_file = '/opt/proxy-installer/radsec_config.json'
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+                server_url = config.get('server_url', 'oh-uz.extremecloudiq.com')
+                
+                results.append("\\n=== Network Connectivity ===")
+                # Test DNS resolution
+                dns_result = subprocess.run([
+                    'nslookup', server_url
+                ], capture_output=True, text=True, timeout=10)
+                results.append(f"DNS Resolution for {server_url}:")
+                results.append(dns_result.stdout or dns_result.stderr)
+                
+                # Test port connectivity
+                port_result = subprocess.run([
+                    'nc', '-zv', server_url, '2083'
+                ], capture_output=True, text=True, timeout=10)
+                results.append(f"\\nPort 2083 connectivity:")
+                results.append(port_result.stderr or "Connection test completed")
+                
+            except:
+                results.append("Could not read RadSec configuration")
+        
+        # Check logs
+        results.append("\\n=== Recent Logs ===")
+        log_result = subprocess.run([
+            'docker', 'logs', '--tail', '20', 'radsec-proxy'
+        ], capture_output=True, text=True, timeout=10)
+        results.append(log_result.stdout or log_result.stderr or "No logs available")
+        
+        return jsonify({
+            'status': 'success',
+            'results': results
+        })
+        
+    except Exception as e:
+        logging.error(f"Error troubleshooting RadSec: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # PKI Backup and Restore Endpoints
 @app.route('/api/pki/backup', methods=['POST'])

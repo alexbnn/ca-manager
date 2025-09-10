@@ -1,0 +1,88 @@
+# EAP module configuration for EAP-TLS authentication
+
+eap {
+    default_eap_type = tls
+    timer_expire = 60
+    ignore_unknown_eap_types = no
+    cisco_accounting_username_bug = no
+    max_sessions = 4096
+
+    # EAP-TLS configuration
+    tls-config tls-common {
+        # Certificate files from CA Manager
+        private_key_password = whatever
+        private_key_file = ${certdir}/server/server.key
+        certificate_file = ${certdir}/server/server.crt
+        ca_file = ${certdir}/ca/ca.crt
+        ca_path = ${certdir}/ca
+        cipher_list = "DEFAULT@SECLEVEL=0"
+        cipher_server_preference = no
+        tls_max_version = "1.2"
+        tls_min_version = "1.0"
+        
+        # Temporary directory for TLS operations
+        tmpdir = /tmp
+
+        # Certificate verification
+        verify {
+            # Verify client certificate against CA
+            # client = yes
+        }
+
+        # OCSP configuration (optional)
+        # ocsp {
+        #     enable = no
+        #     override_cert_url = yes
+        #     url = "http://ocsp-responder:8091/ocsp"
+        # }
+
+        # Certificate Revocation List
+        check_crl = yes
+        crl_file = ${certdir}/ca/crl.pem
+
+        # Random file for SSL
+        random_file = /dev/urandom
+
+        # Fragment size
+        fragment_size = 1024
+
+        # Include length in TLS messages
+        include_length = yes
+
+        # Auto chain building
+        auto_chain = yes
+
+        # Check certificate CN
+        check_cert_cn = %{User-Name}
+    }
+
+    # EAP-TLS
+    tls {
+        tls = tls-common
+        
+        # Use default virtual server instead of non-existent check-eap-tls
+        # virtual_server = check-eap-tls
+    }
+
+    # EAP-TTLS (disabled for certificate-only auth)
+    # ttls {
+    #     tls = tls-common
+    #     default_eap_type = md5
+    #     copy_request_to_tunnel = no
+    #     use_tunneled_reply = no
+    #     virtual_server = "inner-tunnel"
+    # }
+
+    # EAP-PEAP (disabled for certificate-only auth)  
+    # peap {
+    #     tls = tls-common
+    #     default_eap_type = mschapv2
+    #     copy_request_to_tunnel = no
+    #     use_tunneled_reply = no
+    #     virtual_server = "inner-tunnel"
+    # }
+
+    # EAP-MSCHAPV2 (disabled)
+    # mschapv2 {
+    # }
+}

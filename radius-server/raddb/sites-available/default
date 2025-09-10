@@ -1,0 +1,96 @@
+# Default virtual server for 802.1x EAP-TLS authentication
+
+server default {
+    listen {
+        type = auth
+        ipaddr = *
+        port = 0
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    listen {
+        type = acct
+        ipaddr = *
+        port = 0
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+
+    # Authorization section
+    authorize {
+        # Split username if it contains domain
+        filter_username
+
+        # Preprocess the request
+        preprocess
+
+        # Check for expired certificates
+        expiration
+
+        # EAP authentication
+        eap {
+            ok = return
+            updated = return
+        }
+    }
+
+    # Authentication section  
+    authenticate {
+        # EAP authentication (handles EAP-TLS)
+        eap
+    }
+
+    # Pre-accounting
+    preacct {
+        preprocess
+        acct_unique
+        suffix
+        files
+    }
+
+    # Accounting
+    accounting {
+        detail
+        unix
+        radutmp
+        attr_filter.accounting_response
+    }
+
+    # Session section
+    session {
+        radutmp
+    }
+
+    # Post-authentication
+    post-auth {
+        # Log successful authentications
+        exec
+
+        # Remove reply message if set
+        remove_reply_message_if_eap
+
+        # Post-Auth-Type REJECT
+        Post-Auth-Type REJECT {
+            attr_filter.access_reject
+            eap
+            remove_reply_message_if_eap
+        }
+    }
+
+    # Pre-proxy (if proxying is needed)
+    pre-proxy {
+        attr_filter.pre-proxy
+    }
+
+    # Post-proxy (if proxying is needed)
+    post-proxy {
+        eap
+    }
+}

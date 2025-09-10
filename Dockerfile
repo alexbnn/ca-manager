@@ -44,7 +44,7 @@ COPY static/ static/
 COPY database/ database/
 COPY update-system.sh .
 
-# Create logs directory and make update script executable
+# Create required directories and make update script executable
 RUN mkdir -p /app/logs && \
     chmod +x /app/update-system.sh
 

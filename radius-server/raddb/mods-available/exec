@@ -1,0 +1,8 @@
+# Exec module for certificate logging
+
+exec {
+    wait = no
+    program = "/opt/radius-scripts/log-auth.sh %{User-Name} %{NAS-IP-Address} %{TLS-Client-Cert-Common-Name}"
+    input_pairs = request
+    output_pairs = reply
+}

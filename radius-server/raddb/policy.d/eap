@@ -1,0 +1,25 @@
+# EAP policies for certificate authentication
+
+# Remove reply message if EAP is in use
+remove_reply_message_if_eap {
+    if (&reply:Reply-Message && &reply:EAP-Message) {
+        update reply {
+            &Reply-Message !* ANY
+        }
+    }
+    else {
+        noop
+    }
+}
+
+# Filter username (remove domain part if present)
+filter_username {
+    if (&User-Name =~ /^(.*)@(.*)$/) {
+        update request {
+            &Stripped-User-Name := "%{1}"
+        }
+    }
+    else {
+        noop
+    }
+}

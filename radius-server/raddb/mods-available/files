@@ -1,0 +1,11 @@
+# Files module for basic file operations
+
+files {
+    # Users file (not needed for certificate auth, but required by default config)
+    usersfile = ${confdir}/users
+    acctusersfile = ${confdir}/acct_users
+    preproxy_usersfile = ${confdir}/preproxy_users
+    
+    # Compatibility mode
+    compat = no
+}
