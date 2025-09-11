@@ -136,7 +136,11 @@ def initialize_database():
                 '04-ocsp-schema.sql',
                 '05-system-config.sql',
                 '06-intermediate-ca-schema.sql',
-                '07-email-verification.sql'
+                '07-email-verification.sql',
+                '08-idp-certificates.sql',
+                '09-system-config.sql',
+                '10-smtp-config.sql',
+                '11-vlan-policies.sql'
             ]
             
             for schema_file in schema_files:
@@ -179,6 +183,31 @@ def initialize_database():
                     logging.info("Email verification migration completed successfully")
                 except Exception as e:
                     logging.error(f"Email verification migration failed: {e}")
+                    conn.rollback()
+            
+            # Check for VLAN policy tables (migration for existing databases)
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'vlans'
+                );
+            """)
+            
+            vlan_table_exists = cursor.fetchone()['exists']
+            
+            if not vlan_table_exists:
+                logging.info("VLAN policy tables missing. Running VLAN migration...")
+                try:
+                    with open('/app/database/11-vlan-policies.sql', 'r') as f:
+                        vlan_migration_sql = f.read()
+                    cursor.execute(vlan_migration_sql)
+                    conn.commit()
+                    logging.info("VLAN policy migration completed successfully")
+                except FileNotFoundError:
+                    logging.warning("VLAN policy schema file not found, skipping migration")
+                except Exception as e:
+                    logging.error(f"VLAN policy migration failed: {e}")
                     conn.rollback()
         
         cursor.close()
