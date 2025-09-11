@@ -7513,6 +7513,138 @@ def test_idp_radius_config():
         if 'conn' in locals() and conn:
             conn.close()
 
+@app.route('/api/idp-radius-auth/test', methods=['POST'])
+@auth_required(permission='admin')
+def test_idp_radius_auth():
+    """Test IDP-RADIUS authentication functionality"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        test_results = []
+        
+        # Test 1: Check if there are active IDP mappings
+        cursor.execute("SELECT COUNT(*) FROM idp_radius_auth WHERE is_active = true")
+        mapping_count = cursor.fetchone()[0]
+        test_results.append(f"✓ Active IDP-RADIUS mappings: {mapping_count}")
+        
+        # Test 2: Test VLAN assignment API
+        try:
+            test_request = {
+                "username": "test@example.com",
+                "auth_type": "idp-google"
+            }
+            
+            # Call our own VLAN assignment API
+            from flask import current_app
+            with current_app.test_request_context('/api/vlan-assignment', json=test_request):
+                response = get_vlan_assignment()
+                if hasattr(response, 'status_code'):
+                    if response.status_code == 200:
+                        test_results.append("✓ VLAN assignment API: Working correctly")
+                    else:
+                        test_results.append("! VLAN assignment API: Returns error (expected for test user)")
+                else:
+                    test_results.append("✓ VLAN assignment API: Functional")
+        except Exception as e:
+            test_results.append(f"! VLAN assignment API: Error - {str(e)}")
+        
+        # Test 3: Check database connectivity
+        cursor.execute("SELECT COUNT(*) FROM vlans WHERE is_active = true")
+        vlan_count = cursor.fetchone()[0]
+        test_results.append(f"✓ Active VLANs available: {vlan_count}")
+        
+        # Test 4: Check policy engine
+        cursor.execute("SELECT COUNT(*) FROM vlan_policies WHERE is_active = true")
+        policy_count = cursor.fetchone()[0]
+        test_results.append(f"✓ Active VLAN policies: {policy_count}")
+        
+        # Test 5: Check system configuration
+        cursor.execute("SELECT COUNT(*) FROM system_config WHERE config_key LIKE 'idp_radius_%'")
+        config_count = cursor.fetchone()[0]
+        test_results.append(f"✓ IDP-RADIUS configuration entries: {config_count}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Authentication test completed',
+            'test_results': test_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing IDP-RADIUS auth: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Test failed: {str(e)}'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/vlan-assignment-log', methods=['GET'])
+@auth_required()
+def get_vlan_assignment_logs():
+    """Get VLAN assignment audit logs"""
+    try:
+        log_type = request.args.get('type', '')
+        limit = min(int(request.args.get('limit', 100)), 1000)  # Max 1000 logs
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Build query based on type filter
+        if log_type == 'idp':
+            query = """
+                SELECT username, auth_type, assigned_vlan_id, assignment_reason,
+                       nas_ip, nas_port, calling_station_id, success, error_message, timestamp
+                FROM vlan_assignment_log
+                WHERE auth_type LIKE 'idp-%' OR auth_type IN ('eap-tls', 'eap-peap')
+                ORDER BY timestamp DESC
+                LIMIT %s
+            """
+        else:
+            query = """
+                SELECT username, auth_type, assigned_vlan_id, assignment_reason,
+                       nas_ip, nas_port, calling_station_id, success, error_message, timestamp
+                FROM vlan_assignment_log
+                ORDER BY timestamp DESC
+                LIMIT %s
+            """
+        
+        cursor.execute(query, [limit])
+        logs = cursor.fetchall()
+        
+        # Convert to list of dictionaries
+        log_list = []
+        for log in logs:
+            log_list.append({
+                'username': log[0],
+                'auth_type': log[1],
+                'assigned_vlan_id': log[2],
+                'assignment_reason': log[3],
+                'nas_ip': log[4],
+                'nas_port': log[5],
+                'calling_station_id': log[6],
+                'success': log[7],
+                'error_message': log[8],
+                'timestamp': log[9].isoformat() if log[9] else None
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'logs': log_list,
+            'count': len(log_list)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting VLAN assignment logs: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
 # PKI Backup and Restore Endpoints
 @app.route('/api/pki/backup', methods=['POST'])
 @auth_required(permission='admin')

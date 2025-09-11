@@ -9639,6 +9639,68 @@ Dependencies:
             }
         }
 
+        // Missing IDP-RADIUS Functions
+        async function testIDPRadiusAuth() {
+            try {
+                showStatus('Testing IDP-RADIUS authentication...', 'loading');
+                
+                const response = await fetch('/api/idp-radius-auth/test', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('IDP-RADIUS authentication test completed', 'success');
+                    alert(`Test Results:\n\n${result.test_results.join('\n')}`);
+                } else {
+                    showStatus(result.message || 'IDP-RADIUS authentication test failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error testing IDP-RADIUS authentication:', error);
+                showStatus('Error testing IDP-RADIUS authentication', 'error');
+            }
+        }
+
+        async function viewIDPRadiusLogs() {
+            try {
+                showStatus('Loading IDP-RADIUS logs...', 'loading');
+                
+                const response = await fetch('/api/vlan-assignment-log?type=idp', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('IDP-RADIUS logs loaded', 'success');
+                    
+                    // Create a new window to show the logs
+                    const logWindow = window.open('', 'IDP-RADIUS Logs', 'width=1000,height=600,scrollbars=yes');
+                    const logContent = data.logs.map(log => 
+                        `[${new Date(log.timestamp).toLocaleString()}] ${log.username} (${log.auth_type}) -> VLAN ${log.assigned_vlan_id || 'none'} (${log.assignment_reason}) ${log.success ? '✓' : '✗' + (log.error_message ? ': ' + log.error_message : '')}`
+                    ).join('\n');
+                    
+                    logWindow.document.write(`
+                        <html>
+                            <head><title>IDP-RADIUS Authentication Logs</title></head>
+                            <body style="font-family: monospace; padding: 20px;">
+                                <h2>IDP-RADIUS Authentication Logs</h2>
+                                <pre>${logContent || 'No logs found'}</pre>
+                            </body>
+                        </html>
+                    `);
+                    logWindow.document.close();
+                } else {
+                    showStatus(data.message || 'Failed to load IDP-RADIUS logs', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading IDP-RADIUS logs:', error);
+                showStatus('Error loading IDP-RADIUS logs', 'error');
+            }
+        }
+
         // PKI Backup & Restore Functions
         function toggleBackupPasswordVisibility() {
             const field = document.getElementById('backupPassword');
