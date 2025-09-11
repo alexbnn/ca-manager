@@ -140,7 +140,8 @@ def initialize_database():
                 '08-idp-certificates.sql',
                 '09-system-config.sql',
                 '10-smtp-config.sql',
-                '11-vlan-policies.sql'
+                '11-vlan-policies.sql',
+                '12-enhanced-vlan-policies.sql'
             ]
             
             for schema_file in schema_files:
@@ -208,6 +209,31 @@ def initialize_database():
                     logging.warning("VLAN policy schema file not found, skipping migration")
                 except Exception as e:
                     logging.error(f"VLAN policy migration failed: {e}")
+                    conn.rollback()
+            
+            # Check for enhanced VLAN policy tables (migration for existing databases)
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'user_classification_rules'
+                );
+            """)
+            
+            enhanced_vlan_table_exists = cursor.fetchone()['exists']
+            
+            if not enhanced_vlan_table_exists:
+                logging.info("Enhanced VLAN policy tables missing. Running enhanced VLAN migration...")
+                try:
+                    with open('/app/database/12-enhanced-vlan-policies.sql', 'r') as f:
+                        enhanced_vlan_migration_sql = f.read()
+                    cursor.execute(enhanced_vlan_migration_sql)
+                    conn.commit()
+                    logging.info("Enhanced VLAN policy migration completed successfully")
+                except FileNotFoundError:
+                    logging.warning("Enhanced VLAN policy schema file not found, skipping migration")
+                except Exception as e:
+                    logging.error(f"Enhanced VLAN policy migration failed: {e}")
                     conn.rollback()
         
         cursor.close()
@@ -903,10 +929,12 @@ def microsoft_callback():
                 session['authenticated'] = True
                 session['username'] = user_info.get('userPrincipalName') or user_info.get('mail')
                 session['idp_user'] = True
+                session['idp_provider'] = 'microsoft'  # Set provider for Microsoft OAuth
+                session['idp_user_id'] = user_info.get('id', user_info.get('userPrincipalName'))
                 session['user_id'] = 0  # IDP users don't have local user IDs yet
                 session['user_display_name'] = user_info.get('displayName')
                 
-                logger.info(f"Microsoft OAuth login successful for user: {session['username']}")
+                logger.info(f"Microsoft IDP login successful for user: {session['username']}")
                 conn.close()
                 return redirect('/')
             else:
@@ -966,9 +994,11 @@ def google_callback():
             session['authenticated'] = True
             session['username'] = user_data.get('email', 'idp_user')
             session['idp_user'] = True
+            session['idp_provider'] = 'google'  # Set provider for Google OAuth
+            session['idp_user_id'] = user_data.get('id', user_data.get('email'))
             session['user_id'] = 0  # IDP users don't have local user IDs yet
             
-            logger.info(f"IDP login successful for user: {session['username']}")
+            logger.info(f"Google IDP login successful for user: {session['username']}")
             conn.close()
             return redirect('/')
         
@@ -4906,6 +4936,10 @@ def get_idp_certificate_status():
     
     try:
         conn = get_db_connection()
+        if not conn:
+            logger.error("Database connection failed")
+            return jsonify({'error': 'Database connection failed'}), 500
+            
         cursor = conn.cursor()
         
         # Get the most recent active certificate for this user
@@ -4948,6 +4982,10 @@ def get_idp_certificate_status():
             
     except Exception as e:
         logger.error(f"Error getting certificate status: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        if 'conn' in locals() and conn:
+            conn.close()
         return jsonify({'error': 'Failed to get certificate status'}), 500
 
 @app.route('/api/idp/certificate-history')
@@ -4958,6 +4996,10 @@ def get_idp_certificate_history():
     
     try:
         conn = get_db_connection()
+        if not conn:
+            logger.error("Database connection failed")
+            return jsonify({'error': 'Database connection failed'}), 500
+            
         cursor = conn.cursor()
         
         # Get all certificates for this user
@@ -4990,6 +5032,10 @@ def get_idp_certificate_history():
         
     except Exception as e:
         logger.error(f"Error getting certificate history: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        if 'conn' in locals() and conn:
+            conn.close()
         return jsonify({'error': 'Failed to get certificate history'}), 500
 
 @app.route('/api/idp/generate-certificate', methods=['POST'])
@@ -5392,6 +5438,209 @@ def download_idp_certificate():
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': 'Failed to download certificate'}), 500
+
+@app.route('/api/idp/test', methods=['GET'])
+def test_idp_endpoint():
+    """Test endpoint for IDP users"""
+    return jsonify({
+        'status': 'success',
+        'message': 'IDP endpoint working',
+        'session_info': {
+            'idp_user': session.get('idp_user'),
+            'authenticated': session.get('authenticated'),
+            'username': session.get('username'),
+            'idp_provider': session.get('idp_provider')
+        }
+    })
+
+@app.route('/api/idp/radius-credentials', methods=['GET'])
+def get_idp_radius_credentials():
+    """Get RADIUS credentials for the current IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Getting RADIUS credentials for IDP user: {email}")
+        logger.info(f"Session info: idp_user={session.get('idp_user')}, authenticated={session.get('authenticated')}")
+        
+        conn = get_db_connection()
+        if not conn:
+            logger.error("Database connection failed")
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT radius_username, radius_password_hash, default_vlan_id, 
+                   is_active, updated_at, auth_count, last_auth_at
+            FROM idp_radius_auth 
+            WHERE idp_email = %s
+            ORDER BY updated_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        credentials = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if credentials:
+            return jsonify({
+                'status': 'success',
+                'credentials': {
+                    'radius_username': credentials['radius_username'],
+                    'radius_password': '••••••••••••',  # Never return actual password
+                    'default_vlan_id': credentials['default_vlan_id'],
+                    'is_active': credentials['is_active'],
+                    'updated_at': credentials['updated_at'].isoformat() if credentials['updated_at'] else None,
+                    'auth_count': credentials['auth_count'],
+                    'last_auth_at': credentials['last_auth_at'].isoformat() if credentials['last_auth_at'] else None
+                }
+            })
+        else:
+            return jsonify({
+                'status': 'not_configured',
+                'message': 'RADIUS credentials not set up for this user'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error getting RADIUS credentials: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        if 'conn' in locals() and conn:
+            conn.close()
+        return jsonify({'error': 'Failed to get RADIUS credentials'}), 500
+
+@app.route('/api/idp/radius-credentials', methods=['POST'])
+def create_idp_radius_credentials():
+    """Create RADIUS credentials for the current IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Creating RADIUS credentials for IDP user: {email}")
+        
+        # Generate a secure random password
+        import secrets
+        import string
+        password = ''.join(secrets.choice(string.ascii_letters + string.digits + '!@#$%') for _ in range(12))
+        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        
+        # Create a radius username (use email prefix or full email)
+        radius_username = email.split('@')[0] if '@' in email else email
+        
+        # Check if username already exists and append number if needed
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        base_username = radius_username
+        counter = 1
+        while True:
+            cursor.execute("SELECT id FROM idp_radius_auth WHERE radius_username = %s", (radius_username,))
+            if not cursor.fetchone():
+                break
+            radius_username = f"{base_username}{counter}"
+            counter += 1
+        
+        # Get user data from session or IDP
+        idp_user_id = session.get('idp_user_id', email)
+        idp_provider = session.get('idp_provider', 'unknown')
+        
+        # Insert or update the RADIUS credentials
+        cursor.execute("""
+            INSERT INTO idp_radius_auth 
+            (idp_user_id, idp_email, idp_provider, radius_username, radius_password_hash, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (idp_email, idp_provider) 
+            DO UPDATE SET 
+                radius_username = EXCLUDED.radius_username,
+                radius_password_hash = EXCLUDED.radius_password_hash,
+                is_active = EXCLUDED.is_active,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING id
+        """, (idp_user_id, email, idp_provider, radius_username, password_hash, True))
+        
+        mapping_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"RADIUS credentials created for {email}: username={radius_username}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'RADIUS credentials created successfully',
+            'credentials': {
+                'radius_username': radius_username,
+                'radius_password': password,  # Return actual password only on creation
+                'mapping_id': mapping_id
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating RADIUS credentials: {str(e)}")
+        return jsonify({'error': 'Failed to create RADIUS credentials'}), 500
+
+@app.route('/api/idp/radius-credentials/regenerate', methods=['POST'])
+def regenerate_idp_radius_password():
+    """Regenerate RADIUS password for the current IDP user"""
+    if not session.get('idp_user'):
+        return jsonify({'error': 'Not an IDP user'}), 403
+    
+    try:
+        email = session.get('username')
+        logger.info(f"Regenerating RADIUS password for IDP user: {email}")
+        
+        # Generate a new secure random password
+        import secrets
+        import string
+        password = ''.join(secrets.choice(string.ascii_letters + string.digits + '!@#$%') for _ in range(12))
+        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if user has existing RADIUS credentials
+        cursor.execute("""
+            SELECT radius_username FROM idp_radius_auth 
+            WHERE idp_email = %s
+            ORDER BY updated_at DESC 
+            LIMIT 1
+        """, (email,))
+        
+        existing = cursor.fetchone()
+        
+        if not existing:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'No RADIUS credentials found. Create them first.'}), 404
+        
+        # Update the password
+        cursor.execute("""
+            UPDATE idp_radius_auth 
+            SET radius_password_hash = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE idp_email = %s
+        """, (password_hash, email))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"RADIUS password regenerated for {email}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'RADIUS password regenerated successfully',
+            'credentials': {
+                'radius_username': existing['radius_username'],
+                'radius_password': password  # Return actual password only on regeneration
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error regenerating RADIUS password: {str(e)}")
+        return jsonify({'error': 'Failed to regenerate RADIUS password'}), 500
 
 @app.route('/auth/logout')
 def idp_logout():
@@ -8370,6 +8619,453 @@ def restore_comprehensive_backup():
             "status": "error",
             "message": f"Failed to restore comprehensive backup: {str(e)}"
         }), 500
+
+# Enhanced VLAN Policy Management API Endpoints
+
+@app.route('/api/user-classification-rules', methods=['GET'])
+@auth_required()
+def get_user_classification_rules():
+    """Get all user classification rules"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ucr.*, u.username as created_by_username
+            FROM user_classification_rules ucr
+            LEFT JOIN users u ON ucr.created_by = u.id
+            ORDER BY ucr.priority ASC, ucr.created_at DESC
+        """)
+        
+        rules = cursor.fetchall()
+        rule_list = [dict(rule) for rule in rules]
+        
+        return jsonify({
+            'status': 'success',
+            'rules': rule_list
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting user classification rules: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/user-classification-rules', methods=['POST'])
+@auth_required()
+def create_user_classification_rule():
+    """Create a new user classification rule"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['rule_name', 'classification_type', 'classification_value', 'user_group']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Check if rule name already exists
+        cursor.execute("SELECT id FROM user_classification_rules WHERE rule_name = %s", (data['rule_name'],))
+        if cursor.fetchone():
+            return jsonify({
+                'status': 'error',
+                'message': 'Rule name already exists'
+            }), 400
+        
+        cursor.execute("""
+            INSERT INTO user_classification_rules 
+            (rule_name, description, priority, classification_type, classification_value, 
+             user_group, user_category, metadata, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['rule_name'],
+            data.get('description'),
+            data.get('priority', 100),
+            data['classification_type'],
+            data['classification_value'],
+            data['user_group'],
+            data.get('user_category'),
+            json.dumps(data.get('metadata', {})),
+            session.get('user_id')
+        ))
+        
+        rule_id = cursor.fetchone()[0]
+        conn.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'User classification rule created successfully',
+            'rule_id': rule_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating user classification rule: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/user-classification-rules/<int:rule_id>', methods=['PUT'])
+@auth_required()
+def update_user_classification_rule(rule_id):
+    """Update an existing user classification rule"""
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Check if rule exists
+        cursor.execute("SELECT id FROM user_classification_rules WHERE id = %s", (rule_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'status': 'error',
+                'message': 'Rule not found'
+            }), 404
+        
+        # Check if new rule name conflicts (if being changed)
+        if data.get('rule_name'):
+            cursor.execute("SELECT id FROM user_classification_rules WHERE rule_name = %s AND id != %s", 
+                          (data['rule_name'], rule_id))
+            if cursor.fetchone():
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Rule name already exists'
+                }), 400
+        
+        # Build update query dynamically
+        update_fields = []
+        values = []
+        
+        allowed_fields = ['rule_name', 'description', 'priority', 'is_active', 'classification_type', 
+                         'classification_value', 'user_group', 'user_category', 'metadata']
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = %s")
+                if field == 'metadata':
+                    values.append(json.dumps(data[field]))
+                else:
+                    values.append(data[field])
+        
+        if not update_fields:
+            return jsonify({
+                'status': 'error',
+                'message': 'No valid fields to update'
+            }), 400
+        
+        values.append(rule_id)
+        
+        cursor.execute(f"""
+            UPDATE user_classification_rules 
+            SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, values)
+        
+        conn.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'User classification rule updated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating user classification rule: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/user-classification-rules/<int:rule_id>', methods=['DELETE'])
+@auth_required()
+def delete_user_classification_rule(rule_id):
+    """Delete a user classification rule"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Check if rule exists
+        cursor.execute("SELECT rule_name FROM user_classification_rules WHERE id = %s", (rule_id,))
+        rule = cursor.fetchone()
+        if not rule:
+            return jsonify({
+                'status': 'error',
+                'message': 'Rule not found'
+            }), 404
+        
+        cursor.execute("DELETE FROM user_classification_rules WHERE id = %s", (rule_id,))
+        conn.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'User classification rule "{rule["rule_name"]}" deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting user classification rule: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/vlan-policies-v2', methods=['GET'])
+@auth_required()
+def get_enhanced_vlan_policies():
+    """Get all enhanced VLAN policies"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT vp.*, 
+                   dv.vlan_id as default_vlan_name, dv.vlan_name as default_vlan_display,
+                   fv.vlan_id as fallback_vlan_name, fv.vlan_name as fallback_vlan_display,
+                   u.username as created_by_username
+            FROM vlan_policies_v2 vp
+            LEFT JOIN vlans dv ON vp.default_vlan_id = dv.id
+            LEFT JOIN vlans fv ON vp.fallback_vlan_id = fv.id
+            LEFT JOIN users u ON vp.created_by = u.id
+            ORDER BY vp.priority ASC, vp.created_at DESC
+        """)
+        
+        policies = cursor.fetchall()
+        policy_list = [dict(policy) for policy in policies]
+        
+        return jsonify({
+            'status': 'success',
+            'policies': policy_list
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting enhanced VLAN policies: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/vlan-policies-v2', methods=['POST'])
+@auth_required()
+def create_enhanced_vlan_policy():
+    """Create a new enhanced VLAN policy"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['policy_name', 'target_user_groups']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Check if policy name already exists
+        cursor.execute("SELECT id FROM vlan_policies_v2 WHERE policy_name = %s", (data['policy_name'],))
+        if cursor.fetchone():
+            return jsonify({
+                'status': 'error',
+                'message': 'Policy name already exists'
+            }), 400
+        
+        cursor.execute("""
+            INSERT INTO vlan_policies_v2 
+            (policy_name, description, priority, target_user_groups, target_user_categories, target_users,
+             time_conditions, location_conditions, device_conditions, auth_conditions,
+             default_vlan_id, fallback_vlan_id, radius_attributes, access_control,
+             bandwidth_limit, qos_class, session_timeout, idle_timeout, reauthentication_interval,
+             enable_logging, enable_monitoring, alert_on_violation, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['policy_name'],
+            data.get('description'),
+            data.get('priority', 100),
+            data['target_user_groups'],
+            data.get('target_user_categories', []),
+            data.get('target_users', []),
+            json.dumps(data.get('time_conditions', {})),
+            json.dumps(data.get('location_conditions', {})),
+            json.dumps(data.get('device_conditions', {})),
+            json.dumps(data.get('auth_conditions', {})),
+            data.get('default_vlan_id'),
+            data.get('fallback_vlan_id'),
+            json.dumps(data.get('radius_attributes', {})),
+            data.get('access_control', 'allow'),
+            data.get('bandwidth_limit'),
+            data.get('qos_class'),
+            data.get('session_timeout'),
+            data.get('idle_timeout'),
+            data.get('reauthentication_interval'),
+            data.get('enable_logging', True),
+            data.get('enable_monitoring', True),
+            data.get('alert_on_violation', False),
+            session.get('user_id')
+        ))
+        
+        policy_id = cursor.fetchone()[0]
+        conn.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Enhanced VLAN policy created successfully',
+            'policy_id': policy_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating enhanced VLAN policy: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/user-groups', methods=['GET'])
+@auth_required()
+def get_user_groups():
+    """Get all user groups"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ug.*, 
+                   dv.vlan_id as default_vlan_name, dv.vlan_name as default_vlan_display,
+                   pg.group_name as parent_group_name,
+                   u.username as created_by_username
+            FROM user_groups ug
+            LEFT JOIN vlans dv ON ug.default_vlan_id = dv.id
+            LEFT JOIN user_groups pg ON ug.parent_group_id = pg.id
+            LEFT JOIN users u ON ug.created_by = u.id
+            WHERE ug.is_active = true
+            ORDER BY ug.group_name ASC
+        """)
+        
+        groups = cursor.fetchall()
+        group_list = [dict(group) for group in groups]
+        
+        return jsonify({
+            'status': 'success',
+            'groups': group_list
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting user groups: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/enhanced-vlan-assignment', methods=['POST'])
+def get_enhanced_vlan_assignment():
+    """Get VLAN assignment using enhanced policy engine"""
+    try:
+        data = request.get_json() or {}
+        username = data.get('username')
+        auth_type = data.get('auth_type', 'unknown')
+        attributes = data.get('attributes', {})
+        
+        if not username:
+            return jsonify({
+                'status': 'error',
+                'message': 'Username is required'
+            }), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Use the enhanced VLAN assignment function
+        cursor.execute("""
+            SELECT * FROM get_enhanced_vlan_assignment(%s, %s, %s)
+        """, (username, auth_type, json.dumps(attributes)))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            response_data = {
+                'status': 'success',
+                'vlan_id': result['vlan_id'],
+                'vlan_name': result['vlan_name'],
+                'assignment_reason': result['assignment_reason'],
+                'radius_attributes': result['radius_attributes'],
+                'user_group': result['user_group'],
+                'user_category': result['user_category'],
+                'session_timeout': result['session_timeout'],
+                'bandwidth_limit': result['bandwidth_limit']
+            }
+            
+            # Log the assignment
+            cursor.execute("""
+                INSERT INTO vlan_assignment_log_v2 
+                (username, user_group, user_category, auth_type, assigned_vlan_id, 
+                 assignment_reason, applied_radius_attributes, session_timeout, 
+                 bandwidth_limit, success, processing_time_ms)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                username,
+                result['user_group'],
+                result['user_category'],
+                auth_type,
+                result['vlan_id'],
+                result['assignment_reason'],
+                result['radius_attributes'],
+                result['session_timeout'],
+                result['bandwidth_limit'],
+                True,
+                0  # Processing time would be measured in real implementation
+            ))
+            
+            conn.commit()
+            return jsonify(response_data)
+        else:
+            # Log failed assignment
+            cursor.execute("""
+                INSERT INTO vlan_assignment_log_v2 
+                (username, auth_type, success, error_message)
+                VALUES (%s, %s, %s, %s)
+            """, (username, auth_type, False, 'No VLAN assignment found'))
+            
+            conn.commit()
+            
+            return jsonify({
+                'status': 'error',
+                'message': 'No VLAN assignment found for user'
+            }), 404
+        
+    except Exception as e:
+        logger.error(f"Error in enhanced VLAN assignment: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
 
 if __name__ == '__main__':
     # Ensure logs directory exists

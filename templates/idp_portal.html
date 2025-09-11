@@ -484,6 +484,33 @@
             </div>
         </div>
 
+        <!-- RADIUS WiFi Credentials Card -->
+        <div class="card" id="radiusCredentialsCard">
+            <h2>📶 WiFi RADIUS Credentials</h2>
+            <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 14px;">
+                Use these credentials to connect to corporate WiFi networks that use WPA2-Enterprise/802.1X authentication.
+            </p>
+            <div class="cert-status" id="radiusCredentials">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading RADIUS credentials...</p>
+                </div>
+            </div>
+            <div class="action-buttons" id="radiusActions">
+                <!-- Will be populated based on credentials status -->
+            </div>
+            <div class="info-box" style="margin-top: 15px;">
+                <h3>📋 WiFi Setup Instructions</h3>
+                <ul>
+                    <li><strong>Security Type:</strong> WPA2-Enterprise or WPA3-Enterprise</li>
+                    <li><strong>EAP Method:</strong> PEAP or EAP-TTLS</li>
+                    <li><strong>Phase 2 Authentication:</strong> MSCHAPv2</li>
+                    <li><strong>CA Certificate:</strong> Install the CA certificate from above</li>
+                    <li><strong>Username & Password:</strong> Use the credentials shown below</li>
+                </ul>
+            </div>
+        </div>
+
         <!-- Certificate Generation Progress -->
         <div class="card" id="certProgressCard" style="display: none; padding-bottom: 40px;">
             <h2>🔧 Generating Certificate</h2>
@@ -678,6 +705,7 @@
             await loadUserInfo();
             await loadCertificateStatus();
             await loadCertificateHistory();
+            await loadRADIUSCredentials();
         });
 
         async function loadUserInfo() {
@@ -815,6 +843,282 @@
             } catch (error) {
                 console.error('Error loading certificate history:', error);
             }
+        }
+
+        async function loadRADIUSCredentials() {
+            try {
+                const response = await fetch('/api/idp/radius-credentials');
+                const data = await response.json();
+                
+                const credentialsDiv = document.getElementById('radiusCredentials');
+                const actionsDiv = document.getElementById('radiusActions');
+                
+                if (data.status === 'success' && data.credentials) {
+                    displayRADIUSCredentials(data.credentials);
+                    
+                    // Show action buttons
+                    actionsDiv.innerHTML = `
+                        <button class="btn btn-secondary" onclick="regenerateRADIUSPassword()">
+                            <span>🔄</span> Regenerate Password
+                        </button>
+                        <button class="btn btn-secondary" onclick="copyRADIUSCredentials()">
+                            <span>📋</span> Copy Credentials
+                        </button>
+                        <button class="btn btn-secondary" onclick="showWiFiInstructions()">
+                            <span>📖</span> WiFi Setup Guide
+                        </button>
+                    `;
+                } else if (data.status === 'not_configured') {
+                    credentialsDiv.innerHTML = `
+                        <div class="status-item">
+                            <span class="status-label">Status</span>
+                            <span class="status-value status-warning">Not Set Up</span>
+                        </div>
+                        <p style="text-align: center; color: #666; margin-top: 20px;">
+                            RADIUS credentials haven't been set up yet. Click "Create RADIUS Credentials" to set them up.
+                        </p>
+                    `;
+                    
+                    actionsDiv.innerHTML = `
+                        <button class="btn btn-primary" onclick="createRADIUSCredentials()">
+                            <span>🆕</span> Create RADIUS Credentials
+                        </button>
+                    `;
+                } else {
+                    credentialsDiv.innerHTML = `
+                        <div class="status-item">
+                            <span class="status-label">Status</span>
+                            <span class="status-value status-error">Error</span>
+                        </div>
+                        <p style="text-align: center; color: #666; margin-top: 20px;">
+                            Unable to load RADIUS credentials. Please contact your administrator.
+                        </p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading RADIUS credentials:', error);
+                const credentialsDiv = document.getElementById('radiusCredentials');
+                credentialsDiv.innerHTML = `
+                    <div class="status-item">
+                        <span class="status-label">Status</span>
+                        <span class="status-value status-error">Connection Error</span>
+                    </div>
+                    <p style="text-align: center; color: #666; margin-top: 20px;">
+                        Failed to load RADIUS credentials. Please try refreshing the page.
+                    </p>
+                `;
+            }
+        }
+
+        function displayRADIUSCredentials(credentials) {
+            const credentialsDiv = document.getElementById('radiusCredentials');
+            
+            credentialsDiv.innerHTML = `
+                <div class="status-item">
+                    <span class="status-label">Status</span>
+                    <span class="status-value status-active">Active</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Username</span>
+                    <span class="status-value" style="font-family: monospace; background: #f1f3f4; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 14px;">
+                        ${credentials.radius_username}
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Password</span>
+                    <span class="status-value" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="password" id="radiusPassword" value="••••••••••••" data-password="${credentials.radius_password || ''}" 
+                               readonly style="font-family: monospace; background: #f1f3f4; padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; width: 140px;">
+                        <button onclick="togglePasswordVisibility()" class="btn" style="padding: 0.25rem 0.5rem; font-size: 12px;">👁️</button>
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Last Updated</span>
+                    <span class="status-value">${new Date(credentials.updated_at).toLocaleDateString()}</span>
+                </div>
+                ${credentials.default_vlan_id ? `
+                <div class="status-item">
+                    <span class="status-label">Default VLAN</span>
+                    <span class="status-value">VLAN ${credentials.default_vlan_id}</span>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function togglePasswordVisibility() {
+            const passwordField = document.getElementById('radiusPassword');
+            const button = passwordField.nextElementSibling;
+            
+            if (passwordField.type === 'password') {
+                const storedPassword = passwordField.dataset.password;
+                if (storedPassword) {
+                    passwordField.value = storedPassword;
+                } else {
+                    passwordField.value = 'Password not available - regenerate to view';
+                }
+                passwordField.type = 'text';
+                button.textContent = '🙈';
+                button.title = 'Hide password';
+            } else {
+                passwordField.value = '••••••••••••';
+                passwordField.type = 'password';
+                button.textContent = '👁️';
+                button.title = 'Show password';
+            }
+        }
+
+        async function createRADIUSCredentials() {
+            if (confirm('Create RADIUS credentials for WiFi authentication? This will generate a username and password for you.')) {
+                try {
+                    const response = await fetch('/api/idp/radius-credentials', {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        showAlert('RADIUS credentials created successfully!', 'success');
+                        await loadRADIUSCredentials();
+                        
+                        // Store and show the password temporarily
+                        setTimeout(() => {
+                            const passwordField = document.getElementById('radiusPassword');
+                            const button = passwordField?.nextElementSibling;
+                            if (passwordField && button && data.credentials?.radius_password) {
+                                passwordField.dataset.password = data.credentials.radius_password;
+                                passwordField.value = data.credentials.radius_password;
+                                passwordField.type = 'text';
+                                button.textContent = '🙈';
+                                button.title = 'Hide password';
+                            }
+                        }, 500);
+                    } else {
+                        showAlert('Error creating RADIUS credentials: ' + data.message, 'error');
+                    }
+                } catch (error) {
+                    showAlert('Error creating RADIUS credentials: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function regenerateRADIUSPassword() {
+            if (confirm('Regenerate your RADIUS password? Your current password will no longer work for WiFi authentication.')) {
+                try {
+                    const response = await fetch('/api/idp/radius-credentials/regenerate', {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        showAlert('RADIUS password regenerated successfully! The new password is displayed below.', 'success');
+                        await loadRADIUSCredentials();
+                        
+                        // Store and show the new password temporarily
+                        setTimeout(() => {
+                            const passwordField = document.getElementById('radiusPassword');
+                            const button = passwordField?.nextElementSibling;
+                            if (passwordField && button && data.credentials?.radius_password) {
+                                passwordField.dataset.password = data.credentials.radius_password;
+                                passwordField.value = data.credentials.radius_password;
+                                passwordField.type = 'text';
+                                button.textContent = '🙈';
+                                button.title = 'Hide password';
+                            }
+                        }, 500);
+                    } else {
+                        showAlert('Error regenerating RADIUS password: ' + data.message, 'error');
+                    }
+                } catch (error) {
+                    showAlert('Error regenerating RADIUS password: ' + error.message, 'error');
+                }
+            }
+        }
+
+        function copyRADIUSCredentials() {
+            const usernameElement = document.querySelector('#radiusCredentials .status-item:nth-child(2) .status-value');
+            const passwordField = document.getElementById('radiusPassword');
+            
+            if (usernameElement && passwordField) {
+                const username = usernameElement.textContent.trim();
+                const password = passwordField.value;
+                
+                const credentialsText = `WiFi RADIUS Credentials:\nUsername: ${username}\nPassword: ${password}`;
+                
+                navigator.clipboard.writeText(credentialsText).then(() => {
+                    showAlert('RADIUS credentials copied to clipboard!', 'success');
+                }).catch(err => {
+                    showAlert('Failed to copy credentials. Please copy them manually.', 'error');
+                });
+            }
+        }
+
+        function showWiFiInstructions() {
+            const modal = document.getElementById('instructionsModal');
+            const modalContent = modal.querySelector('.modal-content > div');
+            
+            // Update modal content for WiFi instructions
+            modalContent.innerHTML = `
+                <div style="background: #e1f5fe; border: 1px solid #0277bd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="color: #01579b; margin: 0 0 10px 0;">📶 WiFi Enterprise Setup Guide</h4>
+                    <p style="color: #01579b; margin: 0;">Use your RADIUS credentials to connect to WPA2-Enterprise/WPA3-Enterprise WiFi networks.</p>
+                </div>
+
+                <h3>Windows 10/11</h3>
+                <ol>
+                    <li>Go to Settings → Network & Internet → Wi-Fi</li>
+                    <li>Click on the enterprise WiFi network</li>
+                    <li>Select <strong>Security type:</strong> WPA2-Enterprise or WPA3-Enterprise</li>
+                    <li>Select <strong>EAP method:</strong> PEAP</li>
+                    <li>Under Authentication, select <strong>MS-CHAPv2</strong></li>
+                    <li>Enter your RADIUS username and password</li>
+                    <li>Install the CA certificate when prompted</li>
+                    <li>Click Connect</li>
+                </ol>
+
+                <h3>macOS</h3>
+                <ol>
+                    <li>Go to System Preferences → Network → Wi-Fi → Advanced</li>
+                    <li>Select the enterprise WiFi network and click the gear icon</li>
+                    <li>Choose <strong>802.1X</strong> from the User Profiles tab</li>
+                    <li>Set <strong>Configuration:</strong> to Automatic</li>
+                    <li>Enter your RADIUS username and password</li>
+                    <li>Import the CA certificate when prompted</li>
+                    <li>Click OK and connect</li>
+                </ol>
+
+                <h3>Android</h3>
+                <ol>
+                    <li>Go to Settings → Wi-Fi</li>
+                    <li>Long press on the enterprise WiFi network and select Modify</li>
+                    <li>Set <strong>EAP method:</strong> PEAP</li>
+                    <li>Set <strong>Phase 2 authentication:</strong> MSCHAPV2</li>
+                    <li>Install the CA certificate</li>
+                    <li>Enter your RADIUS username and password</li>
+                    <li>Tap Connect</li>
+                </ol>
+
+                <h3>iOS</h3>
+                <ol>
+                    <li>Go to Settings → Wi-Fi</li>
+                    <li>Tap on the enterprise WiFi network</li>
+                    <li>Enter your RADIUS username and password</li>
+                    <li>Trust the certificate when prompted</li>
+                    <li>The device will connect automatically</li>
+                </ol>
+
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                    <h4 style="color: #856404; margin: 0 0 10px 0;">💡 Pro Tips</h4>
+                    <ul style="color: #856404; margin: 0;">
+                        <li>Always install the CA certificate before connecting</li>
+                        <li>Use PEAP with MSCHAPv2 for maximum compatibility</li>
+                        <li>If connection fails, try forgetting and reconnecting to the network</li>
+                        <li>Contact IT support if you encounter certificate trust issues</li>
+                    </ul>
+                </div>
+            `;
+            
+            // Update modal title
+            modal.querySelector('.modal-header h2').textContent = 'WiFi Enterprise Setup Guide';
+            modal.style.display = 'flex';
         }
 
         async function generateNewCert() {

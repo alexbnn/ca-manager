@@ -38,28 +38,30 @@ get_vlan_assignment() {
     local calling_station_id="$5"
     local cert_cn="$6"
     
-    # Prepare JSON payload
+    # Prepare JSON payload with additional attributes
     local json_payload=$(cat << EOF
 {
     "username": "$username",
     "auth_type": "$auth_type",
-    "nas_ip": "$nas_ip",
-    "nas_port": "$nas_port",
-    "calling_station_id": "$calling_station_id",
-    "certificate_cn": "$cert_cn"
+    "attributes": {
+        "nas_ip": "$nas_ip",
+        "nas_port": "$nas_port",
+        "calling_station_id": "$calling_station_id",
+        "certificate_cn": "$cert_cn"
+    }
 }
 EOF
 )
     
     log_message "Requesting VLAN assignment for user: $username, auth_type: $auth_type"
     
-    # Query CA Manager VLAN assignment API
+    # Query CA Manager enhanced VLAN assignment API
     local response=$(curl -s -X POST \
         -H "Content-Type: application/json" \
         -d "$json_payload" \
         --connect-timeout 10 \
         --max-time 30 \
-        "$CA_MANAGER_URL/api/vlan-assignment" 2>/dev/null)
+        "$CA_MANAGER_URL/api/enhanced-vlan-assignment" 2>/dev/null)
     
     if [ $? -eq 0 ] && [ -n "$response" ]; then
         # Parse JSON response
@@ -68,9 +70,13 @@ EOF
             local vlan_id=$(echo "$response" | jq -r '.vlan_id // ""')
             local vlan_name=$(echo "$response" | jq -r '.vlan_name // ""')
             local reason=$(echo "$response" | jq -r '.assignment_reason // ""')
+            local user_group=$(echo "$response" | jq -r '.user_group // ""')
+            local user_category=$(echo "$response" | jq -r '.user_category // ""')
+            local session_timeout=$(echo "$response" | jq -r '.session_timeout // ""')
+            local bandwidth_limit=$(echo "$response" | jq -r '.bandwidth_limit // ""')
             local radius_attrs=$(echo "$response" | jq -r '.radius_attributes // "{}"')
             
-            log_message "VLAN assignment successful: VLAN=$vlan_id ($vlan_name), Reason=$reason"
+            log_message "Enhanced VLAN assignment successful: VLAN=$vlan_id ($vlan_name), Group=$user_group, Category=$user_category, Reason=$reason"
             
             # Output RADIUS attributes for FreeRADIUS
             if [ -n "$vlan_id" ]; then
@@ -78,8 +84,22 @@ EOF
                 echo "Tunnel-Medium-Type = IEEE-802"
                 echo "Tunnel-Private-Group-Id = \"$vlan_id\""
                 
+                # Add session timeout if specified
+                if [ -n "$session_timeout" ] && [ "$session_timeout" != "null" ]; then
+                    echo "Session-Timeout = $session_timeout"
+                fi
+                
+                # Add bandwidth limits if specified (using standard RADIUS attributes)
+                if [ -n "$bandwidth_limit" ] && [ "$bandwidth_limit" != "null" ]; then
+                    # Convert Mbps to bps for RADIUS attributes
+                    local download_bps=$((bandwidth_limit * 1000000))
+                    local upload_bps=$((bandwidth_limit * 1000000))
+                    echo "WISPr-Bandwidth-Max-Down = $download_bps"
+                    echo "WISPr-Bandwidth-Max-Up = $upload_bps"
+                fi
+                
                 # Add additional RADIUS attributes if specified in policy
-                if [ "$radius_attrs" != "{}" ] && [ -n "$radius_attrs" ]; then
+                if [ "$radius_attrs" != "{}" ] && [ "$radius_attrs" != "null" ] && [ -n "$radius_attrs" ]; then
                     echo "$radius_attrs" | jq -r 'to_entries[] | "\(.key) = \(.value)"'
                 fi
             else

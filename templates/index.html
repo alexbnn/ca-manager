@@ -1506,6 +1506,40 @@
             font-size: 1.2rem;
             flex-shrink: 0;
         }
+
+        /* Tab Styles */
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--medium-gray);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.05);
+        }
+
+        .tab-btn.active {
+            color: var(--primary-purple);
+            border-bottom-color: var(--primary-purple);
+            background: rgba(91, 5, 156, 0.05);
+        }
+
+        .tab-content {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
     
     <!-- Dynamic custom color theme injection -->
@@ -1960,72 +1994,256 @@
                 </div>
                 </div>
 
-                <!-- VLAN Policy Engine Section -->
+                <!-- Enhanced VLAN Policy Engine Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">🔀</span>VLAN Assignment Policies</h2>
+                <h2><span class="section-icon">🎯</span>Enhanced VLAN Policy Engine</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Configure dynamic VLAN assignment policies based on user attributes, authentication methods, and conditions.
+                    Enterprise-grade VLAN assignment with user classification, policy conditions, and automated enforcement.
                 </p>
 
-                <!-- VLAN Management Buttons -->
-                <div class="button-grid" style="margin-bottom: 1.5rem;">
-                    <button class="btn btn-primary" onclick="loadVLANs()">📂 Manage VLANs</button>
-                    <button class="btn btn-success" onclick="showAddPolicyForm()">➕ Add Policy</button>
-                    <button class="btn btn-info" onclick="loadVLANPolicies()">📋 View Policies</button>
-                    <button class="btn btn-secondary" onclick="loadUserVLANAssignments()">👤 User Assignments</button>
-                </div>
+                <!-- Policy Management Tabs -->
+                <div class="tab-container" style="margin-bottom: 2rem;">
+                    <div class="tab-buttons" style="display: flex; border-bottom: 2px solid var(--light-gray); margin-bottom: 1.5rem;">
+                        <button class="tab-btn active" onclick="switchPolicyTab('classification')" id="classificationTab">
+                            🏷️ User Classification
+                        </button>
+                        <button class="tab-btn" onclick="switchPolicyTab('policies')" id="policiesTab">
+                            📋 Policy Rules
+                        </button>
+                        <button class="tab-btn" onclick="switchPolicyTab('groups')" id="groupsTab">
+                            👥 User Groups
+                        </button>
+                        <button class="tab-btn" onclick="switchPolicyTab('vlans')" id="vlansTab">
+                            🔀 VLAN Management
+                        </button>
+                        <button class="tab-btn" onclick="switchPolicyTab('testing')" id="testingTab">
+                            🧪 Policy Testing
+                        </button>
+                    </div>
 
-                <!-- Add Policy Form (hidden by default) -->
-                <div id="addPolicyForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                    <h4>Add VLAN Assignment Policy</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                        <div class="form-group">
-                            <label for="policyName">Policy Name:</label>
-                            <input type="text" id="policyName" placeholder="e.g., Engineering Team" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <!-- User Classification Tab -->
+                    <div id="classificationTabContent" class="tab-content">
+                        <h3>User Classification Rules</h3>
+                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
+                            Define how users are identified and categorized (by domain, subdomain, attributes, etc.).
+                        </p>
+
+                        <div class="button-grid" style="margin-bottom: 1.5rem;">
+                            <button class="btn btn-success" onclick="showAddClassificationRuleForm()">➕ Add Classification Rule</button>
+                            <button class="btn btn-info" onclick="loadUserClassificationRules()">📋 View Rules</button>
+                            <button class="btn btn-secondary" onclick="testUserClassification()">🧪 Test Classification</button>
                         </div>
-                        <div class="form-group">
-                            <label for="policyDescription">Description:</label>
-                            <input type="text" id="policyDescription" placeholder="Policy description" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+
+                        <!-- Add Classification Rule Form -->
+                        <div id="addClassificationRuleForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h4>Add User Classification Rule</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label for="classificationRuleName">Rule Name:</label>
+                                    <input type="text" id="classificationRuleName" placeholder="e.g., Corporate Employees" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="classificationDescription">Description:</label>
+                                    <input type="text" id="classificationDescription" placeholder="Rule description" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="classificationPriority">Priority (lower = higher):</label>
+                                    <input type="number" id="classificationPriority" value="100" min="1" max="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="classificationType">Classification Type:</label>
+                                    <select id="classificationType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="domain">Email Domain</option>
+                                        <option value="subdomain">Email Subdomain</option>
+                                        <option value="attribute">User Attribute</option>
+                                        <option value="group">Group Membership</option>
+                                        <option value="certificate">Certificate Field</option>
+                                        <option value="regex">Regular Expression</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="classificationValue">Classification Value:</label>
+                                    <input type="text" id="classificationValue" placeholder="e.g., @company.com or *.engineering.company.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="classificationUserGroup">Assign to Group:</label>
+                                    <input type="text" id="classificationUserGroup" placeholder="e.g., employees, contractors" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="classificationUserCategory">User Category (optional):</label>
+                                    <input type="text" id="classificationUserCategory" placeholder="e.g., corporate, byod, temporary" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                            </div>
+                            
+                            <div class="button-grid" style="margin-top: 1rem;">
+                                <button class="btn btn-success" onclick="createUserClassificationRule()">✅ Create Rule</button>
+                                <button class="btn btn-secondary" onclick="hideAddClassificationRuleForm()">❌ Cancel</button>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="policyPriority">Priority (lower = higher):</label>
-                            <input type="number" id="policyPriority" value="100" min="1" max="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                        </div>
-                        <div class="form-group">
-                            <label for="policyVLAN">Assign to VLAN:</label>
-                            <select id="policyVLAN" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                <option value="">Loading VLANs...</option>
-                            </select>
+
+                        <!-- Classification Rules List -->
+                        <div id="classificationRulesList">
+                            <!-- Classification rules will be loaded here -->
                         </div>
                     </div>
-                    
-                    <div style="margin-top: 1rem;">
-                        <h5>Conditions (JSON format):</h5>
-                        <textarea id="policyConditions" placeholder='{"auth_type": "eap-tls", "username": "user*"}' 
-                                  style="width: 100%; height: 100px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;">
+
+                    <!-- Enhanced Policies Tab -->
+                    <div id="policiesTabContent" class="tab-content" style="display: none;">
+                        <h3>Enhanced VLAN Policies</h3>
+                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
+                            Define comprehensive policies with conditions, actions, and enforcement rules.
+                        </p>
+
+                        <div class="button-grid" style="margin-bottom: 1.5rem;">
+                            <button class="btn btn-success" onclick="showAddEnhancedPolicyForm()">➕ Add Policy</button>
+                            <button class="btn btn-info" onclick="loadEnhancedVLANPolicies()">📋 View Policies</button>
+                            <button class="btn btn-secondary" onclick="testPolicyMatching()">🧪 Test Policy</button>
+                        </div>
+
+                        <!-- Add Enhanced Policy Form -->
+                        <div id="addEnhancedPolicyForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h4>Add Enhanced VLAN Policy</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label for="enhancedPolicyName">Policy Name:</label>
+                                    <input type="text" id="enhancedPolicyName" placeholder="e.g., Corporate Employee Policy" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicyDescription">Description:</label>
+                                    <input type="text" id="enhancedPolicyDescription" placeholder="Policy description" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicyPriority">Priority:</label>
+                                    <input type="number" id="enhancedPolicyPriority" value="100" min="1" max="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicyTargetGroups">Target User Groups:</label>
+                                    <input type="text" id="enhancedPolicyTargetGroups" placeholder="employees,contractors (comma-separated)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicyDefaultVLAN">Default VLAN:</label>
+                                    <select id="enhancedPolicyDefaultVLAN" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="">Loading VLANs...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicyFallbackVLAN">Fallback VLAN:</label>
+                                    <select id="enhancedPolicyFallbackVLAN" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="">Loading VLANs...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicySessionTimeout">Session Timeout (seconds):</label>
+                                    <input type="number" id="enhancedPolicySessionTimeout" placeholder="28800" min="60" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="enhancedPolicyBandwidthLimit">Bandwidth Limit (Mbps):</label>
+                                    <input type="number" id="enhancedPolicyBandwidthLimit" placeholder="100" min="1" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                            </div>
+                            
+                            <div class="button-grid" style="margin-top: 1rem;">
+                                <button class="btn btn-success" onclick="createEnhancedVLANPolicy()">✅ Create Policy</button>
+                                <button class="btn btn-secondary" onclick="hideAddEnhancedPolicyForm()">❌ Cancel</button>
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Policies List -->
+                        <div id="enhancedPoliciesList">
+                            <!-- Enhanced policies will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- User Groups Tab -->
+                    <div id="groupsTabContent" class="tab-content" style="display: none;">
+                        <h3>User Groups</h3>
+                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
+                            Manage predefined user groups for policy targeting and organization.
+                        </p>
+
+                        <div class="button-grid" style="margin-bottom: 1.5rem;">
+                            <button class="btn btn-info" onclick="loadUserGroups()">👥 Load Groups</button>
+                            <button class="btn btn-secondary" onclick="refreshUserGroups()">🔄 Refresh</button>
+                        </div>
+
+                        <!-- User Groups List -->
+                        <div id="userGroupsList">
+                            <!-- User groups will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- VLAN Management Tab -->
+                    <div id="vlansTabContent" class="tab-content" style="display: none;">
+                        <h3>VLAN Management</h3>
+                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
+                            Manage available VLANs for policy assignment.
+                        </p>
+
+                        <div class="button-grid" style="margin-bottom: 1.5rem;">
+                            <button class="btn btn-info" onclick="loadVLANs()">📂 Load VLANs</button>
+                            <button class="btn btn-secondary" onclick="loadUserVLANAssignments()">👤 Static Assignments</button>
+                        </div>
+
+                        <!-- VLANs List -->
+                        <div id="vlansListContent">
+                            <!-- VLANs will be loaded here -->
+                        </div>
+
+                        <!-- User VLAN Assignments -->
+                        <div id="userVLANAssignments" style="display: none; margin-top: 1.5rem;">
+                            <h4>Static User VLAN Assignments</h4>
+                            <div style="margin-bottom: 1rem;">
+                                <button class="btn btn-primary" onclick="showAddUserAssignmentForm()">➕ Add Assignment</button>
+                            </div>
+                            <div id="userAssignmentsList">
+                                <!-- User assignments will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Policy Testing Tab -->
+                    <div id="testingTabContent" class="tab-content" style="display: none;">
+                        <h3>Policy Testing & Simulation</h3>
+                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
+                            Test user classification and policy matching with simulated authentication requests.
+                        </p>
+
+                        <!-- Test Form -->
+                        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h4>Test Enhanced VLAN Assignment</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label for="testUsername">Username/Email:</label>
+                                    <input type="text" id="testUsername" placeholder="user@company.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="testAuthType">Authentication Type:</label>
+                                    <select id="testAuthType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="eap-tls">EAP-TLS</option>
+                                        <option value="eap-peap">EAP-PEAP</option>
+                                        <option value="pap">PAP</option>
+                                        <option value="chap">CHAP</option>
+                                        <option value="idp-sso">IDP SSO</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="testAttributes">Additional Attributes (JSON):</label>
+                                    <textarea id="testAttributes" placeholder='{"department": "engineering", "location": "office"}' 
+                                              style="width: 100%; height: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;">
 {}</textarea>
-                        <small style="color: var(--medium-gray);">Example conditions: auth_type, username, group, certificate_valid, calling_station_id</small>
-                    </div>
-                    
-                    <div class="button-grid" style="margin-top: 1rem;">
-                        <button class="btn btn-success" onclick="createVLANPolicy()">✅ Create Policy</button>
-                        <button class="btn btn-secondary" onclick="hideAddPolicyForm()">❌ Cancel</button>
-                    </div>
-                </div>
+                                </div>
+                            </div>
+                            
+                            <div class="button-grid" style="margin-top: 1rem;">
+                                <button class="btn btn-primary" onclick="testEnhancedVLANAssignment()">🧪 Test Assignment</button>
+                                <button class="btn btn-secondary" onclick="clearTestResults()">🗑️ Clear Results</button>
+                            </div>
+                        </div>
 
-                <!-- Policies List -->
-                <div id="vlanPoliciesList" class="policies-list">
-                    <!-- VLAN policies will be loaded here -->
-                </div>
-
-                <!-- User VLAN Assignments -->
-                <div id="userVLANAssignments" style="display: none; margin-top: 1.5rem;">
-                    <h4>Static User VLAN Assignments</h4>
-                    <div style="margin-bottom: 1rem;">
-                        <button class="btn btn-primary" onclick="showAddUserAssignmentForm()">➕ Add Assignment</button>
-                    </div>
-                    <div id="userAssignmentsList">
-                        <!-- User assignments will be loaded here -->
+                        <!-- Test Results -->
+                        <div id="testResults" style="display: none;">
+                            <!-- Test results will be shown here -->
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -9683,6 +9901,439 @@ Dependencies:
             }
         }
 
+        // Enhanced VLAN Policy Functions
+        function switchPolicyTab(tabName) {
+            // Hide all tab contents
+            const tabs = ['classification', 'policies', 'groups', 'vlans', 'testing'];
+            tabs.forEach(tab => {
+                const content = document.getElementById(`${tab}TabContent`);
+                const button = document.getElementById(`${tab}Tab`);
+                if (content) content.style.display = 'none';
+                if (button) button.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            const selectedContent = document.getElementById(`${tabName}TabContent`);
+            const selectedButton = document.getElementById(`${tabName}Tab`);
+            if (selectedContent) selectedContent.style.display = 'block';
+            if (selectedButton) selectedButton.classList.add('active');
+        }
+
+        // User Classification Rules Functions
+        function showAddClassificationRuleForm() {
+            document.getElementById('addClassificationRuleForm').style.display = 'block';
+        }
+
+        function hideAddClassificationRuleForm() {
+            document.getElementById('addClassificationRuleForm').style.display = 'none';
+            // Clear form
+            document.getElementById('classificationRuleName').value = '';
+            document.getElementById('classificationDescription').value = '';
+            document.getElementById('classificationPriority').value = '100';
+            document.getElementById('classificationType').value = 'domain';
+            document.getElementById('classificationValue').value = '';
+            document.getElementById('classificationUserGroup').value = '';
+            document.getElementById('classificationUserCategory').value = '';
+        }
+
+        async function loadUserClassificationRules() {
+            try {
+                showStatus('Loading user classification rules...', 'loading');
+                const response = await fetch('/api/user-classification-rules', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const container = document.getElementById('classificationRulesList');
+                    if (data.rules.length === 0) {
+                        container.innerHTML = '<p style="color: var(--medium-gray); text-align: center; margin: 2rem 0;">No classification rules found. Create your first rule to get started.</p>';
+                    } else {
+                        let html = '<div style="display: grid; gap: 1rem;">';
+                        data.rules.forEach(rule => {
+                            html += `
+                                <div class="policy-card" style="border: 1px solid var(--light-gray); padding: 1rem; border-radius: 8px; background: #fff;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                        <div style="flex: 1;">
+                                            <h4 style="margin: 0; color: var(--primary-purple);">${rule.rule_name}</h4>
+                                            <p style="margin: 0.25rem 0; color: var(--medium-gray); font-size: 0.875rem;">${rule.description || 'No description'}</p>
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <span class="badge" style="background: ${rule.is_active ? '#e8f5e8' : '#fff2e8'}; color: ${rule.is_active ? '#166534' : '#b45309'}; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">
+                                                ${rule.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteUserClassificationRule(${rule.id})" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">🗑️</button>
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">
+                                        <div><strong>Type:</strong> ${rule.classification_type}</div>
+                                        <div><strong>Value:</strong> <code style="background: #f1f3f4; padding: 0.125rem 0.25rem; border-radius: 2px;">${rule.classification_value}</code></div>
+                                        <div><strong>Group:</strong> ${rule.user_group}</div>
+                                        <div><strong>Category:</strong> ${rule.user_category || 'None'}</div>
+                                        <div><strong>Priority:</strong> ${rule.priority}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        container.innerHTML = html;
+                    }
+                    showStatus(`Loaded ${data.rules.length} classification rules`, 'success');
+                } else {
+                    showStatus(data.message || 'Failed to load classification rules', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading classification rules:', error);
+                showStatus('Error loading classification rules', 'error');
+            }
+        }
+
+        async function createUserClassificationRule() {
+            try {
+                const data = {
+                    rule_name: document.getElementById('classificationRuleName').value,
+                    description: document.getElementById('classificationDescription').value,
+                    priority: parseInt(document.getElementById('classificationPriority').value),
+                    classification_type: document.getElementById('classificationType').value,
+                    classification_value: document.getElementById('classificationValue').value,
+                    user_group: document.getElementById('classificationUserGroup').value,
+                    user_category: document.getElementById('classificationUserCategory').value || null
+                };
+
+                if (!data.rule_name || !data.classification_value || !data.user_group) {
+                    showStatus('Please fill in all required fields', 'error');
+                    return;
+                }
+
+                showStatus('Creating classification rule...', 'loading');
+                
+                const response = await fetch('/api/user-classification-rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('Classification rule created successfully', 'success');
+                    hideAddClassificationRuleForm();
+                    loadUserClassificationRules();
+                } else {
+                    showStatus(result.message || 'Failed to create classification rule', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating classification rule:', error);
+                showStatus('Error creating classification rule', 'error');
+            }
+        }
+
+        async function deleteUserClassificationRule(ruleId) {
+            if (!confirm('Are you sure you want to delete this classification rule?')) {
+                return;
+            }
+
+            try {
+                showStatus('Deleting classification rule...', 'loading');
+                
+                const response = await fetch(`/api/user-classification-rules/${ruleId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('Classification rule deleted successfully', 'success');
+                    loadUserClassificationRules();
+                } else {
+                    showStatus(result.message || 'Failed to delete classification rule', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting classification rule:', error);
+                showStatus('Error deleting classification rule', 'error');
+            }
+        }
+
+        // Enhanced Policy Functions
+        function showAddEnhancedPolicyForm() {
+            document.getElementById('addEnhancedPolicyForm').style.display = 'block';
+            loadVLANsForPolicyForm();
+        }
+
+        function hideAddEnhancedPolicyForm() {
+            document.getElementById('addEnhancedPolicyForm').style.display = 'none';
+            // Clear form
+            document.getElementById('enhancedPolicyName').value = '';
+            document.getElementById('enhancedPolicyDescription').value = '';
+            document.getElementById('enhancedPolicyPriority').value = '100';
+            document.getElementById('enhancedPolicyTargetGroups').value = '';
+            document.getElementById('enhancedPolicySessionTimeout').value = '';
+            document.getElementById('enhancedPolicyBandwidthLimit').value = '';
+        }
+
+        async function loadVLANsForPolicyForm() {
+            try {
+                const response = await fetch('/api/vlans', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const defaultSelect = document.getElementById('enhancedPolicyDefaultVLAN');
+                    const fallbackSelect = document.getElementById('enhancedPolicyFallbackVLAN');
+                    
+                    let options = '<option value="">Select VLAN...</option>';
+                    data.vlans.forEach(vlan => {
+                        options += `<option value="${vlan.id}">VLAN ${vlan.vlan_id} - ${vlan.vlan_name}</option>`;
+                    });
+                    
+                    if (defaultSelect) defaultSelect.innerHTML = options;
+                    if (fallbackSelect) fallbackSelect.innerHTML = options;
+                }
+            } catch (error) {
+                console.error('Error loading VLANs for policy form:', error);
+            }
+        }
+
+        async function loadEnhancedVLANPolicies() {
+            try {
+                showStatus('Loading enhanced VLAN policies...', 'loading');
+                const response = await fetch('/api/vlan-policies-v2', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const container = document.getElementById('enhancedPoliciesList');
+                    if (data.policies.length === 0) {
+                        container.innerHTML = '<p style="color: var(--medium-gray); text-align: center; margin: 2rem 0;">No enhanced policies found. Create your first policy to get started.</p>';
+                    } else {
+                        let html = '<div style="display: grid; gap: 1rem;">';
+                        data.policies.forEach(policy => {
+                            html += `
+                                <div class="policy-card" style="border: 1px solid var(--light-gray); padding: 1rem; border-radius: 8px; background: #fff;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                        <div style="flex: 1;">
+                                            <h4 style="margin: 0; color: var(--primary-purple);">${policy.policy_name}</h4>
+                                            <p style="margin: 0.25rem 0; color: var(--medium-gray); font-size: 0.875rem;">${policy.description || 'No description'}</p>
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <span class="badge" style="background: ${policy.is_active ? '#e8f5e8' : '#fff2e8'}; color: ${policy.is_active ? '#166534' : '#b45309'}; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">
+                                                ${policy.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">
+                                        <div><strong>Target Groups:</strong> ${policy.target_user_groups ? policy.target_user_groups.join(', ') : 'None'}</div>
+                                        <div><strong>Default VLAN:</strong> ${policy.default_vlan_display || 'None'}</div>
+                                        <div><strong>Priority:</strong> ${policy.priority}</div>
+                                        <div><strong>Session Timeout:</strong> ${policy.session_timeout || 'None'}s</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        container.innerHTML = html;
+                    }
+                    showStatus(`Loaded ${data.policies.length} enhanced policies`, 'success');
+                } else {
+                    showStatus(data.message || 'Failed to load enhanced policies', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading enhanced policies:', error);
+                showStatus('Error loading enhanced policies', 'error');
+            }
+        }
+
+        async function createEnhancedVLANPolicy() {
+            try {
+                const data = {
+                    policy_name: document.getElementById('enhancedPolicyName').value,
+                    description: document.getElementById('enhancedPolicyDescription').value,
+                    priority: parseInt(document.getElementById('enhancedPolicyPriority').value),
+                    target_user_groups: document.getElementById('enhancedPolicyTargetGroups').value.split(',').map(g => g.trim()).filter(g => g),
+                    default_vlan_id: parseInt(document.getElementById('enhancedPolicyDefaultVLAN').value) || null,
+                    fallback_vlan_id: parseInt(document.getElementById('enhancedPolicyFallbackVLAN').value) || null,
+                    session_timeout: parseInt(document.getElementById('enhancedPolicySessionTimeout').value) || null,
+                    bandwidth_limit: parseInt(document.getElementById('enhancedPolicyBandwidthLimit').value) || null
+                };
+
+                if (!data.policy_name || !data.target_user_groups.length) {
+                    showStatus('Please fill in policy name and target user groups', 'error');
+                    return;
+                }
+
+                showStatus('Creating enhanced VLAN policy...', 'loading');
+                
+                const response = await fetch('/api/vlan-policies-v2', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('Enhanced VLAN policy created successfully', 'success');
+                    hideAddEnhancedPolicyForm();
+                    loadEnhancedVLANPolicies();
+                } else {
+                    showStatus(result.message || 'Failed to create enhanced policy', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating enhanced policy:', error);
+                showStatus('Error creating enhanced policy', 'error');
+            }
+        }
+
+        // User Groups Functions
+        async function loadUserGroups() {
+            try {
+                showStatus('Loading user groups...', 'loading');
+                const response = await fetch('/api/user-groups', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const container = document.getElementById('userGroupsList');
+                    if (data.groups.length === 0) {
+                        container.innerHTML = '<p style="color: var(--medium-gray); text-align: center; margin: 2rem 0;">No user groups found.</p>';
+                    } else {
+                        let html = '<div style="display: grid; gap: 1rem;">';
+                        data.groups.forEach(group => {
+                            html += `
+                                <div class="group-card" style="border: 1px solid var(--light-gray); padding: 1rem; border-radius: 8px; background: #fff;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                        <div style="flex: 1;">
+                                            <h4 style="margin: 0; color: var(--primary-purple);">${group.group_name}</h4>
+                                            <p style="margin: 0.25rem 0; color: var(--medium-gray); font-size: 0.875rem;">${group.description || 'No description'}</p>
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">
+                                        <div><strong>Type:</strong> ${group.group_type}</div>
+                                        <div><strong>Display Name:</strong> ${group.display_name || 'None'}</div>
+                                        <div><strong>Default VLAN:</strong> ${group.default_vlan_display || 'None'}</div>
+                                        <div><strong>Parent Group:</strong> ${group.parent_group_name || 'None'}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        container.innerHTML = html;
+                    }
+                    showStatus(`Loaded ${data.groups.length} user groups`, 'success');
+                } else {
+                    showStatus(data.message || 'Failed to load user groups', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading user groups:', error);
+                showStatus('Error loading user groups', 'error');
+            }
+        }
+
+        function refreshUserGroups() {
+            loadUserGroups();
+        }
+
+        // Policy Testing Functions
+        async function testEnhancedVLANAssignment() {
+            try {
+                const username = document.getElementById('testUsername').value;
+                const authType = document.getElementById('testAuthType').value;
+                const attributesText = document.getElementById('testAttributes').value;
+                
+                if (!username) {
+                    showStatus('Please enter a username', 'error');
+                    return;
+                }
+
+                let attributes = {};
+                if (attributesText.trim()) {
+                    try {
+                        attributes = JSON.parse(attributesText);
+                    } catch (e) {
+                        showStatus('Invalid JSON in attributes field', 'error');
+                        return;
+                    }
+                }
+
+                showStatus('Testing enhanced VLAN assignment...', 'loading');
+                
+                const response = await fetch('/api/enhanced-vlan-assignment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: username,
+                        auth_type: authType,
+                        attributes: attributes
+                    })
+                });
+
+                const result = await response.json();
+                
+                const resultsContainer = document.getElementById('testResults');
+                resultsContainer.style.display = 'block';
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('VLAN assignment test completed', 'success');
+                    resultsContainer.innerHTML = `
+                        <div style="background: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 8px; padding: 1.5rem;">
+                            <h4 style="margin: 0 0 1rem 0; color: #166534;">✅ Assignment Successful</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.875rem;">
+                                <div><strong>Assigned VLAN:</strong> ${result.vlan_id} (${result.vlan_name})</div>
+                                <div><strong>User Group:</strong> ${result.user_group || 'None'}</div>
+                                <div><strong>User Category:</strong> ${result.user_category || 'None'}</div>
+                                <div><strong>Assignment Reason:</strong> ${result.assignment_reason}</div>
+                                <div><strong>Session Timeout:</strong> ${result.session_timeout || 'None'}s</div>
+                                <div><strong>Bandwidth Limit:</strong> ${result.bandwidth_limit || 'None'} Mbps</div>
+                            </div>
+                            ${result.radius_attributes && Object.keys(result.radius_attributes).length > 0 ? `
+                                <div style="margin-top: 1rem;">
+                                    <strong>RADIUS Attributes:</strong>
+                                    <pre style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-top: 0.5rem;">${JSON.stringify(result.radius_attributes, null, 2)}</pre>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    showStatus('VLAN assignment test failed', 'error');
+                    resultsContainer.innerHTML = `
+                        <div style="background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 1.5rem;">
+                            <h4 style="margin: 0 0 1rem 0; color: #dc2626;">❌ Assignment Failed</h4>
+                            <p style="margin: 0; color: #dc2626;">${result.message || 'Unknown error'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error testing VLAN assignment:', error);
+                showStatus('Error testing VLAN assignment', 'error');
+                
+                const resultsContainer = document.getElementById('testResults');
+                resultsContainer.style.display = 'block';
+                resultsContainer.innerHTML = `
+                    <div style="background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 1.5rem;">
+                        <h4 style="margin: 0 0 1rem 0; color: #dc2626;">❌ Test Error</h4>
+                        <p style="margin: 0; color: #dc2626;">Failed to execute test: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function clearTestResults() {
+            document.getElementById('testResults').style.display = 'none';
+            document.getElementById('testUsername').value = '';
+            document.getElementById('testAttributes').value = '{}';
+        }
+
         // Missing IDP-RADIUS Functions
         async function testIDPRadiusAuth() {
             try {
@@ -10101,6 +10752,22 @@ Dependencies:
         window.viewRadiusLogs = viewRadiusLogs;
         window.exportRadiusLogs = exportRadiusLogs;
         window.clearRadiusLogs = clearRadiusLogs;
+        
+        // Enhanced VLAN policy window assignments
+        window.switchPolicyTab = switchPolicyTab;
+        window.showAddClassificationRuleForm = showAddClassificationRuleForm;
+        window.hideAddClassificationRuleForm = hideAddClassificationRuleForm;
+        window.loadUserClassificationRules = loadUserClassificationRules;
+        window.createUserClassificationRule = createUserClassificationRule;
+        window.deleteUserClassificationRule = deleteUserClassificationRule;
+        window.showAddEnhancedPolicyForm = showAddEnhancedPolicyForm;
+        window.hideAddEnhancedPolicyForm = hideAddEnhancedPolicyForm;
+        window.loadEnhancedVLANPolicies = loadEnhancedVLANPolicies;
+        window.createEnhancedVLANPolicy = createEnhancedVLANPolicy;
+        window.loadUserGroups = loadUserGroups;
+        window.refreshUserGroups = refreshUserGroups;
+        window.testEnhancedVLANAssignment = testEnhancedVLANAssignment;
+        window.clearTestResults = clearTestResults;
         
         // RadSec Proxy functions
         window.parseExtremeCommand = parseExtremeCommand;
