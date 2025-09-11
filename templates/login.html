@@ -301,6 +301,17 @@
             display: block;
         }
     </style>
+    
+    <!-- Dynamic custom color theme injection -->
+    {% if custom_colors %}
+    <style>
+        :root {
+            {% for color_key, color_value in custom_colors.items() %}
+            --{{ color_key.replace('_', '-') }}: {{ color_value }};
+            {% endfor %}
+        }
+    </style>
+    {% endif %}
 </head>
 <body>
     <div class="login-container">

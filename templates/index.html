@@ -14,7 +14,7 @@
     
     <style>
         :root {
-            /* Extreme Networks Color Palette */
+            /* Extreme Networks Color Palette - Default values, may be overridden by server-side custom colors */
             --primary-purple: #5B059C;
             --dark-blue: #101B37;
             --light-gray: #EAECF0;
@@ -1507,6 +1507,17 @@
             flex-shrink: 0;
         }
     </style>
+    
+    <!-- Dynamic custom color theme injection -->
+    {% if custom_colors %}
+    <style>
+        :root {
+            {% for color_key, color_value in custom_colors.items() %}
+            --{{ color_key.replace('_', '-') }}: {{ color_value }};
+            {% endfor %}
+        }
+    </style>
+    {% endif %}
 </head>
 <body>
     <div class="container">
@@ -2280,6 +2291,214 @@
                 </div>
                 </div>
                 
+                <!-- Color Theme Customization Section -->
+                <div class="section" id="colorThemeSection" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🎨</span>Color Theme Customization</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Customize the color scheme to match your organization's branding. Changes apply immediately across the entire interface.
+                </p>
+                
+                <div class="color-theme-management" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
+                    <!-- Preview Section -->
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="margin-bottom: 1rem;">🔍 Live Preview</h4>
+                        <div id="colorPreview" style="background: var(--primary-purple); color: var(--text-light); padding: 1rem; border-radius: 8px; text-align: center; font-weight: bold;">
+                            Sample interface preview with your custom colors
+                        </div>
+                    </div>
+                    
+                    <!-- Color Picker Grid -->
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="margin-bottom: 1rem;">🎨 Customize Colors</h4>
+                        <div id="colorPickersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+                            
+                            <!-- Primary Purple -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="primaryPurple" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🟣 Primary Purple
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="primaryPurple" value="#5B059C" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('primary_purple', this.value)">
+                                    <input type="text" id="primaryPurpleHex" value="#5B059C" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('primaryPurple', 'primary_purple', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Main brand color, buttons, links</small>
+                            </div>
+                            
+                            <!-- Dark Blue -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="darkBlue" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🔵 Dark Blue
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="darkBlue" value="#101B37" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('dark_blue', this.value)">
+                                    <input type="text" id="darkBlueHex" value="#101B37" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('darkBlue', 'dark_blue', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Navigation, headers, accents</small>
+                            </div>
+                            
+                            <!-- Light Gray -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="lightGray" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    ⚪ Light Gray
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="lightGray" value="#EAECF0" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('light_gray', this.value)">
+                                    <input type="text" id="lightGrayHex" value="#EAECF0" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('lightGray', 'light_gray', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Borders, dividers, backgrounds</small>
+                            </div>
+                            
+                            <!-- Medium Gray -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="mediumGray" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🔘 Medium Gray
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="mediumGray" value="#98A2B3" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('medium_gray', this.value)">
+                                    <input type="text" id="mediumGrayHex" value="#98A2B3" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('mediumGray', 'medium_gray', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Secondary text, placeholders</small>
+                            </div>
+                            
+                            <!-- Text Dark -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="textDark" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    ⚫ Dark Text
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="textDark" value="#101828" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('text_dark', this.value)">
+                                    <input type="text" id="textDarkHex" value="#101828" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('textDark', 'text_dark', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Primary text, headings</small>
+                            </div>
+                            
+                            <!-- Text Light -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="textLight" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    ⚪ Light Text
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="textLight" value="#FFFFFF" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('text_light', this.value)">
+                                    <input type="text" id="textLightHex" value="#FFFFFF" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('textLight', 'text_light', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Text on dark backgrounds</small>
+                            </div>
+                            
+                            <!-- Success Green -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="successGreen" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🟢 Success Green
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="successGreen" value="#12B76A" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('success_green', this.value)">
+                                    <input type="text" id="successGreenHex" value="#12B76A" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('successGreen', 'success_green', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Success messages, confirmations</small>
+                            </div>
+                            
+                            <!-- Warning Orange -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="warningOrange" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🟠 Warning Orange
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="warningOrange" value="#F79009" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('warning_orange', this.value)">
+                                    <input type="text" id="warningOrangeHex" value="#F79009" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('warningOrange', 'warning_orange', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Warning messages, cautions</small>
+                            </div>
+                            
+                            <!-- Error Red -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="errorRed" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🔴 Error Red
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="errorRed" value="#F04438" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('error_red', this.value)">
+                                    <input type="text" id="errorRedHex" value="#F04438" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('errorRed', 'error_red', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Error messages, alerts</small>
+                            </div>
+                            
+                            <!-- Info Blue -->
+                            <div class="color-picker-item" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <label for="infoBlue" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                                    🔵 Info Blue
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="color" id="infoBlue" value="#2E90FA" 
+                                           style="width: 40px; height: 40px; border: none; border-radius: 4px; cursor: pointer;"
+                                           onchange="updateColorPreview('info_blue', this.value)">
+                                    <input type="text" id="infoBlueHex" value="#2E90FA" 
+                                           style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;"
+                                           onchange="updateColorFromHex('infoBlue', 'info_blue', this.value)">
+                                </div>
+                                <small style="color: var(--medium-gray);">Info messages, help text</small>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="button-grid" style="margin-top: 1.5rem;">
+                        <button class="btn btn-success" onclick="saveColorTheme()">
+                            💾 Save Theme
+                        </button>
+                        <button class="btn btn-info" onclick="previewColorTheme()">
+                            👁️ Preview Changes
+                        </button>
+                        <button class="btn btn-warning" onclick="resetColorTheme()">
+                            🔄 Reset to Default
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportColorTheme()">
+                            📤 Export Theme
+                        </button>
+                    </div>
+                    
+                    <div class="color-requirements" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dee2e6;">
+                        <p style="color: var(--medium-gray); font-size: 0.875rem; margin: 0;">
+                            <strong>Color Tips:</strong> Use hex colors (e.g., #5B059C) • Ensure good contrast for accessibility • Changes apply immediately to preview • Save to make changes permanent
+                        </p>
+                    </div>
+                </div>
+                </div>
+                
                 <!-- User Management Section -->
                 <div class="section" id="userManagementSection" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
                 <h2><span class="section-icon">👥</span>User Management</h2>
@@ -2398,18 +2617,39 @@
                 </div>
                 </div>
                 
-                <!-- PKI Backup & Restore Section -->
+                <!-- Backup & Restore Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">💾</span>PKI Backup & Restore</h2>
+                <h2><span class="section-icon">💾</span>Backup & Restore</h2>
                 <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Create encrypted backups of your entire PKI infrastructure or restore from existing backups. Backups include all certificates, private keys, and PKI configuration.
+                    Create encrypted backups of your entire CA Manager system or restore from existing backups. Choose between PKI-only or comprehensive backups.
                 </p>
+                
+                <!-- Backup Type Selection -->
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border: 2px solid #dee2e6;">
+                    <h3 style="color: #495057; margin-bottom: 1rem;">🎯 Select Backup Type</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 10px; padding: 1rem; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; background: white;" onclick="selectBackupType('pki')">
+                            <input type="radio" name="backupType" value="pki" id="pkiBackupType" checked style="width: auto;">
+                            <div>
+                                <strong style="color: #28a745;">📋 PKI Only</strong>
+                                <div style="color: var(--medium-gray); font-size: 0.8rem; margin-top: 0.25rem;">Certificates, keys, and PKI configuration only</div>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; padding: 1rem; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; background: white;" onclick="selectBackupType('comprehensive')">
+                            <input type="radio" name="backupType" value="comprehensive" id="comprehensiveBackupType" style="width: auto;">
+                            <div>
+                                <strong style="color: #007bff;">🌟 Comprehensive</strong>
+                                <div style="color: var(--medium-gray); font-size: 0.8rem; margin-top: 0.25rem;">Everything: PKI + users + settings + logos</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
                 
                 <div class="pki-backup-section">
                     <!-- Backup Section -->
                     <div class="backup-restore-card" style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
                         <h3 style="color: #28a745; margin-bottom: 1rem;">🛡️ Create Backup</h3>
-                        <p style="color: var(--medium-gray); font-size: 0.875rem; margin-bottom: 1rem;">
+                        <p style="color: var(--medium-gray); font-size: 0.875rem; margin-bottom: 1rem;" id="backupDescription">
                             Generate an encrypted backup file containing all PKI data including CA certificates, private keys, issued certificates, and revocation lists.
                         </p>
                         
@@ -2427,16 +2667,17 @@
                         </div>
                         
                         <div class="button-grid" style="gap: 1rem;">
-                            <button class="btn btn-success" onclick="createPKIBackup()" id="createBackupBtn">
-                                💾 Create Encrypted Backup
+                            <button class="btn btn-success" onclick="createBackup()" id="createBackupBtn">
+                                💾 <span id="createBackupText">Create Encrypted Backup</span>
                             </button>
                             <button class="btn btn-info" onclick="showBackupInfo()" id="backupInfoBtn">
                                 ℹ️ What's Included?
                             </button>
                         </div>
                         
-                        <div id="backupInfoPanel" style="display: none; margin-top: 1rem; background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 4px; padding: 1rem;">
-                            <h4 style="color: #0c5460; margin-bottom: 0.5rem;">Backup Contents:</h4>
+                        <!-- PKI Backup Info Panel -->
+                        <div id="pkiBackupInfoPanel" style="display: none; margin-top: 1rem; background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 4px; padding: 1rem;">
+                            <h4 style="color: #0c5460; margin-bottom: 0.5rem;">PKI Backup Contents:</h4>
                             <ul style="color: #0c5460; font-size: 0.875rem; margin-left: 1.5rem;">
                                 <li><strong>CA Certificate & Private Key</strong> - Root certificate authority files</li>
                                 <li><strong>Issued Certificates</strong> - All client and server certificates with private keys</li>
@@ -2446,7 +2687,52 @@
                                 <li><strong>Intermediate CAs</strong> - If any intermediate certificates exist</li>
                             </ul>
                             <p style="color: #0c5460; font-size: 0.875rem; margin-top: 0.5rem;">
-                                <strong>Encryption:</strong> AES-256 encryption with PBKDF2 key derivation
+                                <strong>File Format:</strong> .pki | <strong>Encryption:</strong> AES-256 with PBKDF2
+                            </p>
+                        </div>
+                        
+                        <!-- Comprehensive Backup Info Panel -->
+                        <div id="comprehensiveBackupInfoPanel" style="display: none; margin-top: 1rem; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; padding: 1rem;">
+                            <h4 style="color: #1565c0; margin-bottom: 0.5rem;">Comprehensive Backup Contents:</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <h5 style="color: #1565c0; margin-bottom: 0.5rem;">🔐 PKI Data:</h5>
+                                    <ul style="color: #1565c0; font-size: 0.8rem; margin-left: 1.5rem;">
+                                        <li>CA certificates and keys</li>
+                                        <li>All issued certificates</li>
+                                        <li>Private keys</li>
+                                        <li>PKI configuration</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 style="color: #1565c0; margin-bottom: 0.5rem;">👥 Application Data:</h5>
+                                    <ul style="color: #1565c0; font-size: 0.8rem; margin-left: 1.5rem;">
+                                        <li>User accounts and roles</li>
+                                        <li>SMTP configuration</li>
+                                        <li>System settings</li>
+                                        <li>Audit logs</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 style="color: #1565c0; margin-bottom: 0.5rem;">🎨 Assets:</h5>
+                                    <ul style="color: #1565c0; font-size: 0.8rem; margin-left: 1.5rem;">
+                                        <li>Custom logos</li>
+                                        <li>Branding images</li>
+                                        <li>Static assets</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 style="color: #1565c0; margin-bottom: 0.5rem;">⚙️ Configuration:</h5>
+                                    <ul style="color: #1565c0; font-size: 0.8rem; margin-left: 1.5rem;">
+                                        <li>Domain settings</li>
+                                        <li>OAuth configuration</li>
+                                        <li>RADIUS settings</li>
+                                        <li>Environment variables</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p style="color: #1565c0; font-size: 0.875rem; margin-top: 0.5rem;">
+                                <strong>File Format:</strong> .cabak | <strong>Encryption:</strong> AES-256 with PBKDF2
                             </p>
                         </div>
                     </div>
@@ -2454,16 +2740,16 @@
                     <!-- Restore Section -->
                     <div class="backup-restore-card" style="background: #fff3cd; border: 1px solid #ffeeba; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
                         <h3 style="color: #856404; margin-bottom: 1rem;">🔄 Restore from Backup</h3>
-                        <p style="color: #856404; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Restore your PKI infrastructure from an encrypted backup file (.pki). This will replace your current PKI configuration.
+                        <p style="color: #856404; font-size: 0.875rem; margin-bottom: 1rem;" id="restoreDescription">
+                            Restore your system from an encrypted backup file. Supports both PKI-only (.pki) and comprehensive (.cabak) backup files.
                         </p>
                         
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label for="backupFile" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Select Backup File (.pki) *:</label>
-                            <input type="file" id="backupFile" accept=".pki" required 
-                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            <small style="color: #856404; font-size: 0.75rem; margin-top: 0.25rem; display: block;">
-                                Only .pki files created by this system are supported
+                            <label for="backupFile" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Select Backup File *:</label>
+                            <input type="file" id="backupFile" accept=".pki,.cabak" required 
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" onchange="detectBackupType()">
+                            <small style="color: #856404; font-size: 0.75rem; margin-top: 0.25rem; display: block;" id="backupFileHelp">
+                                Accepts .pki (PKI only) and .cabak (comprehensive) backup files
                             </small>
                         </div>
                         
@@ -2480,13 +2766,13 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label style="display: flex; align-items: center; gap: 10px; color: #856404;">
                                 <input type="checkbox" id="confirmRestore" style="width: auto;">
-                                <span style="font-size: 0.875rem;">I understand this will replace my current PKI configuration</span>
+                                <span style="font-size: 0.875rem;" id="confirmRestoreText">I understand this will replace my current system configuration</span>
                             </label>
                         </div>
                         
                         <div class="button-grid" style="gap: 1rem;">
-                            <button class="btn btn-warning" onclick="restorePKIBackup()" id="restoreBackupBtn">
-                                🔄 Restore from Backup
+                            <button class="btn btn-warning" onclick="restoreBackup()" id="restoreBackupBtn">
+                                🔄 <span id="restoreBackupText">Restore from Backup</span>
                             </button>
                             <button class="btn btn-danger" onclick="showRestoreWarning()" id="restoreWarningBtn">
                                 ⚠️ Important Warnings
@@ -2495,13 +2781,14 @@
                         
                         <div id="restoreWarningPanel" style="display: none; margin-top: 1rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 1rem;">
                             <h4 style="color: #721c24; margin-bottom: 0.5rem;">⚠️ Critical Warnings:</h4>
-                            <ul style="color: #721c24; font-size: 0.875rem; margin-left: 1.5rem;">
-                                <li><strong>Complete Replacement:</strong> All current certificates and keys will be replaced</li>
-                                <li><strong>Service Interruption:</strong> PKI services will be temporarily unavailable during restore</li>
-                                <li><strong>Database Changes:</strong> Certificate database will be completely replaced</li>
-                                <li><strong>Backup Recommended:</strong> Create a backup of your current PKI before restoring</li>
-                                <li><strong>Irreversible:</strong> This operation cannot be undone</li>
-                            </ul>
+                            <div id="restoreWarningContent">
+                                <ul style="color: #721c24; font-size: 0.875rem; margin-left: 1.5rem;">
+                                    <li><strong>Complete Replacement:</strong> Current data will be replaced</li>
+                                    <li><strong>Service Interruption:</strong> Services will be temporarily unavailable during restore</li>
+                                    <li><strong>Backup Recommended:</strong> Create a backup before restoring</li>
+                                    <li><strong>Irreversible:</strong> This operation cannot be undone</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                     
@@ -3259,6 +3546,7 @@ RADIUS Authentication Log Monitor v1.0
                     // Version management removed
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
                     loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
+                    loadCurrentColorTheme().catch(e => console.error('loadCurrentColorTheme error:', e));
                 }, 100);
             } else if (tabId === 'radius') {
                 // Load RADIUS data when tab is selected
@@ -6162,6 +6450,304 @@ Dependencies:
             }
         }
 
+        // Color Theme Management Functions
+        let currentColorTheme = {};
+        let previewMode = false;
+        
+        async function loadCurrentColorTheme() {
+            try {
+                const response = await fetch('/api/theme/colors');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    currentColorTheme = data.colors;
+                    updateColorPickerValues();
+                }
+            } catch (error) {
+                console.error('Error loading color theme:', error);
+            }
+        }
+        
+        function updateColorPickerValues() {
+            const colorMapping = {
+                'primary_purple': 'primaryPurple',
+                'dark_blue': 'darkBlue', 
+                'light_gray': 'lightGray',
+                'medium_gray': 'mediumGray',
+                'text_dark': 'textDark',
+                'text_light': 'textLight',
+                'success_green': 'successGreen',
+                'warning_orange': 'warningOrange',
+                'error_red': 'errorRed',
+                'info_blue': 'infoBlue'
+            };
+            
+            Object.entries(colorMapping).forEach(([apiKey, elementId]) => {
+                const colorValue = currentColorTheme[apiKey];
+                if (colorValue) {
+                    const colorPicker = document.getElementById(elementId);
+                    const hexInput = document.getElementById(elementId + 'Hex');
+                    if (colorPicker) colorPicker.value = colorValue;
+                    if (hexInput) hexInput.value = colorValue;
+                }
+            });
+        }
+        
+        function updateColorPreview(colorVar, value) {
+            // Update CSS variable for live preview
+            if (previewMode) {
+                document.documentElement.style.setProperty('--' + colorVar.replace('_', '-'), value);
+            }
+            
+            // Update preview box color if it's the primary color
+            if (colorVar === 'primary_purple') {
+                const preview = document.getElementById('colorPreview');
+                if (preview) {
+                    preview.style.background = value;
+                }
+            }
+        }
+        
+        function updateColorFromHex(pickerId, colorVar, hexValue) {
+            // Validate hex color
+            const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+            if (!hexRegex.test(hexValue)) {
+                showStatus('❌ Invalid hex color format. Use #RRGGBB or #RGB', 'error');
+                return;
+            }
+            
+            // Update color picker
+            const colorPicker = document.getElementById(pickerId);
+            if (colorPicker) {
+                colorPicker.value = hexValue;
+            }
+            
+            // Update preview
+            updateColorPreview(colorVar, hexValue);
+        }
+        
+        async function previewColorTheme() {
+            try {
+                previewMode = true;
+                showStatus('👁️ Preview mode activated - changes are temporary', 'info');
+                
+                // Get all current color picker values
+                const colors = {};
+                const colorMapping = {
+                    'primary_purple': 'primaryPurple',
+                    'dark_blue': 'darkBlue', 
+                    'light_gray': 'lightGray',
+                    'medium_gray': 'mediumGray',
+                    'text_dark': 'textDark',
+                    'text_light': 'textLight',
+                    'success_green': 'successGreen',
+                    'warning_orange': 'warningOrange',
+                    'error_red': 'errorRed',
+                    'info_blue': 'infoBlue'
+                };
+                
+                Object.entries(colorMapping).forEach(([apiKey, elementId]) => {
+                    const colorPicker = document.getElementById(elementId);
+                    if (colorPicker) {
+                        colors[apiKey] = colorPicker.value;
+                    }
+                });
+                
+                // Apply colors temporarily
+                Object.entries(colors).forEach(([colorVar, value]) => {
+                    document.documentElement.style.setProperty('--' + colorVar.replace('_', '-'), value);
+                });
+                
+                // Update preview box
+                const preview = document.getElementById('colorPreview');
+                if (preview) {
+                    preview.style.background = colors.primary_purple || '#5B059C';
+                    preview.textContent = 'Preview Mode - Your custom colors are being applied temporarily';
+                }
+                
+            } catch (error) {
+                showStatus('❌ Error previewing theme', 'error');
+                console.error('Preview error:', error);
+            }
+        }
+        
+        async function saveColorTheme() {
+            try {
+                showStatus('💾 Saving color theme...', 'loading');
+                
+                // Get all current color picker values
+                const colors = {};
+                const colorMapping = {
+                    'primary_purple': 'primaryPurple',
+                    'dark_blue': 'darkBlue', 
+                    'light_gray': 'lightGray',
+                    'medium_gray': 'mediumGray',
+                    'text_dark': 'textDark',
+                    'text_light': 'textLight',
+                    'success_green': 'successGreen',
+                    'warning_orange': 'warningOrange',
+                    'error_red': 'errorRed',
+                    'info_blue': 'infoBlue'
+                };
+                
+                Object.entries(colorMapping).forEach(([apiKey, elementId]) => {
+                    const colorPicker = document.getElementById(elementId);
+                    if (colorPicker) {
+                        colors[apiKey] = colorPicker.value;
+                    }
+                });
+                
+                const response = await fetch('/api/theme/colors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ colors })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('✅ Color theme saved successfully!', 'success');
+                    currentColorTheme = colors;
+                    previewMode = false;
+                    
+                    // Apply colors permanently by updating CSS variables
+                    Object.entries(colors).forEach(([colorVar, value]) => {
+                        document.documentElement.style.setProperty('--' + colorVar.replace('_', '-'), value);
+                    });
+                    
+                    // Update preview box
+                    const preview = document.getElementById('colorPreview');
+                    if (preview) {
+                        preview.style.background = colors.primary_purple || '#5B059C';
+                        preview.textContent = 'Sample interface preview with your custom colors';
+                    }
+                    
+                    // No need to reload - colors are now applied immediately and persist server-side
+                    showStatus('🎨 Colors applied successfully! Changes will persist across sessions.', 'success');
+                    
+                } else {
+                    showStatus('❌ Failed to save color theme: ' + (data.message || 'Unknown error'), 'error');
+                }
+                
+            } catch (error) {
+                showStatus('❌ Error saving color theme', 'error');
+                console.error('Color theme save error:', error);
+            }
+        }
+        
+        async function resetColorTheme() {
+            if (!confirm('Are you sure you want to reset to the default color theme?')) {
+                return;
+            }
+            
+            try {
+                showStatus('🔄 Resetting color theme...', 'loading');
+                
+                const response = await fetch('/api/theme/colors', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('✅ Color theme reset to default!', 'success');
+                    
+                    // Reset to default colors
+                    const defaultColors = {
+                        'primary_purple': '#5B059C',
+                        'dark_blue': '#101B37',
+                        'light_gray': '#EAECF0',
+                        'medium_gray': '#98A2B3',
+                        'text_dark': '#101828',
+                        'text_light': '#FFFFFF',
+                        'success_green': '#12B76A',
+                        'warning_orange': '#F79009',
+                        'error_red': '#F04438',
+                        'info_blue': '#2E90FA'
+                    };
+                    
+                    currentColorTheme = defaultColors;
+                    updateColorPickerValues();
+                    previewMode = false;
+                    
+                    // Apply default colors
+                    Object.entries(defaultColors).forEach(([colorVar, value]) => {
+                        document.documentElement.style.setProperty('--' + colorVar.replace('_', '-'), value);
+                    });
+                    
+                    // Update preview box
+                    const preview = document.getElementById('colorPreview');
+                    if (preview) {
+                        preview.style.background = defaultColors.primary_purple;
+                        preview.textContent = 'Sample interface preview with your custom colors';
+                    }
+                    
+                    // No need to reload - default colors are now applied immediately
+                    showStatus('🎨 Default colors restored! Changes will persist across sessions.', 'success');
+                    
+                } else {
+                    showStatus('❌ Failed to reset color theme: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Error resetting color theme', 'error');
+                console.error('Color theme reset error:', error);
+            }
+        }
+        
+        function exportColorTheme() {
+            try {
+                // Get all current color picker values
+                const colors = {};
+                const colorMapping = {
+                    'primary_purple': 'primaryPurple',
+                    'dark_blue': 'darkBlue', 
+                    'light_gray': 'lightGray',
+                    'medium_gray': 'mediumGray',
+                    'text_dark': 'textDark',
+                    'text_light': 'textLight',
+                    'success_green': 'successGreen',
+                    'warning_orange': 'warningOrange',
+                    'error_red': 'errorRed',
+                    'info_blue': 'infoBlue'
+                };
+                
+                Object.entries(colorMapping).forEach(([apiKey, elementId]) => {
+                    const colorPicker = document.getElementById(elementId);
+                    if (colorPicker) {
+                        colors[apiKey] = colorPicker.value;
+                    }
+                });
+                
+                const themeData = {
+                    name: 'Custom CA Manager Theme',
+                    version: '1.0',
+                    created: new Date().toISOString(),
+                    colors: colors
+                };
+                
+                // Create and download JSON file
+                const dataStr = JSON.stringify(themeData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'ca-manager-theme.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                showStatus('📤 Color theme exported successfully!', 'success');
+                
+            } catch (error) {
+                showStatus('❌ Error exporting color theme', 'error');
+                console.error('Color theme export error:', error);
+            }
+        }
+
         // Auto-hide status messages - now handled by notification system
 
         // Guided Tour Implementation
@@ -8375,13 +8961,86 @@ Dependencies:
             }
         }
 
-        async function createPKIBackup() {
+        // New backup type selection functions
+        function selectBackupType(type) {
+            const pkiRadio = document.getElementById('pkiBackupType');
+            const comprehensiveRadio = document.getElementById('comprehensiveBackupType');
+            const description = document.getElementById('backupDescription');
+            const createText = document.getElementById('createBackupText');
+            const pkiPanel = document.getElementById('pkiBackupInfoPanel');
+            const comprehensivePanel = document.getElementById('comprehensiveBackupInfoPanel');
+            
+            if (type === 'pki') {
+                pkiRadio.checked = true;
+                comprehensiveRadio.checked = false;
+                description.textContent = 'Generate an encrypted backup file containing all PKI data including CA certificates, private keys, issued certificates, and revocation lists.';
+                createText.textContent = 'Create PKI Backup';
+                pkiPanel.style.display = 'none';
+                comprehensivePanel.style.display = 'none';
+            } else {
+                pkiRadio.checked = false;
+                comprehensiveRadio.checked = true;
+                description.textContent = 'Generate a comprehensive encrypted backup containing PKI data, user accounts, system settings, SMTP configuration, logos, and all application data.';
+                createText.textContent = 'Create Comprehensive Backup';
+                pkiPanel.style.display = 'none';
+                comprehensivePanel.style.display = 'none';
+            }
+        }
+
+        function showBackupInfo() {
+            const button = document.getElementById('backupInfoBtn');
+            const pkiPanel = document.getElementById('pkiBackupInfoPanel');
+            const comprehensivePanel = document.getElementById('comprehensiveBackupInfoPanel');
+            const pkiSelected = document.getElementById('pkiBackupType').checked;
+            
+            const targetPanel = pkiSelected ? pkiPanel : comprehensivePanel;
+            const otherPanel = pkiSelected ? comprehensivePanel : pkiPanel;
+            
+            // Hide the other panel
+            otherPanel.style.display = 'none';
+            
+            if (targetPanel.style.display === 'none') {
+                targetPanel.style.display = 'block';
+                button.textContent = '🔼 Hide Details';
+            } else {
+                targetPanel.style.display = 'none';
+                button.textContent = 'ℹ️ What\'s Included?';
+            }
+        }
+
+        function detectBackupType() {
+            const fileInput = document.getElementById('backupFile');
+            const helpText = document.getElementById('backupFileHelp');
+            const confirmText = document.getElementById('confirmRestoreText');
+            const restoreText = document.getElementById('restoreBackupText');
+            
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                if (fileName.endsWith('.cabak')) {
+                    helpText.textContent = 'Comprehensive backup detected (.cabak) - will restore PKI, users, settings, and logos';
+                    helpText.style.color = '#007bff';
+                    confirmText.textContent = 'I understand this will replace ALL my system data (PKI, users, settings, logos)';
+                    restoreText.textContent = 'Restore Comprehensive Backup';
+                } else if (fileName.endsWith('.pki')) {
+                    helpText.textContent = 'PKI backup detected (.pki) - will restore certificates and keys only';
+                    helpText.style.color = '#28a745';
+                    confirmText.textContent = 'I understand this will replace my current PKI configuration';
+                    restoreText.textContent = 'Restore PKI Backup';
+                } else {
+                    helpText.textContent = 'Unsupported file type. Please select a .pki or .cabak file.';
+                    helpText.style.color = '#dc3545';
+                }
+            }
+        }
+
+        async function createBackup() {
             const password = document.getElementById('backupPassword').value;
             const createButton = document.getElementById('createBackupBtn');
             const statusPanel = document.getElementById('backupStatusPanel');
             const statusContent = document.getElementById('backupStatusContent');
             const progressBar = document.getElementById('backupProgressBar');
             const progress = document.getElementById('backupProgress');
+            const isComprehensive = document.getElementById('comprehensiveBackupType').checked;
             
             if (!password) {
                 showStatus('Please enter a backup password', 'error');
@@ -8395,22 +9054,25 @@ Dependencies:
             
             // Disable button and show progress
             createButton.disabled = true;
-            createButton.textContent = '⏳ Creating Backup...';
+            createButton.textContent = isComprehensive ? '⏳ Creating Comprehensive Backup...' : '⏳ Creating PKI Backup...';
             statusPanel.style.display = 'block';
             statusPanel.style.background = '#e7f3ff';
             statusPanel.style.border = '1px solid #bee5eb';
-            statusContent.innerHTML = '<h4 style="color: #0c5460;">Creating encrypted backup...</h4><p style="color: #0c5460;">This may take a few minutes depending on the size of your PKI.</p>';
+            
+            const backupType = isComprehensive ? 'comprehensive' : 'PKI';
+            statusContent.innerHTML = `<h4 style="color: #0c5460;">Creating encrypted ${backupType} backup...</h4><p style="color: #0c5460;">This may take a few minutes depending on the size of your data.</p>`;
             progressBar.style.display = 'block';
             
             // Simulate progress
             let progressValue = 0;
             const progressInterval = setInterval(() => {
-                progressValue += 10;
+                progressValue += isComprehensive ? 5 : 10; // Slower for comprehensive
                 progress.style.width = `${Math.min(progressValue, 90)}%`;
             }, 500);
             
             try {
-                const response = await fetch('/api/pki/backup', {
+                const endpoint = isComprehensive ? '/api/backup/comprehensive' : '/api/pki/backup';
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -8425,8 +9087,10 @@ Dependencies:
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                    const extension = isComprehensive ? 'cabak' : 'pki';
+                    const prefix = isComprehensive ? 'comprehensive-backup' : 'pki-backup';
                     a.href = url;
-                    a.download = `pki-backup-${timestamp}.pki`;
+                    a.download = `${prefix}-${timestamp}.${extension}`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -8434,8 +9098,8 @@ Dependencies:
                     
                     statusPanel.style.background = '#d4edda';
                     statusPanel.style.border = '1px solid #c3e6cb';
-                    statusContent.innerHTML = '<h4 style="color: #155724;">✅ Backup Created Successfully!</h4><p style="color: #155724;">Your encrypted PKI backup has been downloaded. Store the password securely.</p>';
-                    showStatus('PKI backup created and downloaded successfully', 'success');
+                    statusContent.innerHTML = `<h4 style="color: #155724;">✅ ${backupType} Backup Created Successfully!</h4><p style="color: #155724;">Your encrypted backup has been downloaded. Store the password securely.</p>`;
+                    showStatus(`${backupType} backup created and downloaded successfully`, 'success');
                 } else {
                     const errorData = await response.json();
                     throw new Error(errorData.message || 'Backup creation failed');
@@ -8445,18 +9109,18 @@ Dependencies:
                 statusPanel.style.background = '#f8d7da';
                 statusPanel.style.border = '1px solid #f5c6cb';
                 statusContent.innerHTML = `<h4 style="color: #721c24;">❌ Backup Failed</h4><p style="color: #721c24;">${error.message}</p>`;
-                showStatus('Failed to create PKI backup: ' + error.message, 'error');
+                showStatus(`Failed to create ${backupType} backup: ${error.message}`, 'error');
             } finally {
                 createButton.disabled = false;
-                createButton.textContent = '💾 Create Encrypted Backup';
+                createButton.textContent = isComprehensive ? '💾 Create Comprehensive Backup' : '💾 Create PKI Backup';
                 setTimeout(() => {
-                    progressBar.style.display = 'none';
+                    if (progressBar) progressBar.style.display = 'none';
                     statusPanel.style.display = 'none';
                 }, 5000);
             }
         }
 
-        async function restorePKIBackup() {
+        async function restoreBackup() {
             const file = document.getElementById('backupFile').files[0];
             const password = document.getElementById('restorePassword').value;
             const confirmed = document.getElementById('confirmRestore').checked;
@@ -8475,34 +9139,46 @@ Dependencies:
             }
             
             if (!confirmed) {
-                showStatus('Please confirm that you understand this will replace your current PKI', 'error');
+                showStatus('Please confirm that you understand the implications of restoring', 'error');
                 return;
             }
             
-            if (!file.name.endsWith('.pki')) {
-                showStatus('Please select a valid .pki backup file', 'error');
+            const isComprehensive = file.name.endsWith('.cabak');
+            const isPKI = file.name.endsWith('.pki');
+            
+            if (!isComprehensive && !isPKI) {
+                showStatus('Please select a valid backup file (.pki or .cabak)', 'error');
                 return;
             }
             
-            // Final confirmation
-            if (!confirm('⚠️ CRITICAL WARNING ⚠️\n\nThis will COMPLETELY REPLACE your current PKI configuration!\n\n• All current certificates and keys will be lost\n• PKI services will be temporarily unavailable\n• This operation cannot be undone\n\nAre you absolutely sure you want to continue?')) {
+            // Different confirmation messages based on backup type
+            let confirmMessage;
+            if (isComprehensive) {
+                confirmMessage = '⚠️ COMPREHENSIVE RESTORE WARNING ⚠️\n\nThis will COMPLETELY REPLACE your entire system:\n\n• All PKI certificates and keys\n• All user accounts (except admin)\n• All system settings and configuration\n• All logos and branding\n• SMTP and OAuth settings\n• RADIUS configuration\n\nThis operation cannot be undone!\n\nAre you absolutely sure you want to continue?';
+            } else {
+                confirmMessage = '⚠️ PKI RESTORE WARNING ⚠️\n\nThis will COMPLETELY REPLACE your current PKI configuration:\n\n• All current certificates and keys will be lost\n• PKI services will be temporarily unavailable\n• Certificate database will be replaced\n• This operation cannot be undone\n\nAre you absolutely sure you want to continue?';
+            }
+            
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
             // Disable button and show progress
             restoreButton.disabled = true;
-            restoreButton.textContent = '⏳ Restoring PKI...';
+            const backupType = isComprehensive ? 'Comprehensive' : 'PKI';
+            restoreButton.textContent = `⏳ Restoring ${backupType}...`;
             statusPanel.style.display = 'block';
             statusPanel.style.background = '#fff3cd';
             statusPanel.style.border = '1px solid #ffeeba';
-            statusContent.innerHTML = '<h4 style="color: #856404;">Restoring PKI from backup...</h4><p style="color: #856404;">Please wait while the PKI is restored. Do not close this page.</p>';
+            statusContent.innerHTML = `<h4 style="color: #856404;">Restoring ${backupType} from backup...</h4><p style="color: #856404;">Please wait while the ${backupType.toLowerCase()} is restored. Do not close this page.</p>`;
             
             try {
                 const formData = new FormData();
                 formData.append('backup_file', file);
                 formData.append('password', password);
                 
-                const response = await fetch('/api/pki/restore', {
+                const endpoint = isComprehensive ? '/api/backup/comprehensive/restore' : '/api/pki/restore';
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     credentials: 'include',
                     body: formData
@@ -8512,13 +9188,32 @@ Dependencies:
                     const result = await response.json();
                     statusPanel.style.background = '#d4edda';
                     statusPanel.style.border = '1px solid #c3e6cb';
-                    statusContent.innerHTML = '<h4 style="color: #155724;">✅ PKI Restored Successfully!</h4><p style="color: #155724;">Your PKI has been restored from the backup. The page will reload to reflect changes.</p>';
-                    showStatus('PKI restored successfully from backup', 'success');
+                    
+                    if (isComprehensive && result.restore_details) {
+                        // Show detailed restore results for comprehensive backup
+                        let details = '<h4 style="color: #155724;">✅ Comprehensive Restore Results:</h4>';
+                        details += '<ul style="color: #155724;">';
+                        if (result.restore_details.pki_restore.status === 'success') details += '<li>✅ PKI Data: Restored</li>';
+                        else details += '<li>❌ PKI Data: ' + (result.restore_details.pki_restore.message || 'Failed') + '</li>';
+                        
+                        if (result.restore_details.database_restore.status === 'success') details += '<li>✅ Database: Restored</li>';
+                        else details += '<li>❌ Database: Failed</li>';
+                        
+                        if (result.restore_details.logos_restore.status === 'success') details += '<li>✅ Logos/Assets: Restored</li>';
+                        else details += '<li>⚠️ Logos/Assets: ' + (result.restore_details.logos_restore.message || 'Skipped') + '</li>';
+                        details += '</ul>';
+                        details += '<p style="color: #155724;">The page will reload to reflect changes.</p>';
+                        statusContent.innerHTML = details;
+                    } else {
+                        statusContent.innerHTML = `<h4 style="color: #155724;">✅ ${backupType} Restored Successfully!</h4><p style="color: #155724;">Your ${backupType.toLowerCase()} has been restored from the backup. The page will reload to reflect changes.</p>`;
+                    }
+                    
+                    showStatus(`${backupType} restored successfully from backup`, 'success');
                     
                     // Reload page after successful restore
                     setTimeout(() => {
                         window.location.reload();
-                    }, 3000);
+                    }, isComprehensive ? 5000 : 3000);
                 } else {
                     const errorData = await response.json();
                     throw new Error(errorData.message || 'Restore operation failed');
@@ -8527,9 +9222,9 @@ Dependencies:
                 statusPanel.style.background = '#f8d7da';
                 statusPanel.style.border = '1px solid #f5c6cb';
                 statusContent.innerHTML = `<h4 style="color: #721c24;">❌ Restore Failed</h4><p style="color: #721c24;">${error.message}</p>`;
-                showStatus('Failed to restore PKI backup: ' + error.message, 'error');
+                showStatus(`Failed to restore ${backupType} backup: ${error.message}`, 'error');
                 restoreButton.disabled = false;
-                restoreButton.textContent = '🔄 Restore from Backup';
+                restoreButton.textContent = `🔄 Restore from Backup`;
             }
         }
 
@@ -8579,13 +9274,30 @@ Dependencies:
         window.toggleRestorePasswordVisibility = toggleRestorePasswordVisibility;
         window.showBackupInfo = showBackupInfo;
         window.showRestoreWarning = showRestoreWarning;
-        window.createPKIBackup = createPKIBackup;
-        window.restorePKIBackup = restorePKIBackup;
+        window.createBackup = createBackup;
+        window.restoreBackup = restoreBackup;
+        window.selectBackupType = selectBackupType;
+        window.detectBackupType = detectBackupType;
         // Logo management functions
         window.loadCurrentLogo = loadCurrentLogo;
         window.selectLogoFile = selectLogoFile;
         window.uploadLogo = uploadLogo;
         window.resetLogo = resetLogo;
+        // Color theme management functions
+        window.loadCurrentColorTheme = loadCurrentColorTheme;
+        window.updateColorPreview = updateColorPreview;
+        window.updateColorFromHex = updateColorFromHex;
+        window.previewColorTheme = previewColorTheme;
+        window.saveColorTheme = saveColorTheme;
+        window.resetColorTheme = resetColorTheme;
+        window.exportColorTheme = exportColorTheme;
+        
+        // Initialize current color theme from server-rendered values
+        document.addEventListener('DOMContentLoaded', function() {
+            // Colors are now loaded server-side and injected into CSS variables
+            // Just load the current theme for the color picker interface
+            loadCurrentColorTheme().catch(e => console.debug('Color theme load for UI:', e));
+        });
     </script>
 
     <!-- Tour Trigger Button -->

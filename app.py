@@ -465,10 +465,44 @@ def index():
     if AUTHENTICATION_ENABLED:
         if MULTI_USER_MODE:
             if not session.get('authenticated'):
-                return render_template('login.html', version=BUILD_TIMESTAMP)
+                # Load custom colors for login page too
+                custom_colors = {}
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT config_key, config_value 
+                            FROM system_config 
+                            WHERE config_key LIKE 'theme_color_%'
+                        """)
+                        for row in cursor.fetchall():
+                            key = row['config_key'].replace('theme_color_', '')
+                            custom_colors[key] = row['config_value']
+                        conn.close()
+                except Exception:
+                    custom_colors = {}
+                return render_template('login.html', version=BUILD_TIMESTAMP, custom_colors=custom_colors)
         else:
             if 'authenticated' not in session:
-                return render_template('login.html', version=BUILD_TIMESTAMP)
+                # Load custom colors for login page too
+                custom_colors = {}
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT config_key, config_value 
+                            FROM system_config 
+                            WHERE config_key LIKE 'theme_color_%'
+                        """)
+                        for row in cursor.fetchall():
+                            key = row['config_key'].replace('theme_color_', '')
+                            custom_colors[key] = row['config_value']
+                        conn.close()
+                except Exception:
+                    custom_colors = {}
+                return render_template('login.html', version=BUILD_TIMESTAMP, custom_colors=custom_colors)
     
     # Check if user logged in via IDP - serve specialized portal
     if session.get('idp_user'):
@@ -482,7 +516,28 @@ def index():
         'roles': session.get('roles', [])
     }
     
-    return render_template('index.html', user=user_info)
+    # Load custom color theme for injection into template
+    custom_colors = {}
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT config_key, config_value 
+                FROM system_config 
+                WHERE config_key LIKE 'theme_color_%'
+            """)
+            
+            for row in cursor.fetchall():
+                key = row['config_key'].replace('theme_color_', '')
+                custom_colors[key] = row['config_value']
+            
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error loading custom colors: {e}")
+        custom_colors = {}
+    
+    return render_template('index.html', user=user_info, custom_colors=custom_colors)
 
 @app.route('/login')
 def login_page():
@@ -490,10 +545,44 @@ def login_page():
     if AUTHENTICATION_ENABLED:
         if MULTI_USER_MODE:
             if not session.get('authenticated'):
-                return render_template('login.html', version=BUILD_TIMESTAMP)
+                # Load custom colors for login page
+                custom_colors = {}
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT config_key, config_value 
+                            FROM system_config 
+                            WHERE config_key LIKE 'theme_color_%'
+                        """)
+                        for row in cursor.fetchall():
+                            key = row['config_key'].replace('theme_color_', '')
+                            custom_colors[key] = row['config_value']
+                        conn.close()
+                except Exception:
+                    custom_colors = {}
+                return render_template('login.html', version=BUILD_TIMESTAMP, custom_colors=custom_colors)
         else:
             if 'authenticated' not in session:
-                return render_template('login.html', version=BUILD_TIMESTAMP)
+                # Load custom colors for login page
+                custom_colors = {}
+                try:
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT config_key, config_value 
+                            FROM system_config 
+                            WHERE config_key LIKE 'theme_color_%'
+                        """)
+                        for row in cursor.fetchall():
+                            key = row['config_key'].replace('theme_color_', '')
+                            custom_colors[key] = row['config_value']
+                        conn.close()
+                except Exception:
+                    custom_colors = {}
+                return render_template('login.html', version=BUILD_TIMESTAMP, custom_colors=custom_colors)
     return redirect('/')
 
 @app.route('/health')
@@ -4033,6 +4122,220 @@ def reset_logo():
         return jsonify({'error': 'Failed to reset logo'}), 500
 
 # ================================
+# Color Theme Customization Endpoints
+# ================================
+
+@app.route('/api/theme/colors', methods=['GET'])
+def get_color_theme():
+    """Get current color theme configuration"""
+    try:
+        # Default color palette
+        default_colors = {
+            'primary_purple': '#5B059C',
+            'dark_blue': '#101B37', 
+            'light_gray': '#EAECF0',
+            'medium_gray': '#98A2B3',
+            'text_dark': '#101828',
+            'text_light': '#FFFFFF',
+            'success_green': '#12B76A',
+            'warning_orange': '#F79009',
+            'error_red': '#F04438',
+            'info_blue': '#2E90FA'
+        }
+        
+        color_settings = {}
+        
+        # Try to get custom colors from database
+        try:
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                
+                # Get color theme from system_config table
+                cursor.execute("""
+                    SELECT config_key, config_value 
+                    FROM system_config 
+                    WHERE config_key LIKE 'theme_color_%'
+                """)
+                
+                rows = cursor.fetchall()
+                for row in rows:
+                    key = row['config_key'].replace('theme_color_', '')
+                    color_settings[key] = row['config_value']
+                
+                conn.close()
+                logging.info(f"Loaded {len(color_settings)} custom colors from database")
+        except Exception as db_error:
+            logging.warning(f"Could not load custom colors from database: {db_error}")
+            # Continue with defaults
+        
+        # Merge with defaults
+        theme_colors = {**default_colors, **color_settings}
+        
+        return jsonify({
+            'status': 'success',
+            'colors': theme_colors,
+            'is_custom': len(color_settings) > 0
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in get_color_theme: {type(e).__name__}: {str(e)}")
+        # Return defaults if everything fails
+        return jsonify({
+            'status': 'success',
+            'colors': {
+                'primary_purple': '#5B059C',
+                'dark_blue': '#101B37', 
+                'light_gray': '#EAECF0',
+                'medium_gray': '#98A2B3',
+                'text_dark': '#101828',
+                'text_light': '#FFFFFF',
+                'success_green': '#12B76A',
+                'warning_orange': '#F79009',
+                'error_red': '#F04438',
+                'info_blue': '#2E90FA'
+            },
+            'is_custom': False
+        })
+
+@app.route('/api/theme/colors', methods=['POST'])
+@auth_required(permission='admin')
+def update_color_theme():
+    """Update color theme configuration"""
+    try:
+        data = request.get_json()
+        colors = data.get('colors', {})
+        
+        if not colors:
+            return jsonify({'error': 'No colors provided'}), 400
+        
+        # Validate color format (hex colors)
+        import re
+        hex_pattern = re.compile(r'^#[0-9A-Fa-f]{6}$')
+        
+        valid_color_keys = {
+            'primary_purple', 'dark_blue', 'light_gray', 'medium_gray',
+            'text_dark', 'text_light', 'success_green', 'warning_orange', 
+            'error_red', 'info_blue'
+        }
+        
+        for key, value in colors.items():
+            if key not in valid_color_keys:
+                return jsonify({'error': f'Invalid color key: {key}'}), 400
+            
+            if not hex_pattern.match(value):
+                return jsonify({'error': f'Invalid color format for {key}. Use hex format like #5B059C'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Update or insert color settings
+        for key, value in colors.items():
+            config_key = f'theme_color_{key}'
+            
+            cursor.execute("""
+                INSERT INTO system_config (config_key, config_value, description, updated_at)
+                VALUES (%s, %s, %s, NOW())
+                ON CONFLICT (config_key) 
+                DO UPDATE SET 
+                    config_value = EXCLUDED.config_value,
+                    updated_at = EXCLUDED.updated_at
+            """, (config_key, value, f'Custom theme color: {key}'))
+        
+        conn.commit()
+        conn.close()
+        
+        log_operation('update_color_theme')
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Color theme updated successfully',
+            'colors': colors
+        })
+        
+    except Exception as e:
+        logging.error(f"Error updating color theme: {e}")
+        return jsonify({'error': 'Failed to update color theme'}), 500
+
+@app.route('/api/theme/colors', methods=['DELETE'])
+@auth_required(permission='admin')
+def reset_color_theme():
+    """Reset color theme to default"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Remove all custom color settings
+        cursor.execute("DELETE FROM system_config WHERE config_key LIKE 'theme_color_%'")
+        
+        conn.commit()
+        conn.close()
+        
+        log_operation('reset_color_theme')
+        
+        # Return default colors
+        default_colors = {
+            'primary_purple': '#5B059C',
+            'dark_blue': '#101B37',
+            'light_gray': '#EAECF0', 
+            'medium_gray': '#98A2B3',
+            'text_dark': '#101828',
+            'text_light': '#FFFFFF',
+            'success_green': '#12B76A',
+            'warning_orange': '#F79009',
+            'error_red': '#F04438',
+            'info_blue': '#2E90FA'
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Color theme reset to default',
+            'colors': default_colors
+        })
+        
+    except Exception as e:
+        logging.error(f"Error resetting color theme: {e}")
+        return jsonify({'error': 'Failed to reset color theme'}), 500
+
+@app.route('/api/theme/preview', methods=['POST'])
+@auth_required(permission='admin')
+def preview_color_theme():
+    """Generate CSS for color theme preview"""
+    try:
+        data = request.get_json()
+        colors = data.get('colors', {})
+        
+        if not colors:
+            return jsonify({'error': 'No colors provided'}), 400
+        
+        # Generate CSS variables
+        css_variables = []
+        for key, value in colors.items():
+            css_var_name = key.replace('_', '-')
+            css_variables.append(f'--{css_var_name}: {value};')
+        
+        css_content = f"""
+        :root {{
+            {chr(10).join(css_variables)}
+        }}
+        """
+        
+        return jsonify({
+            'status': 'success',
+            'css': css_content.strip()
+        })
+        
+    except Exception as e:
+        logging.error(f"Error generating theme preview: {e}")
+        return jsonify({'error': 'Failed to generate preview'}), 500
+
+# ================================
 # SMTP Configuration Endpoints
 # ================================
 
@@ -6369,6 +6672,485 @@ def restore_pki_backup():
         return jsonify({
             "status": "error",
             "message": f"Failed to restore PKI backup: {str(e)}"
+        }), 500
+
+# Comprehensive Backup and Restore Endpoints
+@app.route('/api/backup/comprehensive', methods=['POST'])
+@auth_required(permission='admin')
+def create_comprehensive_backup():
+    """Create comprehensive backup including PKI data, database, and application settings"""
+    try:
+        data = request.get_json() or {}
+        password = data.get('password')
+        
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        if len(password) < 8:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password must be at least 8 characters long"
+            }), 400
+        
+        log_operation('create_comprehensive_backup')
+        
+        # Create comprehensive backup data structure
+        backup_data = {
+            'version': '2.0',
+            'backup_type': 'comprehensive',
+            'created': datetime.now().isoformat(),
+            'components': {
+                'pki_data': None,
+                'database_data': {},
+                'application_settings': {},
+                'logos_and_assets': {}
+            }
+        }
+        
+        # 1. Get PKI backup data
+        try:
+            pki_response = requests.post(
+                f"{TERMINAL_CONTAINER_URL}/execute",
+                json={"operation": "create-backup", "params": {'password': password}},
+                timeout=120
+            )
+            
+            if pki_response.status_code == 200:
+                pki_result = pki_response.json()
+                if pki_result.get('status') == 'success':
+                    backup_data['components']['pki_data'] = pki_result.get('backup_data')
+                    
+        except Exception as e:
+            logging.warning(f"PKI backup failed: {e}")
+            backup_data['components']['pki_data'] = None
+        
+        # 2. Backup database tables
+        conn = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Tables to backup
+            tables_to_backup = [
+                'users', 'roles', 'permissions', 'user_roles', 'role_permissions',
+                'system_config', 'smtp_config', 'tenants', 'tenant_settings',
+                'ocsp_config', 'certificates', 'certificate_revocations',
+                'idp_users', 'idp_certificates', 'allowed_email_domains',
+                'email_verifications', 'audit_logs'
+            ]
+            
+            for table in tables_to_backup:
+                try:
+                    # Check if table exists
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = %s
+                        );
+                    """, (table,))
+                    
+                    if cursor.fetchone()[0]:
+                        # Get table data
+                        cursor.execute(f"SELECT * FROM {table}")
+                        rows = cursor.fetchall()
+                        
+                        # Get column names
+                        cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = %s ORDER BY ordinal_position", (table,))
+                        columns = [row[0] for row in cursor.fetchall()]
+                        
+                        # Convert to list of dictionaries
+                        table_data = []
+                        for row in rows:
+                            row_dict = {}
+                            for i, value in enumerate(row):
+                                # Handle datetime objects
+                                if isinstance(value, datetime):
+                                    row_dict[columns[i]] = value.isoformat()
+                                else:
+                                    row_dict[columns[i]] = value
+                            table_data.append(row_dict)
+                        
+                        backup_data['components']['database_data'][table] = {
+                            'columns': columns,
+                            'rows': table_data,
+                            'count': len(table_data)
+                        }
+                        
+                except Exception as e:
+                    logging.warning(f"Failed to backup table {table}: {e}")
+                    backup_data['components']['database_data'][table] = {'error': str(e)}
+        
+        except Exception as e:
+            logging.error(f"Database backup failed: {e}")
+            backup_data['components']['database_data'] = {'error': str(e)}
+        finally:
+            if conn:
+                conn.close()
+        
+        # 3. Backup application settings and configuration files
+        try:
+            # Environment variables that should be backed up
+            env_vars_to_backup = [
+                'DOMAIN', 'SECRET_KEY', 'ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH',
+                'EASYRSA_REQ_COUNTRY', 'EASYRSA_REQ_PROVINCE', 'EASYRSA_REQ_CITY',
+                'EASYRSA_REQ_ORG', 'EASYRSA_REQ_EMAIL', 'EASYRSA_REQ_OU'
+            ]
+            
+            env_backup = {}
+            for var in env_vars_to_backup:
+                value = os.getenv(var)
+                if value:
+                    env_backup[var] = value
+            
+            backup_data['components']['application_settings'] = {
+                'environment_variables': env_backup,
+                'flask_config': {
+                    'AUTHENTICATION_ENABLED': os.getenv('AUTHENTICATION_ENABLED', 'true'),
+                    'MULTI_USER_MODE': os.getenv('MULTI_USER_MODE', 'true'),
+                    'LOG_LEVEL': os.getenv('LOG_LEVEL', 'INFO'),
+                    'FLASK_ENV': os.getenv('FLASK_ENV', 'production')
+                }
+            }
+            
+        except Exception as e:
+            logging.warning(f"Application settings backup failed: {e}")
+            backup_data['components']['application_settings'] = {'error': str(e)}
+        
+        # 4. Backup logos and static assets
+        try:
+            logos_backup = {}
+            
+            # Check for uploaded logos in common locations
+            logo_paths = [
+                '/app/static/logos',
+                '/app/static/images',
+                '/app/uploads'
+            ]
+            
+            for logo_path in logo_paths:
+                if os.path.exists(logo_path):
+                    for file in os.listdir(logo_path):
+                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg')):
+                            try:
+                                file_path = os.path.join(logo_path, file)
+                                with open(file_path, 'rb') as f:
+                                    file_data = f.read()
+                                    # Base64 encode binary data
+                                    import base64
+                                    logos_backup[f"{logo_path}/{file}"] = base64.b64encode(file_data).decode('utf-8')
+                            except Exception as e:
+                                logging.warning(f"Failed to backup logo {file}: {e}")
+            
+            backup_data['components']['logos_and_assets'] = logos_backup
+            
+        except Exception as e:
+            logging.warning(f"Logos backup failed: {e}")
+            backup_data['components']['logos_and_assets'] = {'error': str(e)}
+        
+        # 5. Encrypt and compress the comprehensive backup
+        try:
+            import json, gzip, base64, secrets
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.backends import default_backend
+            
+            # Serialize backup data
+            backup_json = json.dumps(backup_data, indent=2, default=str)
+            
+            # Compress data
+            compressed_data = gzip.compress(backup_json.encode('utf-8'))
+            
+            # Generate salt and IV
+            salt = secrets.token_bytes(32)
+            iv = secrets.token_bytes(16)
+            
+            # Derive key from password
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+                backend=default_backend()
+            )
+            key = kdf.derive(password.encode('utf-8'))
+            
+            # Encrypt data
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+            encryptor = cipher.encryptor()
+            
+            # Pad data to block size
+            padding_length = 16 - (len(compressed_data) % 16)
+            padded_data = compressed_data + bytes([padding_length] * padding_length)
+            
+            encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+            
+            # Create final backup package
+            final_backup = {
+                'version': '2.0',
+                'type': 'comprehensive',
+                'created': datetime.now().isoformat(),
+                'salt': base64.b64encode(salt).decode('utf-8'),
+                'iv': base64.b64encode(iv).decode('utf-8'),
+                'data': base64.b64encode(encrypted_data).decode('utf-8'),
+                'components_summary': {
+                    'pki_included': backup_data['components']['pki_data'] is not None,
+                    'database_tables': len(backup_data['components']['database_data']),
+                    'app_settings_included': 'error' not in backup_data['components']['application_settings'],
+                    'logos_count': len(backup_data['components']['logos_and_assets'])
+                }
+            }
+            
+            # Convert to downloadable format
+            final_json = json.dumps(final_backup, indent=2)
+            backup_bytes = final_json.encode('utf-8')
+            file_obj = io.BytesIO(backup_bytes)
+            
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            filename = f'comprehensive-backup-{timestamp}.cabak'
+            
+            return send_file(
+                file_obj,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/json'
+            )
+            
+        except Exception as e:
+            logging.error(f"Backup encryption failed: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to encrypt backup: {str(e)}"
+            }), 500
+            
+    except Exception as e:
+        logging.error(f"Comprehensive backup failed: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to create comprehensive backup: {str(e)}"
+        }), 500
+
+@app.route('/api/backup/comprehensive/restore', methods=['POST'])
+@auth_required(permission='admin')
+def restore_comprehensive_backup():
+    """Restore comprehensive backup including PKI data, database, and application settings"""
+    try:
+        if 'backup_file' not in request.files:
+            return jsonify({
+                "status": "error",
+                "message": "No backup file provided"
+            }), 400
+        
+        password = request.form.get('password')
+        if not password:
+            return jsonify({
+                "status": "error",
+                "message": "Backup password is required"
+            }), 400
+        
+        backup_file = request.files['backup_file']
+        if backup_file.filename == '':
+            return jsonify({
+                "status": "error",
+                "message": "No backup file selected"
+            }), 400
+        
+        log_operation('restore_comprehensive_backup')
+        
+        # Read and parse backup file
+        try:
+            backup_content = backup_file.read().decode('utf-8')
+            backup_package = json.loads(backup_content)
+            
+            if backup_package.get('version') != '2.0' or backup_package.get('type') != 'comprehensive':
+                return jsonify({
+                    "status": "error",
+                    "message": "Invalid or incompatible backup file format"
+                }), 400
+            
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to parse backup file: {str(e)}"
+            }), 400
+        
+        # Decrypt backup data
+        try:
+            import json, gzip, base64
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.backends import default_backend
+            
+            salt = base64.b64decode(backup_package['salt'])
+            iv = base64.b64decode(backup_package['iv'])
+            encrypted_data = base64.b64decode(backup_package['data'])
+            
+            # Derive key from password
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+                backend=default_backend()
+            )
+            key = kdf.derive(password.encode('utf-8'))
+            
+            # Decrypt data
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+            
+            decrypted_padded = decryptor.update(encrypted_data) + decryptor.finalize()
+            
+            # Remove padding
+            padding_length = decrypted_padded[-1]
+            decrypted_data = decrypted_padded[:-padding_length]
+            
+            # Decompress and parse
+            decompressed_data = gzip.decompress(decrypted_data)
+            backup_data = json.loads(decompressed_data.decode('utf-8'))
+            
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to decrypt backup (check password): {str(e)}"
+            }), 400
+        
+        restore_results = {
+            'pki_restore': {'status': 'skipped'},
+            'database_restore': {'status': 'skipped', 'tables': {}},
+            'settings_restore': {'status': 'skipped'},
+            'logos_restore': {'status': 'skipped'}
+        }
+        
+        # 1. Restore PKI data
+        if backup_data['components'].get('pki_data'):
+            try:
+                pki_restore_data = {
+                    'password': password,
+                    'backup_data': backup_data['components']['pki_data']
+                }
+                
+                pki_response = requests.post(
+                    f"{TERMINAL_CONTAINER_URL}/execute",
+                    json={"operation": "restore-backup", "params": pki_restore_data},
+                    timeout=120
+                )
+                
+                if pki_response.status_code == 200:
+                    pki_result = pki_response.json()
+                    if pki_result.get('status') == 'success':
+                        restore_results['pki_restore'] = {'status': 'success', 'message': 'PKI data restored'}
+                    else:
+                        restore_results['pki_restore'] = {'status': 'error', 'message': pki_result.get('message', 'Unknown error')}
+                else:
+                    restore_results['pki_restore'] = {'status': 'error', 'message': 'PKI container communication failed'}
+                    
+            except Exception as e:
+                restore_results['pki_restore'] = {'status': 'error', 'message': str(e)}
+        
+        # 2. Restore database data
+        db_data = backup_data['components'].get('database_data', {})
+        if db_data and 'error' not in db_data:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                for table_name, table_data in db_data.items():
+                    if 'error' in table_data:
+                        restore_results['database_restore']['tables'][table_name] = {'status': 'error', 'message': table_data['error']}
+                        continue
+                    
+                    try:
+                        # Clear existing data (except for critical admin user)
+                        if table_name == 'users':
+                            cursor.execute("DELETE FROM users WHERE username != 'admin'")
+                        elif table_name not in ['roles', 'permissions']:  # Keep default roles and permissions
+                            cursor.execute(f"DELETE FROM {table_name}")
+                        
+                        # Insert restored data
+                        if table_data.get('rows'):
+                            columns = table_data['columns']
+                            placeholders = ', '.join(['%s'] * len(columns))
+                            
+                            for row in table_data['rows']:
+                                # Skip admin user to prevent lockout
+                                if table_name == 'users' and row.get('username') == 'admin':
+                                    continue
+                                
+                                values = [row.get(col) for col in columns]
+                                cursor.execute(
+                                    f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})",
+                                    values
+                                )
+                        
+                        restore_results['database_restore']['tables'][table_name] = {
+                            'status': 'success',
+                            'rows_restored': len(table_data.get('rows', []))
+                        }
+                        
+                    except Exception as e:
+                        restore_results['database_restore']['tables'][table_name] = {'status': 'error', 'message': str(e)}
+                
+                conn.commit()
+                restore_results['database_restore']['status'] = 'success'
+                
+            except Exception as e:
+                restore_results['database_restore'] = {'status': 'error', 'message': str(e)}
+            finally:
+                if 'conn' in locals():
+                    conn.close()
+        
+        # 3. Restore logos and assets
+        logos_data = backup_data['components'].get('logos_and_assets', {})
+        if logos_data and 'error' not in logos_data:
+            try:
+                restored_files = 0
+                for file_path, file_data in logos_data.items():
+                    try:
+                        # Create directory if it doesn't exist
+                        dir_path = os.path.dirname(file_path)
+                        os.makedirs(dir_path, exist_ok=True)
+                        
+                        # Decode and write file
+                        file_bytes = base64.b64decode(file_data)
+                        with open(file_path, 'wb') as f:
+                            f.write(file_bytes)
+                        restored_files += 1
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to restore file {file_path}: {e}")
+                
+                restore_results['logos_restore'] = {
+                    'status': 'success',
+                    'files_restored': restored_files
+                }
+                
+            except Exception as e:
+                restore_results['logos_restore'] = {'status': 'error', 'message': str(e)}
+        
+        # Generate summary
+        success_components = sum(1 for component in restore_results.values() if component.get('status') == 'success')
+        total_components = len(restore_results)
+        
+        return jsonify({
+            "status": "success" if success_components > 0 else "error",
+            "message": f"Restore completed. {success_components}/{total_components} components restored successfully.",
+            "restore_details": restore_results,
+            "backup_info": {
+                "created": backup_data.get('created'),
+                "version": backup_data.get('version')
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Comprehensive restore failed: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to restore comprehensive backup: {str(e)}"
         }), 500
 
 if __name__ == '__main__':
