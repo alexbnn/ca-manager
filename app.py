@@ -5221,13 +5221,15 @@ def generate_idp_certificate():
             # Store in idp_certificates table for IDP portal display
             cursor.execute("""
                 INSERT INTO idp_certificates (
-                    email, common_name, idp_provider, certificate_pem, private_key_pem,
-                    serial_number, valid_from, valid_until, status, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    idp_email, certificate_cn, idp_provider, certificate_pem, private_key_encrypted,
+                    certificate_serial, issued_at, expires_at, status, idp_user_id,
+                    certificate_subject, certificate_issuer, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             """, (
                 email, email, 'microsoft', cert_row['certificate_pem'], 
                 cert_row['private_key_pem'], serial_number, 
-                valid_from, valid_until, 'active'
+                valid_from, valid_until, 'active', email,
+                f"CN={email}", f"CN={cert_row.get('issuer', 'CA Manager')}"
             ))
             conn.commit()
         else:
@@ -5612,8 +5614,9 @@ def create_idp_radius_credentials():
             INSERT INTO idp_radius_auth 
             (idp_user_id, idp_email, idp_provider, radius_username, radius_password_hash, is_active)
             VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (idp_email, idp_provider) 
+            ON CONFLICT (idp_user_id, idp_provider) 
             DO UPDATE SET 
+                idp_email = EXCLUDED.idp_email,
                 radius_username = EXCLUDED.radius_username,
                 radius_password_hash = EXCLUDED.radius_password_hash,
                 is_active = EXCLUDED.is_active,
