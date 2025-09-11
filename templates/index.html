@@ -1960,6 +1960,108 @@
                 </div>
                 </div>
 
+                <!-- VLAN Policy Engine Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔀</span>VLAN Assignment Policies</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure dynamic VLAN assignment policies based on user attributes, authentication methods, and conditions.
+                </p>
+
+                <!-- VLAN Management Buttons -->
+                <div class="button-grid" style="margin-bottom: 1.5rem;">
+                    <button class="btn btn-primary" onclick="loadVLANs()">📂 Manage VLANs</button>
+                    <button class="btn btn-success" onclick="showAddPolicyForm()">➕ Add Policy</button>
+                    <button class="btn btn-info" onclick="loadVLANPolicies()">📋 View Policies</button>
+                    <button class="btn btn-secondary" onclick="loadUserVLANAssignments()">👤 User Assignments</button>
+                </div>
+
+                <!-- Add Policy Form (hidden by default) -->
+                <div id="addPolicyForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4>Add VLAN Assignment Policy</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div class="form-group">
+                            <label for="policyName">Policy Name:</label>
+                            <input type="text" id="policyName" placeholder="e.g., Engineering Team" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="policyDescription">Description:</label>
+                            <input type="text" id="policyDescription" placeholder="Policy description" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="policyPriority">Priority (lower = higher):</label>
+                            <input type="number" id="policyPriority" value="100" min="1" max="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="policyVLAN">Assign to VLAN:</label>
+                            <select id="policyVLAN" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Loading VLANs...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem;">
+                        <h5>Conditions (JSON format):</h5>
+                        <textarea id="policyConditions" placeholder='{"auth_type": "eap-tls", "username": "user*"}' 
+                                  style="width: 100%; height: 100px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;">
+{}</textarea>
+                        <small style="color: var(--medium-gray);">Example conditions: auth_type, username, group, certificate_valid, calling_station_id</small>
+                    </div>
+                    
+                    <div class="button-grid" style="margin-top: 1rem;">
+                        <button class="btn btn-success" onclick="createVLANPolicy()">✅ Create Policy</button>
+                        <button class="btn btn-secondary" onclick="hideAddPolicyForm()">❌ Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Policies List -->
+                <div id="vlanPoliciesList" class="policies-list">
+                    <!-- VLAN policies will be loaded here -->
+                </div>
+
+                <!-- User VLAN Assignments -->
+                <div id="userVLANAssignments" style="display: none; margin-top: 1.5rem;">
+                    <h4>Static User VLAN Assignments</h4>
+                    <div style="margin-bottom: 1rem;">
+                        <button class="btn btn-primary" onclick="showAddUserAssignmentForm()">➕ Add Assignment</button>
+                    </div>
+                    <div id="userAssignmentsList">
+                        <!-- User assignments will be loaded here -->
+                    </div>
+                </div>
+                </div>
+
+                <!-- IDP-RADIUS Authentication Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔐</span>IDP-RADIUS Authentication Bridge</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Enable users to authenticate to WiFi using their Google or Microsoft credentials.
+                </p>
+
+                <div class="button-grid" style="margin-bottom: 1.5rem;">
+                    <button class="btn btn-primary" onclick="loadIDPRadiusMappings()">👥 View Mappings</button>
+                    <button class="btn btn-info" onclick="testIDPRadiusAuth()">🧪 Test Authentication</button>
+                    <button class="btn btn-secondary" onclick="viewIDPRadiusLogs()">📊 View Logs</button>
+                </div>
+
+                <!-- IDP-RADIUS Status -->
+                <div id="idpRadiusStatus" class="status-card" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e9ecef; border-radius: 8px; background: #f8f9fa;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div id="idpRadiusStatusIcon" style="font-size: 1.5rem;">🔐</div>
+                        <div style="flex: 1;">
+                            <div id="idpRadiusStatusText" style="font-weight: bold;">IDP-RADIUS Bridge Status</div>
+                            <div id="idpRadiusStatusDetails" style="font-size: 0.875rem; color: #666; margin-top: 0.25rem;">
+                                Click "View Mappings" to see configured users
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IDP Mappings List -->
+                <div id="idpRadiusMappingsList" style="display: none;">
+                    <!-- Mappings will be loaded here -->
+                </div>
+                </div>
+
                 <!-- RadSec Proxy Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
                 <h2><span class="section-icon">🌐</span>RadSec Proxy (Extreme Networks)</h2>
@@ -2802,6 +2904,134 @@
                 </div>
                 </div>
                 
+                <!-- IDP-RADIUS Configuration Section -->
+                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">🔗</span>IDP-RADIUS Authentication Bridge</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure automatic RADIUS account provisioning for Identity Provider users. This allows Google/Microsoft SSO users to authenticate to WiFi networks using generated RADIUS credentials.
+                </p>
+                
+                <div class="idp-radius-config" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-dark);">🛠️ Auto-Provisioning Settings</h3>
+                    
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <label for="autoProvisioningEnabled">Auto-Provisioning:</label>
+                            <select id="autoProvisioningEnabled" class="form-control">
+                                <option value="false">Disabled</option>
+                                <option value="true">Enabled</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="defaultIdpVlan">Default VLAN for IDP Users:</label>
+                            <select id="defaultIdpVlan" class="form-control">
+                                <option value="">Select VLAN...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <label for="radiusUsernameFormat">RADIUS Username Format:</label>
+                            <select id="radiusUsernameFormat" class="form-control">
+                                <option value="email">Use full email address</option>
+                                <option value="local_part">Use email local part only</option>
+                                <option value="custom">Custom format</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="passwordComplexity">Password Complexity:</label>
+                            <select id="passwordComplexity" class="form-control">
+                                <option value="standard">Standard (12 chars)</option>
+                                <option value="strong">Strong (16 chars)</option>
+                                <option value="maximum">Maximum (24 chars)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="customUsernamePattern">Custom Username Pattern:</label>
+                        <input type="text" id="customUsernamePattern" class="form-control" 
+                               placeholder="{email} or {local_part} or custom-{local_part}" 
+                               style="margin-bottom: 0.5rem;">
+                        <small style="color: var(--medium-gray); font-size: 0.75rem;">
+                            Available placeholders: {email}, {local_part}, {domain}, {provider}
+                        </small>
+                    </div>
+                    
+                    <div class="button-grid" style="margin-bottom: 1.5rem;">
+                        <button class="btn btn-primary" onclick="saveIdpRadiusConfig()">💾 Save Configuration</button>
+                        <button class="btn btn-info" onclick="testIdpRadiusConfig()">🧪 Test Configuration</button>
+                    </div>
+                </div>
+                
+                <!-- Manual IDP User Management -->
+                <div class="idp-users-management" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0; color: var(--text-dark);">👥 IDP-RADIUS User Mappings</h3>
+                        <div class="button-grid" style="margin: 0;">
+                            <button class="btn btn-primary" onclick="showManualIdpMappingForm()">➕ Add Manual Mapping</button>
+                            <button class="btn btn-info" onclick="loadIDPRadiusMappings()">🔄 Refresh</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Mapping Form -->
+                    <div id="manualIdpMappingForm" style="display: none; background: white; border: 2px solid var(--primary-color); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">Add Manual IDP-RADIUS Mapping</h4>
+                        
+                        <form id="manualIdpMappingFormElement">
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="form-group">
+                                    <label for="idpEmail">IDP Email Address *:</label>
+                                    <input type="email" id="idpEmail" name="idpEmail" class="form-control" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="idpProvider">IDP Provider *:</label>
+                                    <select id="idpProvider" name="idpProvider" class="form-control" required>
+                                        <option value="">Select Provider...</option>
+                                        <option value="google">Google</option>
+                                        <option value="microsoft">Microsoft</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="form-group">
+                                    <label for="radiusUsername">RADIUS Username *:</label>
+                                    <input type="text" id="radiusUsername" name="radiusUsername" class="form-control" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="idpDefaultVlan">Default VLAN:</label>
+                                    <select id="idpDefaultVlan" name="idpDefaultVlan" class="form-control">
+                                        <option value="">No default VLAN</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 1.5rem;">
+                                <label for="certificateCn">Certificate CN (for EAP-TLS):</label>
+                                <input type="text" id="certificateCn" name="certificateCn" class="form-control" 
+                                       placeholder="Optional: Common Name for certificate binding">
+                            </div>
+                            
+                            <div class="button-grid">
+                                <button type="button" class="btn btn-primary" onclick="createManualIdpMapping()">✅ Create Mapping</button>
+                                <button type="button" class="btn btn-secondary" onclick="hideManualIdpMappingForm()">❌ Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- IDP Mappings List -->
+                    <div id="idpRadiusMappingsList" style="max-height: 400px; overflow-y: auto;">
+                        <p>Loading IDP-RADIUS mappings...</p>
+                    </div>
+                </div>
+                </div>
+                
             </div>
             {% endif %}
             
@@ -3544,6 +3774,9 @@ RADIUS Authentication Log Monitor v1.0
                 // Load version information and available branches for General Settings
                 setTimeout(() => {
                     // Version management removed
+                    loadIdpRadiusConfig().catch(e => console.error('loadIdpRadiusConfig error:', e));
+                    loadVLANsForIdpConfig().catch(e => console.error('loadVLANsForIdpConfig error:', e));
+                    loadIDPRadiusMappings().catch(e => console.error('loadIDPRadiusMappings error:', e));
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
                     loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
                     loadCurrentColorTheme().catch(e => console.error('loadCurrentColorTheme error:', e));
@@ -3555,6 +3788,8 @@ RADIUS Authentication Log Monitor v1.0
                     refreshRadsecStatus().catch(e => console.error('refreshRadsecStatus error:', e));
                     loadRadiusCertificates().catch(e => console.error('loadRadiusCertificates error:', e));
                     refreshRadiusClients().catch(e => console.error('refreshRadiusClients error:', e));
+                    loadVLANPolicies().catch(e => console.error('loadVLANPolicies error:', e));
+                    loadIDPRadiusMappings().catch(e => console.error('loadIDPRadiusMappings error:', e));
                 }, 100);
             }
         }
@@ -8901,6 +9136,506 @@ Dependencies:
             } catch (error) {
                 console.error('Error running RadSec troubleshooting:', error);
                 showStatus('Error running RadSec troubleshooting', 'error');
+            }
+        }
+
+        // VLAN Policy Engine Functions
+        async function loadVLANs() {
+            try {
+                const response = await fetch('/api/vlans', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const vlanSelect = document.getElementById('policyVlanId');
+                    vlanSelect.innerHTML = '<option value="">Select VLAN...</option>';
+                    
+                    data.vlans.forEach(vlan => {
+                        const option = document.createElement('option');
+                        option.value = vlan.id;
+                        option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name} (${vlan.subnet || 'No subnet'})`;
+                        vlanSelect.appendChild(option);
+                    });
+                } else {
+                    console.error('Failed to load VLANs:', data.message);
+                }
+            } catch (error) {
+                console.error('Error loading VLANs:', error);
+            }
+        }
+
+        function showAddPolicyForm() {
+            document.getElementById('addPolicyForm').style.display = 'block';
+            loadVLANs();
+        }
+
+        function hideAddPolicyForm() {
+            document.getElementById('addPolicyForm').style.display = 'none';
+            document.getElementById('addPolicyFormElement').reset();
+        }
+
+        async function createVLANPolicy() {
+            const form = document.getElementById('addPolicyFormElement');
+            const formData = new FormData(form);
+            
+            try {
+                showStatus('Creating VLAN policy...', 'loading');
+                
+                // Parse JSON fields
+                const conditions = formData.get('conditions') || '{}';
+                const radiusAttributes = formData.get('radiusAttributes') || '{}';
+                
+                const policyData = {
+                    policy_name: formData.get('policyName'),
+                    description: formData.get('description'),
+                    priority: parseInt(formData.get('priority')),
+                    vlan_id: formData.get('vlanId') || null,
+                    conditions: JSON.parse(conditions),
+                    radius_attributes: JSON.parse(radiusAttributes),
+                    allow_access: formData.get('allowAccess') === 'true',
+                    reject_reason: formData.get('rejectReason') || null
+                };
+                
+                const response = await fetch('/api/vlan-policies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(policyData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('VLAN policy created successfully', 'success');
+                    hideAddPolicyForm();
+                    loadVLANPolicies();
+                } else {
+                    showStatus(result.message || 'Failed to create VLAN policy', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating VLAN policy:', error);
+                showStatus('Error creating VLAN policy: Invalid JSON in conditions or attributes', 'error');
+            }
+        }
+
+        async function loadVLANPolicies() {
+            try {
+                const response = await fetch('/api/vlan-policies', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const container = document.getElementById('vlanPoliciesList');
+                    container.innerHTML = '';
+                    
+                    if (data.policies.length === 0) {
+                        container.innerHTML = '<p>No VLAN policies configured</p>';
+                        return;
+                    }
+                    
+                    data.policies.forEach(policy => {
+                        const policyDiv = document.createElement('div');
+                        policyDiv.className = 'policy-item';
+                        policyDiv.innerHTML = `
+                            <div class="policy-header">
+                                <h4>${policy.policy_name} ${policy.is_active ? '' : '(Inactive)'}</h4>
+                                <span class="policy-priority">Priority: ${policy.priority}</span>
+                            </div>
+                            <div class="policy-details">
+                                <p><strong>Description:</strong> ${policy.description || 'No description'}</p>
+                                <p><strong>VLAN:</strong> ${policy.vlan_name ? `${policy.vlan_number} - ${policy.vlan_name}` : 'No VLAN assigned'}</p>
+                                <p><strong>Conditions:</strong> <code>${JSON.stringify(policy.conditions)}</code></p>
+                                <p><strong>RADIUS Attributes:</strong> <code>${JSON.stringify(policy.radius_attributes)}</code></p>
+                                <p><strong>Access:</strong> ${policy.allow_access ? 'Allow' : 'Deny'} ${!policy.allow_access && policy.reject_reason ? `(${policy.reject_reason})` : ''}</p>
+                            </div>
+                            <div class="policy-actions">
+                                <button onclick="togglePolicy(${policy.id}, ${!policy.is_active})" class="btn ${policy.is_active ? 'btn-warning' : 'btn-success'}">
+                                    ${policy.is_active ? 'Disable' : 'Enable'}
+                                </button>
+                                <button onclick="deleteVLANPolicy(${policy.id})" class="btn btn-danger">Delete</button>
+                            </div>
+                        `;
+                        container.appendChild(policyDiv);
+                    });
+                } else {
+                    console.error('Failed to load VLAN policies:', data.message);
+                    document.getElementById('vlanPoliciesList').innerHTML = '<p>Failed to load VLAN policies</p>';
+                }
+            } catch (error) {
+                console.error('Error loading VLAN policies:', error);
+                document.getElementById('vlanPoliciesList').innerHTML = '<p>Error loading VLAN policies</p>';
+            }
+        }
+
+        async function togglePolicy(policyId, enable) {
+            try {
+                showStatus(`${enable ? 'Enabling' : 'Disabling'} VLAN policy...`, 'loading');
+                
+                const response = await fetch(`/api/vlan-policies/${policyId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        is_active: enable
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus(`VLAN policy ${enable ? 'enabled' : 'disabled'} successfully`, 'success');
+                    loadVLANPolicies();
+                } else {
+                    showStatus(result.message || 'Failed to update VLAN policy', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating VLAN policy:', error);
+                showStatus('Error updating VLAN policy', 'error');
+            }
+        }
+
+        async function deleteVLANPolicy(policyId) {
+            if (!confirm('Are you sure you want to delete this VLAN policy? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                showStatus('Deleting VLAN policy...', 'loading');
+                
+                const response = await fetch(`/api/vlan-policies/${policyId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('VLAN policy deleted successfully', 'success');
+                    loadVLANPolicies();
+                } else {
+                    showStatus(result.message || 'Failed to delete VLAN policy', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting VLAN policy:', error);
+                showStatus('Error deleting VLAN policy', 'error');
+            }
+        }
+
+        // IDP-RADIUS Authentication Bridge Functions
+        async function loadIDPRadiusMappings() {
+            try {
+                const response = await fetch('/api/idp-radius-auth', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const container = document.getElementById('idpRadiusMappingsList');
+                    container.innerHTML = '';
+                    
+                    if (data.mappings.length === 0) {
+                        container.innerHTML = '<p>No IDP-RADIUS mappings configured</p>';
+                        return;
+                    }
+                    
+                    data.mappings.forEach(mapping => {
+                        const mappingDiv = document.createElement('div');
+                        mappingDiv.className = 'mapping-item';
+                        mappingDiv.innerHTML = `
+                            <div class="mapping-header">
+                                <h4>${mapping.idp_email} ${mapping.is_active ? '' : '(Inactive)'}</h4>
+                                <span class="mapping-provider">${mapping.idp_provider.toUpperCase()}</span>
+                            </div>
+                            <div class="mapping-details">
+                                <p><strong>RADIUS Username:</strong> ${mapping.radius_username}</p>
+                                <p><strong>Default VLAN:</strong> ${mapping.vlan_name ? `${mapping.vlan_number} - ${mapping.vlan_name}` : 'No default VLAN'}</p>
+                                <p><strong>Certificate CN:</strong> ${mapping.certificate_cn || 'Not configured'}</p>
+                                <p><strong>Last Auth:</strong> ${mapping.last_auth_at ? new Date(mapping.last_auth_at).toLocaleString() : 'Never'}</p>
+                                <p><strong>Auth Count:</strong> ${mapping.auth_count || 0}</p>
+                            </div>
+                            <div class="mapping-actions">
+                                <button onclick="toggleIDPMapping(${mapping.id}, ${!mapping.is_active})" class="btn ${mapping.is_active ? 'btn-warning' : 'btn-success'}">
+                                    ${mapping.is_active ? 'Disable' : 'Enable'}
+                                </button>
+                                <button onclick="regenerateRadiusPassword(${mapping.id})" class="btn btn-info">Regenerate Password</button>
+                                <button onclick="deleteIDPMapping(${mapping.id})" class="btn btn-danger">Delete</button>
+                            </div>
+                        `;
+                        container.appendChild(mappingDiv);
+                    });
+                } else {
+                    console.error('Failed to load IDP-RADIUS mappings:', data.message);
+                    document.getElementById('idpRadiusMappingsList').innerHTML = '<p>Failed to load IDP-RADIUS mappings</p>';
+                }
+            } catch (error) {
+                console.error('Error loading IDP-RADIUS mappings:', error);
+                document.getElementById('idpRadiusMappingsList').innerHTML = '<p>Error loading IDP-RADIUS mappings</p>';
+            }
+        }
+
+        async function toggleIDPMapping(mappingId, enable) {
+            try {
+                showStatus(`${enable ? 'Enabling' : 'Disabling'} IDP-RADIUS mapping...`, 'loading');
+                
+                const response = await fetch(`/api/idp-radius-auth/${mappingId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        is_active: enable
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus(`IDP-RADIUS mapping ${enable ? 'enabled' : 'disabled'} successfully`, 'success');
+                    loadIDPRadiusMappings();
+                } else {
+                    showStatus(result.message || 'Failed to update IDP-RADIUS mapping', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating IDP-RADIUS mapping:', error);
+                showStatus('Error updating IDP-RADIUS mapping', 'error');
+            }
+        }
+
+        async function regenerateRadiusPassword(mappingId) {
+            if (!confirm('Are you sure you want to regenerate the RADIUS password for this user? They will need to reconfigure their devices.')) {
+                return;
+            }
+            
+            try {
+                showStatus('Regenerating RADIUS password...', 'loading');
+                
+                const response = await fetch(`/api/idp-radius-auth/${mappingId}/regenerate-password`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('RADIUS password regenerated successfully', 'success');
+                    // Show the new password to the admin
+                    alert(`New RADIUS password for user: ${result.new_password}\n\nPlease save this password securely. It will not be shown again.`);
+                } else {
+                    showStatus(result.message || 'Failed to regenerate RADIUS password', 'error');
+                }
+            } catch (error) {
+                console.error('Error regenerating RADIUS password:', error);
+                showStatus('Error regenerating RADIUS password', 'error');
+            }
+        }
+
+        async function deleteIDPMapping(mappingId) {
+            if (!confirm('Are you sure you want to delete this IDP-RADIUS mapping? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                showStatus('Deleting IDP-RADIUS mapping...', 'loading');
+                
+                const response = await fetch(`/api/idp-radius-auth/${mappingId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('IDP-RADIUS mapping deleted successfully', 'success');
+                    loadIDPRadiusMappings();
+                } else {
+                    showStatus(result.message || 'Failed to delete IDP-RADIUS mapping', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting IDP-RADIUS mapping:', error);
+                showStatus('Error deleting IDP-RADIUS mapping', 'error');
+            }
+        }
+
+        // IDP-RADIUS Configuration Functions
+        async function loadIdpRadiusConfig() {
+            try {
+                const response = await fetch('/api/idp-radius-config', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    const config = data.config;
+                    document.getElementById('autoProvisioningEnabled').value = config.auto_provisioning_enabled ? 'true' : 'false';
+                    document.getElementById('defaultIdpVlan').value = config.default_vlan_id || '';
+                    document.getElementById('radiusUsernameFormat').value = config.radius_username_format || 'email';
+                    document.getElementById('passwordComplexity').value = config.password_complexity || 'standard';
+                    document.getElementById('customUsernamePattern').value = config.custom_username_pattern || '';
+                }
+            } catch (error) {
+                console.error('Error loading IDP-RADIUS config:', error);
+            }
+        }
+
+        async function saveIdpRadiusConfig() {
+            try {
+                showStatus('Saving IDP-RADIUS configuration...', 'loading');
+                
+                const config = {
+                    auto_provisioning_enabled: document.getElementById('autoProvisioningEnabled').value === 'true',
+                    default_vlan_id: document.getElementById('defaultIdpVlan').value || null,
+                    radius_username_format: document.getElementById('radiusUsernameFormat').value,
+                    password_complexity: document.getElementById('passwordComplexity').value,
+                    custom_username_pattern: document.getElementById('customUsernamePattern').value
+                };
+                
+                const response = await fetch('/api/idp-radius-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('IDP-RADIUS configuration saved successfully', 'success');
+                } else {
+                    showStatus(result.message || 'Failed to save IDP-RADIUS configuration', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving IDP-RADIUS config:', error);
+                showStatus('Error saving IDP-RADIUS configuration', 'error');
+            }
+        }
+
+        async function testIdpRadiusConfig() {
+            try {
+                showStatus('Testing IDP-RADIUS configuration...', 'loading');
+                
+                const response = await fetch('/api/idp-radius-config/test', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('IDP-RADIUS configuration test completed successfully', 'success');
+                    alert(`Test Results:\n\n${result.test_results.join('\n')}`);
+                } else {
+                    showStatus(result.message || 'IDP-RADIUS configuration test failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error testing IDP-RADIUS config:', error);
+                showStatus('Error testing IDP-RADIUS configuration', 'error');
+            }
+        }
+
+        function showManualIdpMappingForm() {
+            document.getElementById('manualIdpMappingForm').style.display = 'block';
+            // Load VLANs for both dropdowns
+            loadVLANsForIdpConfig();
+        }
+
+        function hideManualIdpMappingForm() {
+            document.getElementById('manualIdpMappingForm').style.display = 'none';
+            document.getElementById('manualIdpMappingFormElement').reset();
+        }
+
+        async function loadVLANsForIdpConfig() {
+            try {
+                const response = await fetch('/api/vlans', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    // Update both VLAN dropdowns
+                    const dropdowns = ['defaultIdpVlan', 'idpDefaultVlan'];
+                    
+                    dropdowns.forEach(dropdownId => {
+                        const select = document.getElementById(dropdownId);
+                        if (select) {
+                            const currentValue = select.value;
+                            select.innerHTML = dropdownId === 'defaultIdpVlan' ? 
+                                '<option value="">Select VLAN...</option>' : 
+                                '<option value="">No default VLAN</option>';
+                            
+                            data.vlans.forEach(vlan => {
+                                const option = document.createElement('option');
+                                option.value = vlan.id;
+                                option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name} (${vlan.subnet || 'No subnet'})`;
+                                select.appendChild(option);
+                            });
+                            
+                            // Restore previous selection if it exists
+                            if (currentValue) {
+                                select.value = currentValue;
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading VLANs for IDP config:', error);
+            }
+        }
+
+        async function createManualIdpMapping() {
+            const form = document.getElementById('manualIdpMappingFormElement');
+            const formData = new FormData(form);
+            
+            try {
+                showStatus('Creating IDP-RADIUS mapping...', 'loading');
+                
+                const mappingData = {
+                    idp_email: formData.get('idpEmail'),
+                    idp_provider: formData.get('idpProvider'),
+                    radius_username: formData.get('radiusUsername'),
+                    default_vlan_id: formData.get('idpDefaultVlan') || null,
+                    certificate_cn: formData.get('certificateCn') || null
+                };
+                
+                const response = await fetch('/api/idp-radius-auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(mappingData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showStatus('IDP-RADIUS mapping created successfully', 'success');
+                    hideManualIdpMappingForm();
+                    loadIDPRadiusMappings();
+                    
+                    // Show the generated password
+                    if (result.radius_password) {
+                        alert(`IDP-RADIUS mapping created successfully!\n\nRADIUS Password: ${result.radius_password}\n\nPlease save this password securely. It will not be shown again.`);
+                    }
+                } else {
+                    showStatus(result.message || 'Failed to create IDP-RADIUS mapping', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating IDP-RADIUS mapping:', error);
+                showStatus('Error creating IDP-RADIUS mapping', 'error');
             }
         }
 

@@ -6468,6 +6468,1051 @@ def troubleshoot_radsec():
         logging.error(f"Error troubleshooting RadSec: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ================================
+# VLAN Policy Engine Endpoints
+# ================================
+
+@app.route('/api/vlans', methods=['GET'])
+@auth_required()
+def get_vlans():
+    """Get all VLAN definitions"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, vlan_id, vlan_name, description, subnet, gateway, 
+                   dns_servers, is_active, created_at
+            FROM vlans
+            ORDER BY vlan_id
+        """)
+        
+        vlans = []
+        for row in cursor.fetchall():
+            vlans.append({
+                'id': row['id'],
+                'vlan_id': row['vlan_id'],
+                'vlan_name': row['vlan_name'],
+                'description': row['description'],
+                'subnet': row['subnet'],
+                'gateway': row['gateway'],
+                'dns_servers': row['dns_servers'],
+                'is_active': row['is_active'],
+                'created_at': row['created_at'].isoformat() if row['created_at'] else None
+            })
+        
+        conn.close()
+        return jsonify({'status': 'success', 'vlans': vlans})
+        
+    except Exception as e:
+        logging.error(f"Error getting VLANs: {e}")
+        return jsonify({'error': 'Failed to get VLANs'}), 500
+
+@app.route('/api/vlans', methods=['POST'])
+@auth_required(permission='admin')
+def create_vlan():
+    """Create a new VLAN definition"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('vlan_id') or not data.get('vlan_name'):
+            return jsonify({'error': 'VLAN ID and name are required'}), 400
+            
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO vlans (vlan_id, vlan_name, description, subnet, gateway, dns_servers, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['vlan_id'],
+            data['vlan_name'],
+            data.get('description'),
+            data.get('subnet'),
+            data.get('gateway'),
+            data.get('dns_servers'),
+            data.get('is_active', True)
+        ))
+        
+        vlan_id = cursor.fetchone()['id']
+        conn.commit()
+        conn.close()
+        
+        log_operation('vlan_created', {'vlan_id': data['vlan_id'], 'vlan_name': data['vlan_name']})
+        
+        return jsonify({'status': 'success', 'message': 'VLAN created successfully', 'id': vlan_id})
+        
+    except Exception as e:
+        logging.error(f"Error creating VLAN: {e}")
+        return jsonify({'error': 'Failed to create VLAN'}), 500
+
+@app.route('/api/vlan-policies', methods=['GET'])
+@auth_required()
+def get_vlan_policies():
+    """Get all VLAN assignment policies"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT vp.*, v.vlan_name, v.vlan_id as vlan_number
+            FROM vlan_policies vp
+            LEFT JOIN vlans v ON v.id = vp.vlan_id
+            ORDER BY vp.priority, vp.policy_name
+        """)
+        
+        policies = []
+        for row in cursor.fetchall():
+            policies.append({
+                'id': row['id'],
+                'policy_name': row['policy_name'],
+                'description': row['description'],
+                'priority': row['priority'],
+                'is_active': row['is_active'],
+                'conditions': row['conditions'],
+                'vlan_id': row['vlan_id'],
+                'vlan_name': row['vlan_name'],
+                'vlan_number': row['vlan_number'],
+                'radius_attributes': row['radius_attributes'],
+                'allow_access': row['allow_access'],
+                'reject_reason': row['reject_reason'],
+                'created_at': row['created_at'].isoformat() if row['created_at'] else None
+            })
+        
+        conn.close()
+        return jsonify({'status': 'success', 'policies': policies})
+        
+    except Exception as e:
+        logging.error(f"Error getting VLAN policies: {e}")
+        return jsonify({'error': 'Failed to get VLAN policies'}), 500
+
+@app.route('/api/vlan-policies', methods=['POST'])
+@auth_required(permission='admin')
+def create_vlan_policy():
+    """Create a new VLAN assignment policy"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('policy_name'):
+            return jsonify({'error': 'Policy name is required'}), 400
+            
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        
+        # Get current user ID
+        user_id = None
+        if session.get('user_id'):
+            user_id = session['user_id']
+            
+        cursor.execute("""
+            INSERT INTO vlan_policies 
+            (policy_name, description, priority, is_active, conditions, 
+             vlan_id, radius_attributes, allow_access, reject_reason, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['policy_name'],
+            data.get('description'),
+            data.get('priority', 100),
+            data.get('is_active', True),
+            json.dumps(data.get('conditions', {})),
+            data.get('vlan_id'),
+            json.dumps(data.get('radius_attributes', {})),
+            data.get('allow_access', True),
+            data.get('reject_reason'),
+            user_id
+        ))
+        
+        policy_id = cursor.fetchone()['id']
+        conn.commit()
+        conn.close()
+        
+        log_operation('vlan_policy_created', {'policy_name': data['policy_name']})
+        
+        return jsonify({'status': 'success', 'message': 'VLAN policy created successfully', 'id': policy_id})
+        
+    except Exception as e:
+        logging.error(f"Error creating VLAN policy: {e}")
+        return jsonify({'error': 'Failed to create VLAN policy'}), 500
+
+@app.route('/api/vlan-policies/<int:policy_id>', methods=['PUT'])
+@auth_required(permission='admin')
+def update_vlan_policy(policy_id):
+    """Update a VLAN assignment policy"""
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        update_values = []
+        
+        if 'policy_name' in data:
+            update_fields.append('policy_name = %s')
+            update_values.append(data['policy_name'])
+        if 'description' in data:
+            update_fields.append('description = %s')
+            update_values.append(data['description'])
+        if 'priority' in data:
+            update_fields.append('priority = %s')
+            update_values.append(data['priority'])
+        if 'is_active' in data:
+            update_fields.append('is_active = %s')
+            update_values.append(data['is_active'])
+        if 'conditions' in data:
+            update_fields.append('conditions = %s')
+            update_values.append(json.dumps(data['conditions']))
+        if 'vlan_id' in data:
+            update_fields.append('vlan_id = %s')
+            update_values.append(data['vlan_id'])
+        if 'radius_attributes' in data:
+            update_fields.append('radius_attributes = %s')
+            update_values.append(json.dumps(data['radius_attributes']))
+        if 'allow_access' in data:
+            update_fields.append('allow_access = %s')
+            update_values.append(data['allow_access'])
+        if 'reject_reason' in data:
+            update_fields.append('reject_reason = %s')
+            update_values.append(data['reject_reason'])
+            
+        if not update_fields:
+            return jsonify({'error': 'No fields to update'}), 400
+            
+        update_values.append(policy_id)
+        
+        cursor.execute(f"""
+            UPDATE vlan_policies 
+            SET {', '.join(update_fields)}
+            WHERE id = %s
+        """, update_values)
+        
+        conn.commit()
+        conn.close()
+        
+        log_operation('vlan_policy_updated', {'policy_id': policy_id})
+        
+        return jsonify({'status': 'success', 'message': 'VLAN policy updated successfully'})
+        
+    except Exception as e:
+        logging.error(f"Error updating VLAN policy: {e}")
+        return jsonify({'error': 'Failed to update VLAN policy'}), 500
+
+@app.route('/api/vlan-policies/<int:policy_id>', methods=['DELETE'])
+@auth_required(permission='admin')
+def delete_vlan_policy(policy_id):
+    """Delete a VLAN assignment policy"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM vlan_policies WHERE id = %s", (policy_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        log_operation('vlan_policy_deleted', {'policy_id': policy_id})
+        
+        return jsonify({'status': 'success', 'message': 'VLAN policy deleted successfully'})
+        
+    except Exception as e:
+        logging.error(f"Error deleting VLAN policy: {e}")
+        return jsonify({'error': 'Failed to delete VLAN policy'}), 500
+
+@app.route('/api/user-vlan-assignments', methods=['GET'])
+@auth_required()
+def get_user_vlan_assignments():
+    """Get all user-VLAN static assignments"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT uva.*, v.vlan_name, v.vlan_id as vlan_number, u.username as assigned_to
+            FROM user_vlan_assignments uva
+            LEFT JOIN vlans v ON v.id = uva.vlan_id
+            LEFT JOIN users u ON u.id = uva.user_id
+            ORDER BY uva.created_at DESC
+        """)
+        
+        assignments = []
+        for row in cursor.fetchall():
+            assignments.append({
+                'id': row['id'],
+                'user_id': row['user_id'],
+                'username': row['username'] or row['assigned_to'],
+                'vlan_id': row['vlan_id'],
+                'vlan_name': row['vlan_name'],
+                'vlan_number': row['vlan_number'],
+                'expires_at': row['expires_at'].isoformat() if row['expires_at'] else None,
+                'notes': row['notes'],
+                'created_at': row['created_at'].isoformat() if row['created_at'] else None
+            })
+        
+        conn.close()
+        return jsonify({'status': 'success', 'assignments': assignments})
+        
+    except Exception as e:
+        logging.error(f"Error getting user VLAN assignments: {e}")
+        return jsonify({'error': 'Failed to get user VLAN assignments'}), 500
+
+@app.route('/api/user-vlan-assignments', methods=['POST'])
+@auth_required(permission='admin')
+def create_user_vlan_assignment():
+    """Create a static user-VLAN assignment"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('vlan_id'):
+            return jsonify({'error': 'VLAN ID is required'}), 400
+        if not data.get('username') and not data.get('user_id'):
+            return jsonify({'error': 'Username or user ID is required'}), 400
+            
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        
+        # Get current user ID for created_by
+        created_by = session.get('user_id')
+            
+        cursor.execute("""
+            INSERT INTO user_vlan_assignments 
+            (user_id, username, vlan_id, expires_at, notes, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.get('user_id'),
+            data.get('username'),
+            data['vlan_id'],
+            data.get('expires_at'),
+            data.get('notes'),
+            created_by
+        ))
+        
+        assignment_id = cursor.fetchone()['id']
+        conn.commit()
+        conn.close()
+        
+        log_operation('user_vlan_assignment_created', {
+            'username': data.get('username'),
+            'vlan_id': data['vlan_id']
+        })
+        
+        return jsonify({'status': 'success', 'message': 'User VLAN assignment created successfully', 'id': assignment_id})
+        
+    except Exception as e:
+        logging.error(f"Error creating user VLAN assignment: {e}")
+        return jsonify({'error': 'Failed to create user VLAN assignment'}), 500
+
+# ================================
+# IDP-RADIUS Authentication Bridge
+# ================================
+
+@app.route('/api/idp-radius-auth', methods=['GET'])
+@auth_required()
+def get_idp_radius_mappings():
+    """Get all IDP-RADIUS authentication mappings"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ira.*, v.vlan_name, v.vlan_id as vlan_number
+            FROM idp_radius_auth ira
+            LEFT JOIN vlans v ON v.id = ira.default_vlan_id
+            ORDER BY ira.created_at DESC
+        """)
+        
+        mappings = []
+        for row in cursor.fetchall():
+            mappings.append({
+                'id': row['id'],
+                'idp_user_id': row['idp_user_id'],
+                'idp_email': row['idp_email'],
+                'idp_provider': row['idp_provider'],
+                'radius_username': row['radius_username'],
+                'certificate_cn': row['certificate_cn'],
+                'default_vlan_id': row['default_vlan_id'],
+                'vlan_name': row['vlan_name'],
+                'vlan_number': row['vlan_number'],
+                'is_active': row['is_active'],
+                'last_auth_at': row['last_auth_at'].isoformat() if row['last_auth_at'] else None,
+                'auth_count': row['auth_count'],
+                'created_at': row['created_at'].isoformat() if row['created_at'] else None
+            })
+        
+        conn.close()
+        return jsonify({'status': 'success', 'mappings': mappings})
+        
+    except Exception as e:
+        logging.error(f"Error getting IDP-RADIUS mappings: {e}")
+        return jsonify({'error': 'Failed to get IDP-RADIUS mappings'}), 500
+
+@app.route('/api/idp-radius-auth/validate', methods=['POST'])
+def validate_idp_radius_auth():
+    """Validate IDP credentials for RADIUS authentication"""
+    try:
+        data = request.get_json()
+        
+        # Get authentication method
+        auth_method = data.get('auth_method')  # 'google', 'microsoft', or 'username_password'
+        
+        if auth_method in ['google', 'microsoft']:
+            # IDP-based authentication
+            idp_token = data.get('idp_token')
+            if not idp_token:
+                return jsonify({'error': 'IDP token required'}), 400
+                
+            # Validate IDP token and get user info
+            if idp_auth_manager:
+                if auth_method == 'google':
+                    user_info = idp_auth_manager.validate_google_token(idp_token)
+                else:
+                    user_info = idp_auth_manager.validate_microsoft_token(idp_token)
+                    
+                if not user_info:
+                    return jsonify({'error': 'Invalid IDP token'}), 401
+                    
+                # Check if user has IDP-RADIUS mapping
+                conn = get_db_connection()
+                if not conn:
+                    return jsonify({'error': 'Database connection failed'}), 500
+                    
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT ira.*, v.vlan_id as vlan_number
+                    FROM idp_radius_auth ira
+                    LEFT JOIN vlans v ON v.id = ira.default_vlan_id
+                    WHERE ira.idp_email = %s 
+                        AND ira.idp_provider = %s 
+                        AND ira.is_active = true
+                """, (user_info['email'], auth_method))
+                
+                mapping = cursor.fetchone()
+                
+                if not mapping:
+                    # Auto-create mapping for new IDP user
+                    radius_username = user_info['email'].split('@')[0]
+                    radius_password = generate_secure_password()
+                    
+                    cursor.execute("""
+                        INSERT INTO idp_radius_auth 
+                        (idp_user_id, idp_email, idp_provider, radius_username, 
+                         radius_password_hash, is_active)
+                        VALUES (%s, %s, %s, %s, %s, true)
+                        RETURNING *
+                    """, (
+                        user_info['id'],
+                        user_info['email'],
+                        auth_method,
+                        radius_username,
+                        hashlib.sha256(radius_password.encode()).hexdigest()
+                    ))
+                    
+                    mapping = cursor.fetchone()
+                    conn.commit()
+                    
+                    log_operation('idp_radius_mapping_created', {
+                        'email': user_info['email'],
+                        'provider': auth_method
+                    })
+                
+                # Update last authentication
+                cursor.execute("""
+                    UPDATE idp_radius_auth 
+                    SET last_auth_at = NOW(), auth_count = auth_count + 1
+                    WHERE id = %s
+                """, (mapping['id'],))
+                
+                conn.commit()
+                conn.close()
+                
+                # Return RADIUS credentials and VLAN assignment
+                return jsonify({
+                    'status': 'success',
+                    'radius_username': mapping['radius_username'],
+                    'vlan_id': mapping['vlan_number'] if mapping['default_vlan_id'] else None,
+                    'auth_method': 'idp',
+                    'provider': auth_method
+                })
+                
+            else:
+                return jsonify({'error': 'IDP authentication not configured'}), 500
+                
+        else:
+            # Traditional username/password authentication
+            username = data.get('username')
+            password = data.get('password')
+            
+            if not username or not password:
+                return jsonify({'error': 'Username and password required'}), 400
+                
+            # Validate against local database
+            user = authenticate_user(username, password)
+            if not user:
+                return jsonify({'error': 'Invalid credentials'}), 401
+                
+            # Get VLAN assignment for user
+            conn = get_db_connection()
+            if not conn:
+                return jsonify({'error': 'Database connection failed'}), 500
+                
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT v.vlan_id
+                FROM user_vlan_assignments uva
+                JOIN vlans v ON v.id = uva.vlan_id
+                WHERE uva.user_id = %s
+                    AND (uva.expires_at IS NULL OR uva.expires_at > NOW())
+                LIMIT 1
+            """, (user['id'],))
+            
+            vlan_assignment = cursor.fetchone()
+            conn.close()
+            
+            return jsonify({
+                'status': 'success',
+                'radius_username': username,
+                'vlan_id': vlan_assignment['vlan_id'] if vlan_assignment else None,
+                'auth_method': 'local'
+            })
+            
+    except Exception as e:
+        logging.error(f"Error validating IDP-RADIUS auth: {e}")
+        return jsonify({'error': 'Authentication failed'}), 500
+
+@app.route('/api/vlan-assignment-log', methods=['GET'])
+@auth_required()
+def get_vlan_assignment_log():
+    """Get VLAN assignment audit log"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        
+        # Get query parameters for filtering
+        username = request.args.get('username')
+        limit = request.args.get('limit', 100, type=int)
+        
+        query = """
+            SELECT val.*, v.vlan_name
+            FROM vlan_assignment_log val
+            LEFT JOIN vlans v ON v.vlan_id = val.assigned_vlan_id
+        """
+        
+        params = []
+        if username:
+            query += " WHERE val.username = %s"
+            params.append(username)
+            
+        query += " ORDER BY val.timestamp DESC LIMIT %s"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        
+        logs = []
+        for row in cursor.fetchall():
+            logs.append({
+                'id': row['id'],
+                'username': row['username'],
+                'auth_type': row['auth_type'],
+                'assigned_vlan_id': row['assigned_vlan_id'],
+                'vlan_name': row['vlan_name'],
+                'assignment_reason': row['assignment_reason'],
+                'nas_ip': row['nas_ip'],
+                'nas_port': row['nas_port'],
+                'calling_station_id': row['calling_station_id'],
+                'success': row['success'],
+                'error_message': row['error_message'],
+                'timestamp': row['timestamp'].isoformat() if row['timestamp'] else None
+            })
+        
+        conn.close()
+        return jsonify({'status': 'success', 'logs': logs})
+        
+    except Exception as e:
+        logging.error(f"Error getting VLAN assignment log: {e}")
+        return jsonify({'error': 'Failed to get VLAN assignment log'}), 500
+
+def generate_secure_password(length=16):
+    """Generate a secure random password"""
+    import string
+    import secrets
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+# VLAN Assignment API for RADIUS Integration
+@app.route('/api/vlan-assignment', methods=['POST'])
+def get_vlan_assignment():
+    """Get VLAN assignment for RADIUS authentication"""
+    try:
+        data = request.get_json() or {}
+        username = data.get('username')
+        auth_type = data.get('auth_type', 'unknown')
+        nas_ip = data.get('nas_ip')
+        nas_port = data.get('nas_port')
+        calling_station_id = data.get('calling_station_id')
+        certificate_cn = data.get('certificate_cn')
+        
+        if not username:
+            return jsonify({'status': 'error', 'message': 'Username is required'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Prepare attributes for policy matching
+        attributes = {
+            'username': username,
+            'auth_type': auth_type,
+            'nas_ip': nas_ip,
+            'nas_port': nas_port,
+            'calling_station_id': calling_station_id,
+            'certificate_cn': certificate_cn
+        }
+        
+        # 1. Check static user assignment first (highest priority)
+        cursor.execute("""
+            SELECT v.vlan_id, v.vlan_name, 'static' as reason, '{}'::jsonb as attrs
+            FROM user_vlan_assignments uva
+            JOIN vlans v ON v.id = uva.vlan_id
+            WHERE (uva.username = %s OR uva.user_id = (SELECT id FROM users WHERE username = %s))
+                AND (uva.expires_at IS NULL OR uva.expires_at > NOW())
+                AND v.is_active = true
+            ORDER BY uva.created_at DESC
+            LIMIT 1
+        """, [username, username])
+        
+        result = cursor.fetchone()
+        if result:
+            return jsonify({
+                'status': 'success',
+                'vlan_id': result[0],
+                'vlan_name': result[1],
+                'assignment_reason': result[2],
+                'radius_attributes': result[3] or {}
+            })
+        
+        # 2. Check IDP-RADIUS mapping if auth_type indicates IDP authentication
+        if auth_type in ['idp-google', 'idp-microsoft'] or (certificate_cn and '@' in certificate_cn):
+            cursor.execute("""
+                SELECT v.vlan_id, v.vlan_name, 'idp-default' as reason, '{}'::jsonb as attrs
+                FROM idp_radius_auth ira
+                JOIN vlans v ON v.id = ira.default_vlan_id
+                WHERE ira.radius_username = %s
+                    AND ira.is_active = true
+                    AND v.is_active = true
+                LIMIT 1
+            """, [username])
+            
+            result = cursor.fetchone()
+            if result:
+                # Update last auth timestamp
+                cursor.execute("""
+                    UPDATE idp_radius_auth 
+                    SET last_auth_at = NOW(), auth_count = auth_count + 1 
+                    WHERE radius_username = %s
+                """, [username])
+                conn.commit()
+                
+                return jsonify({
+                    'status': 'success',
+                    'vlan_id': result[0],
+                    'vlan_name': result[1],
+                    'assignment_reason': result[2],
+                    'radius_attributes': result[3] or {}
+                })
+        
+        # 3. Check policy-based assignment
+        cursor.execute("""
+            SELECT vp.id, v.vlan_id, v.vlan_name, 
+                   'policy:' || vp.policy_name as reason,
+                   vp.radius_attributes, vp.conditions,
+                   vp.priority, vp.allow_access, vp.reject_reason
+            FROM vlan_policies vp
+            JOIN vlans v ON v.id = vp.vlan_id
+            WHERE vp.is_active = true
+                AND v.is_active = true
+            ORDER BY vp.priority ASC, vp.id ASC
+        """)
+        
+        policies = cursor.fetchall()
+        
+        for policy in policies:
+            policy_id, vlan_id, vlan_name, reason, radius_attrs, conditions, priority, allow_access, reject_reason = policy
+            
+            # Check if policy conditions match
+            if match_policy_conditions(conditions, attributes):
+                if not allow_access:
+                    return jsonify({
+                        'status': 'error',
+                        'message': reject_reason or 'Access denied by policy',
+                        'assignment_reason': reason
+                    }), 403
+                
+                return jsonify({
+                    'status': 'success',
+                    'vlan_id': vlan_id,
+                    'vlan_name': vlan_name,
+                    'assignment_reason': reason,
+                    'radius_attributes': radius_attrs or {}
+                })
+        
+        # 4. Return default VLAN if no policies match
+        cursor.execute("""
+            SELECT vlan_id, vlan_name
+            FROM vlans
+            WHERE vlan_id = 1 AND is_active = true
+            LIMIT 1
+        """)
+        
+        result = cursor.fetchone()
+        if result:
+            return jsonify({
+                'status': 'success',
+                'vlan_id': result[0],
+                'vlan_name': result[1],
+                'assignment_reason': 'default',
+                'radius_attributes': {}
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'No default VLAN configured'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error in VLAN assignment: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/vlan-assignment-log', methods=['POST'])
+def log_vlan_assignment():
+    """Log VLAN assignment audit entry"""
+    try:
+        data = request.get_json() or {}
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Log the assignment
+        cursor.execute("""
+            INSERT INTO vlan_assignment_log (
+                username, auth_type, assigned_vlan_id, assignment_reason,
+                nas_ip, nas_port, calling_station_id, success, error_message
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, [
+            data.get('username'),
+            data.get('auth_type'),
+            data.get('assigned_vlan_id') if data.get('assigned_vlan_id') else None,
+            data.get('assignment_reason'),
+            data.get('nas_ip'),
+            data.get('nas_port'),
+            data.get('calling_station_id'),
+            data.get('success', False),
+            data.get('error_message')
+        ])
+        
+        conn.commit()
+        return jsonify({'status': 'success', 'message': 'Assignment logged'})
+        
+    except Exception as e:
+        logger.error(f"Error logging VLAN assignment: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Failed to log assignment'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+def match_policy_conditions(conditions, attributes):
+    """Match policy conditions against authentication attributes"""
+    if not conditions:
+        return True
+    
+    try:
+        # Convert PostgreSQL JSONB to Python dict if needed
+        if isinstance(conditions, str):
+            import json
+            conditions = json.loads(conditions)
+        
+        for key, expected_value in conditions.items():
+            actual_value = attributes.get(key)
+            
+            # Handle different condition types
+            if isinstance(expected_value, list):
+                # Multiple possible values or patterns
+                matched = False
+                for pattern in expected_value:
+                    if match_value(actual_value, pattern):
+                        matched = True
+                        break
+                if not matched:
+                    return False
+            else:
+                # Single value or pattern
+                if not match_value(actual_value, expected_value):
+                    return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error matching policy conditions: {str(e)}")
+        return False
+
+def match_value(actual, expected):
+    """Match a single value against expected pattern"""
+    if actual is None:
+        return expected is None
+    
+    actual_str = str(actual).lower()
+    expected_str = str(expected).lower()
+    
+    # Handle wildcard patterns
+    if '*' in expected_str:
+        import re
+        pattern = expected_str.replace('*', '.*')
+        return bool(re.match(f'^{pattern}$', actual_str))
+    
+    # Handle boolean values
+    if isinstance(expected, bool):
+        return bool(actual) == expected
+    
+    # Exact match
+    return actual_str == expected_str
+
+# IDP-RADIUS Configuration Endpoints
+@app.route('/api/idp-radius-config', methods=['GET'])
+@auth_required(permission='admin')
+def get_idp_radius_config():
+    """Get IDP-RADIUS configuration settings"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Get configuration from system_config table
+        cursor.execute("""
+            SELECT config_key, config_value 
+            FROM system_config 
+            WHERE config_key LIKE 'idp_radius_%'
+        """)
+        
+        config_rows = cursor.fetchall()
+        config = {}
+        
+        # Default values
+        defaults = {
+            'auto_provisioning_enabled': False,
+            'default_vlan_id': None,
+            'radius_username_format': 'email',
+            'password_complexity': 'standard',
+            'custom_username_pattern': ''
+        }
+        
+        # Parse configuration
+        for key, value in config_rows:
+            config_key = key.replace('idp_radius_', '')
+            try:
+                # Handle JSON values
+                config[config_key] = json.loads(value) if value else defaults.get(config_key)
+            except json.JSONDecodeError:
+                config[config_key] = value
+        
+        # Apply defaults for missing keys
+        for key, default_value in defaults.items():
+            if key not in config:
+                config[key] = default_value
+        
+        return jsonify({
+            'status': 'success',
+            'config': config
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting IDP-RADIUS config: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/idp-radius-config', methods=['POST'])
+@auth_required(permission='admin')
+def save_idp_radius_config():
+    """Save IDP-RADIUS configuration settings"""
+    try:
+        data = request.get_json() or {}
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Configuration mapping
+        config_mapping = {
+            'auto_provisioning_enabled': data.get('auto_provisioning_enabled', False),
+            'default_vlan_id': data.get('default_vlan_id'),
+            'radius_username_format': data.get('radius_username_format', 'email'),
+            'password_complexity': data.get('password_complexity', 'standard'),
+            'custom_username_pattern': data.get('custom_username_pattern', '')
+        }
+        
+        # Save each configuration item
+        for key, value in config_mapping.items():
+            config_key = f'idp_radius_{key}'
+            config_value = json.dumps(value) if value is not None else None
+            
+            cursor.execute("""
+                INSERT INTO system_config (config_key, config_value, created_by)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (config_key) DO UPDATE SET
+                    config_value = EXCLUDED.config_value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, [config_key, config_value, session.get('user_id')])
+        
+        conn.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'IDP-RADIUS configuration saved successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error saving IDP-RADIUS config: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/idp-radius-config/test', methods=['POST'])
+@auth_required(permission='admin')
+def test_idp_radius_config():
+    """Test IDP-RADIUS configuration"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        test_results = []
+        
+        # Test 1: Check if auto-provisioning is enabled
+        cursor.execute("""
+            SELECT config_value 
+            FROM system_config 
+            WHERE config_key = 'idp_radius_auto_provisioning_enabled'
+        """)
+        result = cursor.fetchone()
+        auto_provisioning = json.loads(result[0]) if result and result[0] else False
+        test_results.append(f"✓ Auto-provisioning: {'Enabled' if auto_provisioning else 'Disabled'}")
+        
+        # Test 2: Check default VLAN configuration
+        cursor.execute("""
+            SELECT sc.config_value, v.vlan_id, v.vlan_name
+            FROM system_config sc
+            LEFT JOIN vlans v ON v.id = CAST(sc.config_value::text AS INTEGER)
+            WHERE sc.config_key = 'idp_radius_default_vlan_id'
+        """)
+        result = cursor.fetchone()
+        if result and result[0] and result[0] != 'null':
+            test_results.append(f"✓ Default VLAN: {result[1]} - {result[2]}")
+        else:
+            test_results.append("! Default VLAN: Not configured (will use system default)")
+        
+        # Test 3: Check username format
+        cursor.execute("""
+            SELECT config_value 
+            FROM system_config 
+            WHERE config_key = 'idp_radius_radius_username_format'
+        """)
+        result = cursor.fetchone()
+        username_format = json.loads(result[0]) if result and result[0] else 'email'
+        test_results.append(f"✓ Username format: {username_format}")
+        
+        # Test 4: Check password complexity
+        cursor.execute("""
+            SELECT config_value 
+            FROM system_config 
+            WHERE config_key = 'idp_radius_password_complexity'
+        """)
+        result = cursor.fetchone()
+        password_complexity = json.loads(result[0]) if result and result[0] else 'standard'
+        complexity_lengths = {'standard': 12, 'strong': 16, 'maximum': 24}
+        test_results.append(f"✓ Password complexity: {password_complexity} ({complexity_lengths.get(password_complexity, 12)} characters)")
+        
+        # Test 5: Check existing IDP mappings
+        cursor.execute("SELECT COUNT(*) FROM idp_radius_auth WHERE is_active = true")
+        mapping_count = cursor.fetchone()[0]
+        test_results.append(f"✓ Active IDP mappings: {mapping_count}")
+        
+        # Test 6: Check RADIUS server connectivity (if available)
+        try:
+            radius_url = os.environ.get('CA_MANAGER_URL', 'http://web-interface:5000')
+            test_request = {
+                "username": "test@example.com",
+                "auth_type": "idp-google",
+                "nas_ip": "127.0.0.1"
+            }
+            
+            import requests
+            response = requests.post(f"{radius_url}/api/vlan-assignment", 
+                                   json=test_request, timeout=5)
+            if response.status_code in [200, 403, 404]:  # Any response means API is working
+                test_results.append("✓ VLAN assignment API: Accessible")
+            else:
+                test_results.append("! VLAN assignment API: Unexpected response")
+        except Exception as e:
+            test_results.append("! VLAN assignment API: Not accessible (this is normal if RADIUS server is not running)")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Configuration test completed',
+            'test_results': test_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing IDP-RADIUS config: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Test failed: {str(e)}'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
 # PKI Backup and Restore Endpoints
 @app.route('/api/pki/backup', methods=['POST'])
 @auth_required(permission='admin')
