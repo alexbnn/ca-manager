@@ -5111,6 +5111,9 @@ def generate_idp_certificate():
         
         logger.info(f"Generating certificate for IDP user: {email} from provider: {idp_provider}")
         
+        # Ensure the idp_certificates table exists
+        ensure_idp_certificates_table()
+        
         # First, revoke any existing active certificates for this user
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -5118,7 +5121,7 @@ def generate_idp_certificate():
         cursor.execute("""
             UPDATE idp_certificates 
             SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revocation_reason = 'superseded'
-            WHERE email = %s AND status = 'active'
+            WHERE idp_email = %s AND status = 'active'
         """, (email,))
         
         # Create certificate request using the existing system
