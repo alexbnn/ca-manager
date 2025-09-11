@@ -5107,8 +5107,9 @@ def generate_idp_certificate():
     try:
         email = session.get('username')
         user_name = session.get('user_display_name') or email
+        idp_provider = session.get('idp_provider', 'unknown')
         
-        logger.info(f"Generating certificate for IDP user: {email}")
+        logger.info(f"Generating certificate for IDP user: {email} from provider: {idp_provider}")
         
         # First, revoke any existing active certificates for this user
         conn = get_db_connection()
@@ -5153,7 +5154,7 @@ def generate_idp_certificate():
             'default',
             False,   # approval_required - auto-approve for IDP users
             'approved',  # status
-            json.dumps({'idp_generated': True, 'provider': 'microsoft'}),
+            json.dumps({'idp_generated': True, 'provider': idp_provider}),
             True,    # email_verified
             None,    # verification_token
             datetime.utcnow(),  # verification_completed_at
@@ -5216,9 +5217,12 @@ def generate_idp_certificate():
                 ON CONFLICT (email) DO UPDATE SET 
                     name = EXCLUDED.name,
                     last_login = CURRENT_TIMESTAMP
-            """, (email, 'microsoft', email, user_name))
+            """, (email, idp_provider, email, user_name))
             
             # Store in idp_certificates table for IDP portal display
+            # Get the issuer from the certificate object
+            issuer_cn = cert_obj.issuer.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value if cert_obj.issuer.get_attributes_for_oid(x509.NameOID.COMMON_NAME) else 'CA Manager'
+            
             cursor.execute("""
                 INSERT INTO idp_certificates (
                     idp_email, certificate_cn, idp_provider, certificate_pem, private_key_encrypted,
@@ -5226,10 +5230,10 @@ def generate_idp_certificate():
                     certificate_subject, certificate_issuer, created_at
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             """, (
-                email, email, 'microsoft', cert_row['certificate_pem'], 
+                email, email, idp_provider, cert_row['certificate_pem'], 
                 cert_row['private_key_pem'], serial_number, 
                 valid_from, valid_until, 'active', email,
-                f"CN={email}", f"CN={cert_row.get('issuer', 'CA Manager')}"
+                f"CN={email}", f"CN={issuer_cn}"
             ))
             conn.commit()
         else:
