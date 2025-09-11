@@ -7556,9 +7556,12 @@ def test_idp_radius_auth():
         test_results = []
         
         # Test 1: Check if there are active IDP mappings
-        cursor.execute("SELECT COUNT(*) FROM idp_radius_auth WHERE is_active = true")
-        mapping_count = cursor.fetchone()[0]
-        test_results.append(f"✓ Active IDP-RADIUS mappings: {mapping_count}")
+        try:
+            cursor.execute("SELECT COUNT(*) FROM idp_radius_auth WHERE is_active = true")
+            mapping_count = cursor.fetchone()[0]
+            test_results.append(f"✓ Active IDP-RADIUS mappings: {mapping_count}")
+        except Exception as e:
+            test_results.append(f"! IDP-RADIUS table error: {str(e)}")
         
         # Test 2: Test VLAN assignment API
         try:
@@ -7582,19 +7585,28 @@ def test_idp_radius_auth():
             test_results.append(f"! VLAN assignment API: Error - {str(e)}")
         
         # Test 3: Check database connectivity
-        cursor.execute("SELECT COUNT(*) FROM vlans WHERE is_active = true")
-        vlan_count = cursor.fetchone()[0]
-        test_results.append(f"✓ Active VLANs available: {vlan_count}")
+        try:
+            cursor.execute("SELECT COUNT(*) FROM vlans WHERE is_active = true")
+            vlan_count = cursor.fetchone()[0]
+            test_results.append(f"✓ Active VLANs available: {vlan_count}")
+        except Exception as e:
+            test_results.append(f"! VLAN table error: {str(e)}")
         
         # Test 4: Check policy engine
-        cursor.execute("SELECT COUNT(*) FROM vlan_policies WHERE is_active = true")
-        policy_count = cursor.fetchone()[0]
-        test_results.append(f"✓ Active VLAN policies: {policy_count}")
+        try:
+            cursor.execute("SELECT COUNT(*) FROM vlan_policies WHERE is_active = true")
+            policy_count = cursor.fetchone()[0]
+            test_results.append(f"✓ Active VLAN policies: {policy_count}")
+        except Exception as e:
+            test_results.append(f"! VLAN policies table error: {str(e)}")
         
         # Test 5: Check system configuration
-        cursor.execute("SELECT COUNT(*) FROM system_config WHERE config_key LIKE 'idp_radius_%'")
-        config_count = cursor.fetchone()[0]
-        test_results.append(f"✓ IDP-RADIUS configuration entries: {config_count}")
+        try:
+            cursor.execute("SELECT COUNT(*) FROM system_config WHERE config_key LIKE 'idp_radius_%'")
+            config_count = cursor.fetchone()[0]
+            test_results.append(f"✓ IDP-RADIUS configuration entries: {config_count}")
+        except Exception as e:
+            test_results.append(f"! System config table error: {str(e)}")
         
         return jsonify({
             'status': 'success',

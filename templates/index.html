@@ -9149,14 +9149,21 @@ Dependencies:
                 const data = await response.json();
                 
                 if (response.ok && data.status === 'success') {
-                    const vlanSelect = document.getElementById('policyVlanId');
-                    vlanSelect.innerHTML = '<option value="">Select VLAN...</option>';
+                    // Update all VLAN select elements that exist
+                    const vlanSelects = ['policyVLAN', 'policyVlanId', 'defaultIdpVlan', 'idpDefaultVlan'];
                     
-                    data.vlans.forEach(vlan => {
-                        const option = document.createElement('option');
-                        option.value = vlan.id;
-                        option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name} (${vlan.subnet || 'No subnet'})`;
-                        vlanSelect.appendChild(option);
+                    vlanSelects.forEach(selectId => {
+                        const vlanSelect = document.getElementById(selectId);
+                        if (vlanSelect) {
+                            vlanSelect.innerHTML = '<option value="">Select VLAN...</option>';
+                            
+                            data.vlans.forEach(vlan => {
+                                const option = document.createElement('option');
+                                option.value = vlan.id;
+                                option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name} (${vlan.subnet || 'No subnet'})`;
+                                vlanSelect.appendChild(option);
+                            });
+                        }
                     });
                 } else {
                     console.error('Failed to load VLANs:', data.message);
@@ -9636,6 +9643,43 @@ Dependencies:
             } catch (error) {
                 console.error('Error creating IDP-RADIUS mapping:', error);
                 showStatus('Error creating IDP-RADIUS mapping', 'error');
+            }
+        }
+
+        // User VLAN Assignment Functions
+        async function loadUserVLANAssignments() {
+            try {
+                const response = await fetch('/api/user-vlan-assignments', {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showStatus('User VLAN assignments loaded', 'success');
+                    
+                    // Create a new window to show the assignments
+                    const assignmentWindow = window.open('', 'User VLAN Assignments', 'width=1000,height=600,scrollbars=yes');
+                    const assignmentContent = data.assignments.map(assignment => 
+                        `${assignment.username || assignment.user_id} -> VLAN ${assignment.vlan_id} (${assignment.vlan_name}) ${assignment.expires_at ? 'expires: ' + new Date(assignment.expires_at).toLocaleString() : 'no expiration'}`
+                    ).join('\n');
+                    
+                    assignmentWindow.document.write(`
+                        <html>
+                            <head><title>User VLAN Assignments</title></head>
+                            <body style="font-family: monospace; padding: 20px;">
+                                <h2>User VLAN Assignments</h2>
+                                <pre>${assignmentContent || 'No user assignments found'}</pre>
+                            </body>
+                        </html>
+                    `);
+                    assignmentWindow.document.close();
+                } else {
+                    showStatus(data.message || 'Failed to load user VLAN assignments', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading user VLAN assignments:', error);
+                showStatus('Error loading user VLAN assignments', 'error');
             }
         }
 
