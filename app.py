@@ -5213,15 +5213,6 @@ def generate_idp_certificate():
                 conn.close()
                 return jsonify({'error': 'Failed to parse generated certificate'}), 500
             
-            # First create/update entry in idp_users table
-            cursor.execute("""
-                INSERT INTO idp_users (email, idp_provider, idp_user_id, name, last_login)
-                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-                ON CONFLICT (email) DO UPDATE SET 
-                    name = EXCLUDED.name,
-                    last_login = CURRENT_TIMESTAMP
-            """, (email, idp_provider, email, user_name))
-            
             # Store in idp_certificates table for IDP portal display
             # Get the issuer from the certificate object
             issuer_cn = cert_obj.issuer.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value if cert_obj.issuer.get_attributes_for_oid(x509.NameOID.COMMON_NAME) else 'CA Manager'
