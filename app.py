@@ -4928,11 +4928,68 @@ def get_current_idp_user():
         }
     })
 
+def ensure_idp_certificates_table():
+    """Ensure the idp_certificates table exists"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+        cursor = conn.cursor()
+        
+        # Create the idp_certificates table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS idp_certificates (
+                id SERIAL PRIMARY KEY,
+                idp_user_id VARCHAR(255) NOT NULL,
+                idp_email VARCHAR(255) NOT NULL,
+                idp_provider VARCHAR(50) NOT NULL,
+                certificate_serial VARCHAR(100) NOT NULL UNIQUE,
+                certificate_cn VARCHAR(255) NOT NULL,
+                certificate_subject TEXT,
+                certificate_issuer TEXT,
+                certificate_pem TEXT NOT NULL,
+                private_key_encrypted TEXT,
+                status VARCHAR(50) DEFAULT 'active',
+                revocation_reason VARCHAR(255),
+                revoked_at TIMESTAMP,
+                issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                device_id VARCHAR(255),
+                device_name VARCHAR(255),
+                purpose VARCHAR(100),
+                request_ip VARCHAR(50),
+                user_agent TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_idp_cert_user ON idp_certificates (idp_user_id, idp_provider)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_idp_cert_email ON idp_certificates (idp_email)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_idp_cert_serial ON idp_certificates (certificate_serial)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_idp_cert_status ON idp_certificates (status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_idp_cert_expires ON idp_certificates (expires_at)")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Error ensuring idp_certificates table: {str(e)}")
+        if 'conn' in locals() and conn:
+            conn.close()
+        return False
+
 @app.route('/api/idp/certificate-status')
 def get_idp_certificate_status():
     """Get current certificate status for IDP user"""
     if not session.get('idp_user'):
         return jsonify({'error': 'Not an IDP user'}), 403
+    
+    # Ensure table exists
+    ensure_idp_certificates_table()
     
     try:
         conn = get_db_connection()
@@ -4945,7 +5002,7 @@ def get_idp_certificate_status():
         # Get the most recent active certificate for this user
         cursor.execute("""
             SELECT * FROM idp_certificates 
-            WHERE email = %s AND status = 'active'
+            WHERE idp_email = %s AND status = 'active'
             ORDER BY created_at DESC 
             LIMIT 1
         """, (session.get('username'),))
@@ -4957,17 +5014,17 @@ def get_idp_certificate_status():
         if cert_row:
             # Check if certificate is expiring soon (within 30 days)
             from datetime import datetime, timedelta
-            expiry_date = cert_row['valid_until']
+            expiry_date = cert_row['expires_at']
             expiring_soon = (expiry_date - datetime.now()) < timedelta(days=30)
             
             return jsonify({
                 'status': 'success',
                 'certificate': {
                     'id': cert_row['id'],
-                    'common_name': cert_row['common_name'],
-                    'serial_number': cert_row['serial_number'],
-                    'valid_from': cert_row['valid_from'].isoformat(),
-                    'valid_until': cert_row['valid_until'].isoformat(),
+                    'common_name': cert_row['certificate_cn'],
+                    'serial_number': cert_row['certificate_serial'],
+                    'valid_from': cert_row['issued_at'].isoformat(),
+                    'valid_until': cert_row['expires_at'].isoformat(),
                     'status': cert_row['status'],
                     'created_at': cert_row['created_at'].isoformat()
                 },
@@ -4994,6 +5051,9 @@ def get_idp_certificate_history():
     if not session.get('idp_user'):
         return jsonify({'error': 'Not an IDP user'}), 403
     
+    # Ensure table exists
+    ensure_idp_certificates_table()
+    
     try:
         conn = get_db_connection()
         if not conn:
@@ -5005,7 +5065,7 @@ def get_idp_certificate_history():
         # Get all certificates for this user
         cursor.execute("""
             SELECT * FROM idp_certificates 
-            WHERE email = %s 
+            WHERE idp_email = %s 
             ORDER BY created_at DESC
         """, (session.get('username'),))
         
@@ -5017,10 +5077,10 @@ def get_idp_certificate_history():
         for row in cert_rows:
             certificates.append({
                 'id': row['id'],
-                'common_name': row['common_name'],
-                'serial_number': row['serial_number'],
-                'valid_from': row['valid_from'].isoformat(),
-                'valid_until': row['valid_until'].isoformat(),
+                'common_name': row['certificate_cn'],
+                'serial_number': row['certificate_serial'],
+                'valid_from': row['issued_at'].isoformat(),
+                'valid_until': row['expires_at'].isoformat(),
                 'status': row['status'],
                 'created_at': row['created_at'].isoformat()
             })
