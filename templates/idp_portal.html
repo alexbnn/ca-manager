@@ -1053,7 +1053,16 @@
 
         function showWiFiInstructions() {
             const modal = document.getElementById('instructionsModal');
+            if (!modal) {
+                console.error('Instructions modal not found');
+                return;
+            }
+            
             const modalContent = modal.querySelector('.modal-content > div');
+            if (!modalContent) {
+                console.error('Modal content div not found');
+                return;
+            }
             
             // Update modal content for WiFi instructions
             modalContent.innerHTML = `
@@ -1117,7 +1126,10 @@
             `;
             
             // Update modal title
-            modal.querySelector('.modal-header h2').textContent = 'WiFi Enterprise Setup Guide';
+            const modalTitle = modal.querySelector('.modal-header h2');
+            if (modalTitle) {
+                modalTitle.textContent = 'WiFi Enterprise Setup Guide';
+            }
             modal.style.display = 'flex';
         }
 
