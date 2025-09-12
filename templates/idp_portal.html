@@ -486,14 +486,14 @@
 
         <!-- RADIUS WiFi Credentials Card -->
         <div class="card" id="radiusCredentialsCard" style="margin-bottom: 40px;">
-            <h2>📶 WiFi RADIUS Credentials</h2>
+            <h2>📶 WiFi Credentials</h2>
             <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 14px;">
                 Use these credentials to connect to corporate WiFi networks that use WPA2-Enterprise/802.1X authentication.
             </p>
             <div class="cert-status" id="radiusCredentials">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Loading RADIUS credentials...</p>
+                    <p>Loading WiFi credentials...</p>
                 </div>
             </div>
             <div class="action-buttons" id="radiusActions">
@@ -875,13 +875,13 @@
                             <span class="status-value status-warning">Not Set Up</span>
                         </div>
                         <p style="text-align: center; color: #666; margin-top: 20px;">
-                            RADIUS credentials haven't been set up yet. Click "Create RADIUS Credentials" to set them up.
+                            WiFi credentials haven't been set up yet. Click "Create WiFi Credentials" to set them up.
                         </p>
                     `;
                     
                     actionsDiv.innerHTML = `
                         <button class="btn btn-primary" onclick="createRADIUSCredentials()">
-                            <span>🆕</span> Create RADIUS Credentials
+                            <span>🆕</span> Create WiFi Credentials
                         </button>
                     `;
                 } else {
@@ -891,12 +891,12 @@
                             <span class="status-value status-error">Error</span>
                         </div>
                         <p style="text-align: center; color: #666; margin-top: 20px;">
-                            Unable to load RADIUS credentials. Please contact your administrator.
+                            Unable to load WiFi credentials. Please contact your administrator.
                         </p>
                     `;
                 }
             } catch (error) {
-                console.error('Error loading RADIUS credentials:', error);
+                console.error('Error loading WiFi credentials:', error);
                 const credentialsDiv = document.getElementById('radiusCredentials');
                 credentialsDiv.innerHTML = `
                     <div class="status-item">
@@ -904,7 +904,7 @@
                         <span class="status-value status-error">Connection Error</span>
                     </div>
                     <p style="text-align: center; color: #666; margin-top: 20px;">
-                        Failed to load RADIUS credentials. Please try refreshing the page.
+                        Failed to load WiFi credentials. Please try refreshing the page.
                     </p>
                 `;
             }
@@ -968,7 +968,7 @@
         }
 
         async function createRADIUSCredentials() {
-            if (confirm('Create RADIUS credentials for WiFi authentication? This will generate a username and password for you.')) {
+            if (confirm('Create WiFi credentials for authentication? This will generate a username and password for you.')) {
                 try {
                     const response = await fetch('/api/idp/radius-credentials', {
                         method: 'POST'
@@ -976,7 +976,7 @@
                     const data = await response.json();
                     
                     if (data.status === 'success') {
-                        showAlert('RADIUS credentials created successfully!', 'success');
+                        showAlert('WiFi credentials created successfully!', 'success');
                         await loadRADIUSCredentials();
                         
                         // Store and show the password temporarily
@@ -992,10 +992,10 @@
                             }
                         }, 500);
                     } else {
-                        showAlert('Error creating RADIUS credentials: ' + data.message, 'error');
+                        showAlert('Error creating WiFi credentials: ' + data.message, 'error');
                     }
                 } catch (error) {
-                    showAlert('Error creating RADIUS credentials: ' + error.message, 'error');
+                    showAlert('Error creating WiFi credentials: ' + error.message, 'error');
                 }
             }
         }
@@ -1041,10 +1041,10 @@
                 const username = usernameElement.textContent.trim();
                 const password = passwordField.value;
                 
-                const credentialsText = `WiFi RADIUS Credentials:\nUsername: ${username}\nPassword: ${password}`;
+                const credentialsText = `WiFi Credentials:\nUsername: ${username}\nPassword: ${password}`;
                 
                 navigator.clipboard.writeText(credentialsText).then(() => {
-                    showAlert('RADIUS credentials copied to clipboard!', 'success');
+                    showAlert('WiFi credentials copied to clipboard!', 'success');
                 }).catch(err => {
                     showAlert('Failed to copy credentials. Please copy them manually.', 'error');
                 });
@@ -1068,7 +1068,7 @@
             modalContent.innerHTML = `
                 <div style="background: #e1f5fe; border: 1px solid #0277bd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                     <h4 style="color: #01579b; margin: 0 0 10px 0;">📶 WiFi Enterprise Setup Guide</h4>
-                    <p style="color: #01579b; margin: 0;">Use your RADIUS credentials to connect to WPA2-Enterprise/WPA3-Enterprise WiFi networks.</p>
+                    <p style="color: #01579b; margin: 0;">Use your WiFi credentials to connect to WPA2-Enterprise/WPA3-Enterprise WiFi networks.</p>
                 </div>
 
                 <h3>Windows 10/11</h3>
