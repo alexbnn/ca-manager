@@ -5622,7 +5622,8 @@ def create_idp_radius_credentials():
             RETURNING id
         """, (idp_user_id, email, idp_provider, radius_username, password_hash, True))
         
-        mapping_id = cursor.fetchone()[0]
+        result = cursor.fetchone()
+        mapping_id = result['id'] if isinstance(result, dict) else result[0]
         conn.commit()
         cursor.close()
         conn.close()
@@ -5641,6 +5642,10 @@ def create_idp_radius_credentials():
         
     except Exception as e:
         logger.error(f"Error creating RADIUS credentials: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        if 'conn' in locals() and conn:
+            conn.close()
         return jsonify({'error': 'Failed to create RADIUS credentials'}), 500
 
 @app.route('/api/idp/radius-credentials/regenerate', methods=['POST'])
