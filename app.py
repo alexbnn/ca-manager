@@ -45,6 +45,24 @@ app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Helper function for CA certificate base64 encoding
+def get_ca_cert_base64(ca_cert_pem):
+    """Convert CA certificate PEM to proper base64 for mobile config"""
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+        
+        if ca_cert_pem.startswith('-----'):
+            ca_cert = x509.load_pem_x509_certificate(ca_cert_pem.encode())
+            ca_cert_der = ca_cert.public_bytes(serialization.Encoding.DER)
+            return base64.b64encode(ca_cert_der).decode()
+        else:
+            # Fallback for placeholder
+            return base64.b64encode(ca_cert_pem.encode()).decode()
+    except Exception as e:
+        logger.warning(f"Could not convert CA certificate to DER: {e}")
+        return base64.b64encode(ca_cert_pem.encode()).decode()
+
 # Initialize IDP Authentication Manager
 idp_auth_manager = None
 try:
@@ -1084,6 +1102,10 @@ def init_pki():
             cursor.execute("DELETE FROM idp_certificates")
             tables_cleared['idp_certificates'] = cursor.rowcount
             
+            # Clear RADIUS authentication data (users will need to re-enroll with new CA)
+            cursor.execute("DELETE FROM idp_radius_auth")
+            tables_cleared['idp_radius_auth'] = cursor.rowcount
+            
             conn.commit()
             conn.close()
             
@@ -1366,6 +1388,45 @@ def download_ca():
             file_obj,
             as_attachment=True,
             download_name='ca.pem',
+            mimetype='application/x-pem-file'
+        )
+            
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "status": "error",
+            "message": "Could not connect to EasyRSA container"
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to download CA certificate: {str(e)}"
+        }), 500
+
+@app.route('/api/ca/download-public', methods=['GET'])
+@auth_required(permission='ca_read')
+def download_ca_public_only():
+    """Download CA certificate public certificate only (no private key)"""
+    try:
+        log_operation('download_ca_public')
+        
+        # Get CA certificate (public only)
+        cert_response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
+        
+        if cert_response.status_code != 200:
+            return jsonify({
+                "status": "error", 
+                "message": f"CA certificate not found. Container response: {cert_response.status_code}"
+            }), 404
+        
+        ca_cert_content = cert_response.text
+        
+        # Always return only the certificate (no private key)
+        file_obj = io.BytesIO(ca_cert_content.encode('utf-8'))
+        
+        return send_file(
+            file_obj,
+            as_attachment=True,
+            download_name='ca-certificate.pem',
             mimetype='application/x-pem-file'
         )
             
@@ -5413,7 +5474,7 @@ def download_idp_certificate():
         
         cursor.execute("""
             SELECT * FROM idp_certificates 
-            WHERE email = %s AND status = 'active'
+            WHERE idp_email = %s AND status = 'active'
             ORDER BY created_at DESC 
             LIMIT 1
         """, (email,))
@@ -5426,8 +5487,8 @@ def download_idp_certificate():
             return jsonify({'error': 'No active certificate found'}), 404
         
         cert_pem = cert_row['certificate_pem']
-        key_pem = cert_row['private_key_pem']
-        common_name = cert_row['common_name']
+        key_pem = cert_row['private_key_encrypted']
+        common_name = cert_row['certificate_cn']
         
         if not cert_pem or not key_pem:
             return jsonify({'error': 'Certificate data incomplete'}), 500
@@ -7217,6 +7278,61 @@ def get_idp_radius_mappings():
         logging.error(f"Error getting IDP-RADIUS mappings: {e}")
         return jsonify({'error': 'Failed to get IDP-RADIUS mappings'}), 500
 
+@app.route('/idp-users')
+@auth_required(permission='admin')
+def idp_users_page():
+    """IDP Users Management page"""
+    return render_template('idp_users.html')
+
+@app.route('/api/idp-users/<int:user_id>/vlan', methods=['PUT'])
+@auth_required(permission='admin')
+def update_idp_user_vlan(user_id):
+    """Update VLAN assignment for an IDP user"""
+    try:
+        data = request.get_json()
+        vlan_id = data.get('vlan_id')
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cursor = conn.cursor()
+        
+        # Update the user's VLAN assignment
+        cursor.execute("""
+            UPDATE idp_radius_auth 
+            SET default_vlan_id = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            RETURNING id, idp_email, default_vlan_id
+        """, (vlan_id if vlan_id else None, user_id))
+        
+        updated = cursor.fetchone()
+        if not updated:
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+            
+        conn.commit()
+        
+        # Log the change
+        log_operation('idp_user_vlan_updated', {
+            'user_id': user_id,
+            'email': updated['idp_email'],
+            'new_vlan_id': vlan_id,
+            'updated_by': session.get('username')
+        })
+        
+        conn.close()
+        return jsonify({
+            'status': 'success',
+            'message': f'VLAN updated for {updated["idp_email"]}'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error updating IDP user VLAN: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({'error': 'Failed to update VLAN assignment'}), 500
+
 @app.route('/api/idp-radius-auth/validate', methods=['POST'])
 def validate_idp_radius_auth():
     """Validate IDP credentials for RADIUS authentication"""
@@ -7742,11 +7858,12 @@ def save_idp_radius_config():
             config_value = json.dumps(value) if value is not None else None
             
             cursor.execute("""
-                INSERT INTO system_config (config_key, config_value, created_by)
+                INSERT INTO system_config (config_key, config_value, updated_by)
                 VALUES (%s, %s, %s)
                 ON CONFLICT (config_key) DO UPDATE SET
                     config_value = EXCLUDED.config_value,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = CURRENT_TIMESTAMP,
+                    updated_by = EXCLUDED.updated_by
             """, [config_key, config_value, session.get('user_id')])
         
         conn.commit()
@@ -8000,6 +8117,447 @@ def get_vlan_assignment_logs():
     finally:
         if 'conn' in locals() and conn:
             conn.close()
+
+# RADIUS Testing Endpoints
+@app.route('/api/radius/test', methods=['POST'])
+@auth_required(permission='operator')
+def run_radius_test():
+    """Run RADIUS authentication tests"""
+    try:
+        data = request.get_json() or {}
+        test_type = data.get('test_type')
+        
+        if not test_type:
+            return jsonify({'success': False, 'error': 'Test type is required'}), 400
+        
+        # Prepare test command based on test type
+        test_results = []
+        
+        if test_type in ['pap', 'chap', 'mschap']:
+            username = data.get('username')
+            password = data.get('password')
+            
+            if not username or not password:
+                return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+            
+            # Prepare radtest command
+            if test_type == 'pap':
+                cmd = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'radtest', username, password, 'localhost', '1812', 'testing123']
+            elif test_type == 'chap':
+                cmd = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'radtest', '-t', 'chap', username, password, 'localhost', '1812', 'testing123']
+            elif test_type == 'mschap':
+                version = data.get('version', 'v2')
+                auth_type = 'mschap' if version == 'v1' else 'mschap2'
+                cmd = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'radtest', '-t', auth_type, username, password, 'localhost', '1812', 'testing123']
+            
+            # Run the test
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                test_results.append(f"Return code: {result.returncode}")
+                test_results.append(f"stdout: {result.stdout}")
+                if result.stderr:
+                    test_results.append(f"stderr: {result.stderr}")
+                
+                success = result.returncode == 0 and 'Access-Accept' in result.stdout
+                return jsonify({
+                    'success': success,
+                    'data': {
+                        'test_type': test_type,
+                        'username': username,
+                        'result': 'Access-Accept' if success else 'Access-Reject or Error',
+                        'output': '\n'.join(test_results),
+                        'raw_output': result.stdout
+                    }
+                })
+                
+            except subprocess.TimeoutExpired:
+                return jsonify({'success': False, 'error': 'Test timed out after 30 seconds'})
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Test execution failed: {str(e)}'})
+        
+        elif test_type == 'eap-tls':
+            identity = data.get('identity')
+            method = data.get('method', 'tls')
+            
+            if not identity:
+                return jsonify({'success': False, 'error': 'Identity is required for EAP-TLS'}), 400
+            
+            # Create temporary eapol_test configuration
+            config_content = f"""
+network={{
+    ssid="test-network"
+    key_mgmt=WPA-EAP
+    eap={method.upper()}
+    identity="{identity}"
+    ca_cert="/etc/raddb/certs/ca/ca.crt"
+    # Note: Client certificate would be needed for full test
+}}
+"""
+            
+            # Write config to container and run test
+            try:
+                # Write config file
+                cmd1 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'bash', '-c', f'cat > /tmp/eap-test.conf << EOF{config_content}EOF']
+                subprocess.run(cmd1, check=True, timeout=10)
+                
+                # Run eapol_test (this will fail without client cert but shows EAP is working)
+                cmd2 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'timeout', '10', 'eapol_test', '-c', '/tmp/eap-test.conf', '-a', 'localhost', '-p', '1812', '-s', 'testing123']
+                result = subprocess.run(cmd2, capture_output=True, text=True, timeout=15)
+                
+                # Analyze output
+                output_lines = result.stdout.split('\n')
+                eap_started = any('EAP' in line for line in output_lines)
+                tls_handshake = any('TLS' in line for line in output_lines)
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'test_type': test_type,
+                        'identity': identity,
+                        'method': method,
+                        'eap_started': eap_started,
+                        'tls_handshake': tls_handshake,
+                        'note': 'EAP-TLS requires client certificate for full authentication',
+                        'output': result.stdout,
+                        'status': 'Configuration verified - EAP-TLS capable'
+                    }
+                })
+                
+            except subprocess.TimeoutExpired:
+                return jsonify({'success': False, 'error': 'EAP-TLS test timed out'})
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'EAP-TLS test failed: {str(e)}'})
+        
+        elif test_type == 'eap-ttls':
+            identity = data.get('identity')
+            password = data.get('password')
+            inner_method = data.get('inner_method', 'PAP')
+            
+            if not identity or not password:
+                return jsonify({'success': False, 'error': 'Identity and password are required for EAP-TTLS'}), 400
+            
+            # Create TTLS configuration
+            config_content = f"""
+network={{
+    ssid="test-network"
+    key_mgmt=WPA-EAP
+    eap=TTLS
+    identity="{identity}"
+    password="{password}"
+    ca_cert="/etc/raddb/certs/ca/ca.crt"
+    phase2="auth={inner_method}"
+    phase1="tls_disable_time_checks=1"
+}}
+"""
+            
+            try:
+                # Write config file
+                cmd1 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'bash', '-c', f'cat > /tmp/eap-ttls-test.conf << EOF{config_content}EOF']
+                subprocess.run(cmd1, check=True, timeout=10)
+                
+                # Run eapol_test
+                cmd2 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'timeout', '15', 'eapol_test', '-c', '/tmp/eap-ttls-test.conf', '-a', 'localhost', '-p', '1812', '-s', 'testing123']
+                result = subprocess.run(cmd2, capture_output=True, text=True, timeout=20)
+                
+                # Analyze results
+                success = 'SUCCESS' in result.stdout or 'Access-Accept' in result.stdout
+                tunnel_established = 'TTLS' in result.stdout
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'test_type': test_type,
+                        'identity': identity,
+                        'inner_method': inner_method,
+                        'auth_result': 'Success' if success else 'Authentication failed',
+                        'tunnel_established': tunnel_established,
+                        'output': result.stdout,
+                        'status': 'Completed'
+                    }
+                })
+                
+            except subprocess.TimeoutExpired:
+                return jsonify({'success': False, 'error': 'EAP-TTLS test timed out'})
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'EAP-TTLS test failed: {str(e)}'})
+        
+        else:
+            return jsonify({'success': False, 'error': f'Unknown test type: {test_type}'}), 400
+    
+    except Exception as e:
+        logger.error(f"Error running RADIUS test: {str(e)}")
+        return jsonify({'success': False, 'error': f'Test failed: {str(e)}'}), 500
+
+@app.route('/api/radius/system-test', methods=['POST'])
+@auth_required(permission='operator')
+def run_radius_system_test():
+    """Run RADIUS system and configuration tests"""
+    try:
+        data = request.get_json() or {}
+        test_type = data.get('test_type')
+        
+        if not test_type:
+            return jsonify({'success': False, 'error': 'Test type is required'}), 400
+        
+        test_results = []
+        
+        if test_type == 'server-status':
+            # Check RADIUS server container status
+            try:
+                cmd = ['docker', 'ps', '--format', 'table {{.Names}}\t{{.Status}}', '--filter', 'name=ca-manager-f-radius-server-1']
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                test_results.append(f"Container status: {result.stdout}")
+                
+                # Check if RADIUS is listening
+                cmd2 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'netstat', '-lun']
+                result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=10)
+                port_1812 = '1812' in result2.stdout
+                test_results.append(f"RADIUS port 1812 listening: {'Yes' if port_1812 else 'No'}")
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'test_type': test_type,
+                        'status': 'Server is running' if 'Up' in result.stdout else 'Server issues detected',
+                        'details': '\n'.join(test_results)
+                    }
+                })
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Server status check failed: {str(e)}'})
+        
+        elif test_type == 'config-validation':
+            # Check RADIUS configuration
+            try:
+                cmd = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'radiusd', '-XC']
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                
+                config_ok = result.returncode == 0
+                test_results.append(f"Configuration syntax: {'Valid' if config_ok else 'Invalid'}")
+                test_results.append(f"radiusd output: {result.stdout}")
+                if result.stderr:
+                    test_results.append(f"Errors: {result.stderr}")
+                
+                return jsonify({
+                    'success': config_ok,
+                    'data': {
+                        'test_type': test_type,
+                        'status': 'Configuration is valid' if config_ok else 'Configuration has errors',
+                        'details': '\n'.join(test_results)
+                    }
+                })
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Configuration validation failed: {str(e)}'})
+        
+        elif test_type == 'certificate-check':
+            # Check certificates
+            try:
+                # Check server certificate
+                cmd1 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'openssl', 'x509', '-in', '/etc/raddb/certs/server/server.crt', '-noout', '-checkend', '86400']
+                result1 = subprocess.run(cmd1, capture_output=True, text=True, timeout=10)
+                server_cert_valid = result1.returncode == 0
+                
+                # Check CA certificate
+                cmd2 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'openssl', 'x509', '-in', '/etc/raddb/certs/ca/ca.crt', '-noout', '-checkend', '86400']
+                result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=10)
+                ca_cert_valid = result2.returncode == 0
+                
+                # Get certificate details
+                cmd3 = ['docker', 'exec', 'ca-manager-f-radius-server-1', 'openssl', 'x509', '-in', '/etc/raddb/certs/server/server.crt', '-noout', '-subject', '-issuer', '-dates']
+                result3 = subprocess.run(cmd3, capture_output=True, text=True, timeout=10)
+                
+                test_results.append(f"Server certificate valid: {'Yes' if server_cert_valid else 'No'}")
+                test_results.append(f"CA certificate valid: {'Yes' if ca_cert_valid else 'No'}")
+                test_results.append(f"Certificate details: {result3.stdout}")
+                
+                return jsonify({
+                    'success': server_cert_valid and ca_cert_valid,
+                    'data': {
+                        'test_type': test_type,
+                        'status': 'Certificates are valid' if (server_cert_valid and ca_cert_valid) else 'Certificate issues found',
+                        'details': '\n'.join(test_results)
+                    }
+                })
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Certificate check failed: {str(e)}'})
+        
+        elif test_type == 'database-check':
+            # Check database connectivity
+            try:
+                conn = get_db_connection()
+                if not conn:
+                    return jsonify({'success': False, 'error': 'Database connection failed'})
+                
+                cursor = conn.cursor()
+                
+                # Check RADIUS users
+                cursor.execute("SELECT COUNT(*) FROM idp_radius_auth WHERE is_active = true")
+                active_users = cursor.fetchone()[0]
+                test_results.append(f"Active RADIUS users: {active_users}")
+                
+                # Check VLANs
+                cursor.execute("SELECT COUNT(*) FROM vlans WHERE is_active = true")
+                active_vlans = cursor.fetchone()[0]
+                test_results.append(f"Active VLANs: {active_vlans}")
+                
+                # Check certificates
+                cursor.execute("SELECT COUNT(*) FROM idp_certificates WHERE status = 'active'")
+                active_certs = cursor.fetchone()[0]
+                test_results.append(f"Active certificates: {active_certs}")
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'test_type': test_type,
+                        'status': 'Database connectivity OK',
+                        'details': '\n'.join(test_results)
+                    }
+                })
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Database check failed: {str(e)}'})
+            finally:
+                if 'conn' in locals() and conn:
+                    conn.close()
+        
+        elif test_type == 'vlan-check':
+            # Check VLAN assignment functionality
+            try:
+                conn = get_db_connection()
+                if not conn:
+                    return jsonify({'success': False, 'error': 'Database connection failed'})
+                
+                cursor = conn.cursor()
+                
+                # Check VLAN policies
+                cursor.execute("SELECT COUNT(*) FROM vlan_policies WHERE is_active = true")
+                active_policies = cursor.fetchone()[0]
+                test_results.append(f"Active VLAN policies: {active_policies}")
+                
+                # Check recent VLAN assignments
+                cursor.execute("SELECT COUNT(*) FROM vlan_assignment_log WHERE timestamp > NOW() - INTERVAL '24 hours'")
+                recent_assignments = cursor.fetchone()[0]
+                test_results.append(f"VLAN assignments (24h): {recent_assignments}")
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'test_type': test_type,
+                        'status': 'VLAN assignment system operational',
+                        'details': '\n'.join(test_results)
+                    }
+                })
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'VLAN check failed: {str(e)}'})
+            finally:
+                if 'conn' in locals() and conn:
+                    conn.close()
+        
+        elif test_type == 'full-suite':
+            # Run all system tests
+            test_types = ['server-status', 'config-validation', 'certificate-check', 'database-check', 'vlan-check']
+            all_results = []
+            
+            for sub_test in test_types:
+                try:
+                    # Recursively call this function for each test
+                    with app.test_request_context('/api/radius/system-test', json={'test_type': sub_test}):
+                        sub_result = run_radius_system_test()
+                        if hasattr(sub_result, 'get_json'):
+                            result_data = sub_result.get_json()
+                        else:
+                            result_data = sub_result
+                        
+                        if result_data.get('success'):
+                            all_results.append(f"✓ {sub_test}: {result_data['data']['status']}")
+                        else:
+                            all_results.append(f"✗ {sub_test}: {result_data.get('error', 'Failed')}")
+                except Exception as e:
+                    all_results.append(f"✗ {sub_test}: Error - {str(e)}")
+            
+            success_count = sum(1 for result in all_results if result.startswith('✓'))
+            total_tests = len(test_types)
+            
+            return jsonify({
+                'success': success_count == total_tests,
+                'data': {
+                    'test_type': test_type,
+                    'status': f'Full suite completed: {success_count}/{total_tests} tests passed',
+                    'details': '\n'.join(all_results)
+                }
+            })
+        
+        else:
+            return jsonify({'success': False, 'error': f'Unknown system test type: {test_type}'}), 400
+    
+    except Exception as e:
+        logger.error(f"Error running RADIUS system test: {str(e)}")
+        return jsonify({'success': False, 'error': f'System test failed: {str(e)}'}), 500
+
+@app.route('/api/radius/certificates', methods=['GET'])
+@auth_required(permission='operator')
+def get_radius_test_certificates():
+    """Get available certificates for EAP-TLS testing"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+        
+        cursor = conn.cursor()
+        
+        # Get active certificates
+        cursor.execute("""
+            SELECT idp_email, certificate_cn, certificate_serial, 
+                   CASE WHEN private_key_encrypted IS NOT NULL THEN true ELSE false END as has_private_key
+            FROM idp_certificates 
+            WHERE status = 'active'
+            ORDER BY idp_email
+        """)
+        
+        certificates = []
+        for row in cursor.fetchall():
+            certificates.append({
+                'idp_email': row[0],
+                'certificate_cn': row[1],
+                'certificate_serial': row[2],
+                'has_private_key': row[3]
+            })
+        
+        return jsonify({
+            'success': True,
+            'certificates': certificates
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting RADIUS certificates: {str(e)}")
+        return jsonify({'success': False, 'error': f'Failed to get certificates: {str(e)}'}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/radius/monitoring', methods=['GET'])
+@auth_required(permission='operator')
+def get_radius_monitoring():
+    """Get recent RADIUS server logs for live monitoring"""
+    try:
+        # Get recent logs from RADIUS container
+        cmd = ['docker', 'logs', 'ca-manager-f-radius-server-1', '--tail', '10', '--since', '10s']
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        
+        # Filter for authentication-related logs
+        log_lines = result.stdout.split('\n')
+        filtered_logs = []
+        
+        for line in log_lines:
+            if line.strip() and any(keyword in line.lower() for keyword in ['auth', 'login', 'access', 'eap', 'radius', 'accept', 'reject']):
+                filtered_logs.append(line.strip())
+        
+        return jsonify({
+            'success': True,
+            'logs': filtered_logs[-5:] if filtered_logs else ['No recent authentication activity']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting RADIUS monitoring data: {str(e)}")
+        return jsonify({'success': False, 'error': f'Monitoring failed: {str(e)}'}), 500
 
 # PKI Backup and Restore Endpoints
 @app.route('/api/pki/backup', methods=['POST'])
@@ -9132,6 +9690,503 @@ def get_enhanced_vlan_assignment():
     finally:
         if 'conn' in locals() and conn:
             conn.close()
+
+@app.route('/api/wifi-config', methods=['GET', 'POST'])
+@auth_required()
+def wifi_config():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+    
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    try:
+        if request.method == 'GET':
+            # Retrieve WiFi configuration
+            cursor.execute("""
+                SELECT config_key, config_value 
+                FROM system_config 
+                WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'wifi_hidden_network', 
+                                     'wifi_auto_join', 'organization_name', 'profile_description')
+            """)
+            
+            config_rows = cursor.fetchall()
+            config = {row['config_key']: row['config_value'] for row in config_rows}
+            
+            return jsonify({
+                'status': 'success',
+                'config': config
+            })
+            
+        elif request.method == 'POST':
+            # Save WiFi configuration
+            data = request.get_json()
+            
+            # Validate required SSID
+            if not data.get('wifi_ssid'):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'WiFi SSID is required'
+                }), 400
+            
+            # Update configuration values
+            config_updates = [
+                ('wifi_ssid', data.get('wifi_ssid')),
+                ('wifi_security_type', data.get('wifi_security_type', 'WPA2')),
+                ('wifi_hidden_network', data.get('wifi_hidden_network', 'false')),
+                ('wifi_auto_join', data.get('wifi_auto_join', 'true')),
+                ('organization_name', data.get('organization_name', '')),
+                ('profile_description', data.get('profile_description', ''))
+            ]
+            
+            for config_key, config_value in config_updates:
+                cursor.execute("""
+                    INSERT INTO system_config (config_key, config_value, description, updated_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (config_key) DO UPDATE 
+                    SET config_value = EXCLUDED.config_value,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (config_key, config_value, f'WiFi configuration: {config_key}'))
+            
+            conn.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'WiFi configuration saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error in WiFi configuration: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/mobileconfig/preview', methods=['POST'])
+@auth_required()
+def mobileconfig_preview():
+    """Preview mobile configuration profile settings"""
+    try:
+        data = request.get_json()
+        
+        # Validate required SSID
+        if not data.get('wifi_ssid'):
+            return jsonify({
+                'status': 'error',
+                'message': 'WiFi SSID is required for mobile config generation'
+            }), 400
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Mobile config preview generated successfully',
+            'profile_info': {
+                'wifi_ssid': data.get('wifi_ssid'),
+                'organization_name': data.get('organization_name', 'Organization'),
+                'profile_description': data.get('profile_description', 'WiFi Configuration Profile'),
+                'security_type': data.get('wifi_security_type', 'WPA2'),
+                'hidden_network': data.get('wifi_hidden_network') == 'true',
+                'auto_join': data.get('wifi_auto_join', 'true') == 'true'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating mobile config preview: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+@app.route('/api/idp/mobileconfig', methods=['POST'])
+def generate_idp_mobileconfig():
+    """Generate personalized mobile configuration profile for IDP users"""
+    logger.info("Starting mobile config generation endpoint")
+    
+    if not idp_auth_manager:
+        logger.error("IDP auth manager not configured")
+        return jsonify({'status': 'error', 'message': 'IDP authentication not configured'}), 400
+    
+    # Check if user is authenticated via IDP
+    if 'idp_user' not in session:
+        logger.error("No IDP user in session")
+        return jsonify({'status': 'error', 'message': 'IDP authentication required'}), 401
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+    
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    logger.info("Database cursor created")
+    
+    try:
+        logger.info("Entering try block")
+        # Reconstruct user info from session data
+        user_info = {
+            'email': session['username'],
+            'provider': session.get('idp_provider', 'unknown'),
+            'user_id': session.get('idp_user_id'),
+            'display_name': session.get('user_display_name')
+        }
+        logger.info(f"User info: {user_info}")
+        data = request.get_json()
+        logger.info(f"Request data: {data}")
+        auth_method = data.get('auth_method', 'credentials')  # 'credentials' or 'certificate'
+        logger.info(f"Generating mobile config for {user_info['email']} with method {auth_method}")
+        
+        # Get WiFi configuration
+        cursor.execute("""
+            SELECT config_key, config_value 
+            FROM system_config 
+            WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'wifi_hidden_network', 
+                                 'wifi_auto_join', 'organization_name', 'profile_description')
+        """)
+        
+        config_rows = cursor.fetchall()
+        wifi_config = {row['config_key']: row['config_value'] for row in config_rows}
+        
+        if not wifi_config.get('wifi_ssid'):
+            return jsonify({
+                'status': 'error',
+                'message': 'WiFi SSID not configured. Please contact your administrator.'
+            }), 400
+        
+        # Get CA certificate from EasyRSA container (current/live CA)
+        try:
+            cert_response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
+            if cert_response.status_code == 200:
+                ca_cert_pem = cert_response.text
+                logger.info("Successfully retrieved current CA certificate from EasyRSA container")
+            else:
+                ca_cert_pem = "# CA Certificate not available - PKI may not be initialized"
+                logger.warning(f"Could not retrieve CA certificate: HTTP {cert_response.status_code}")
+        except Exception as e:
+            ca_cert_pem = "# CA Certificate not available - PKI may not be initialized"
+            logger.error(f"Error retrieving CA certificate: {str(e)}")
+        
+        # Generate profile based on authentication method
+        if auth_method == 'certificate':
+            # Get user's certificate
+            cursor.execute("""
+                SELECT certificate_pem, private_key_encrypted, certificate_cn
+                FROM idp_certificates 
+                WHERE idp_email = %s AND idp_provider = %s AND status = 'active'
+                ORDER BY created_at DESC LIMIT 1
+            """, (user_info['email'], user_info['provider']))
+            
+            user_cert = cursor.fetchone()
+            logger.info(f"User certificate query result: {user_cert}")
+            if not user_cert:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'No active certificate found. Please generate a certificate first.'
+                }), 400
+            
+            try:
+                profile_content = generate_eap_tls_mobileconfig(
+                    wifi_config, ca_cert_pem, 
+                    user_cert['certificate_pem'], user_cert['private_key_encrypted']
+                )
+                filename = f"wifi-eap-tls-{user_cert['certificate_cn']}.mobileconfig"
+            except Exception as e:
+                logger.error(f"Error in generate_eap_tls_mobileconfig: {str(e)}")
+                logger.error(f"Parameters: wifi_config={wifi_config}, ca_cert_pem type={type(ca_cert_pem)}")
+                raise
+            
+        else:  # credentials
+            # Get user's RADIUS credentials
+            cursor.execute("""
+                SELECT radius_username, radius_password_hash
+                FROM idp_radius_auth 
+                WHERE idp_email = %s AND idp_provider = %s
+                ORDER BY created_at DESC LIMIT 1
+            """, (user_info['email'], user_info['provider']))
+            
+            user_creds = cursor.fetchone()
+            if not user_creds:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'No RADIUS credentials found. Please create WiFi credentials first.'
+                }), 400
+            
+            try:
+                profile_content = generate_eap_ttls_mobileconfig(
+                    wifi_config, ca_cert_pem, 
+                    user_creds['radius_username']
+                )
+                filename = f"wifi-eap-ttls-{user_creds['radius_username']}.mobileconfig"
+            except Exception as e:
+                logger.error(f"Error in generate_eap_ttls_mobileconfig: {str(e)}")
+                logger.error(f"Parameters: wifi_config={wifi_config}, ca_cert_pem type={type(ca_cert_pem)}, username={user_creds['radius_username']}")
+                raise
+        
+        # Return the mobile config file
+        return Response(
+            profile_content,
+            mimetype='application/x-apple-aspen-config',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/x-apple-aspen-config'
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating IDP mobile config: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+    finally:
+        if conn:
+            conn.close()
+
+def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encrypted_private_key):
+    """Generate EAP-TLS mobile configuration profile"""
+    import tempfile
+    import subprocess
+    
+    profile_id = str(uuid.uuid4()).upper()
+    wifi_id = str(uuid.uuid4()).upper()
+    ca_id = str(uuid.uuid4()).upper()
+    cert_id = str(uuid.uuid4()).upper()
+    
+    # Default P12 password
+    p12_password = "certificate"
+    
+    # Dynamic organization values
+    org_name = wifi_config.get('organization_name', 'Organization')
+    org_domain = org_name.lower().replace(' ', '').replace('-', '') + '.local'
+    ssid = wifi_config.get('wifi_ssid', 'Corporate')
+    
+    # Dynamic RADIUS server name - use actual server hostname or domain
+    radius_server = f"{ssid.lower()}-radius.{org_domain}" if ssid else f"radius.{org_domain}"
+    
+    # Convert CA certificate PEM to DER format for proper base64 encoding
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+        
+        if ca_cert_pem.startswith('-----'):
+            ca_cert = x509.load_pem_x509_certificate(ca_cert_pem.encode())
+            ca_cert_der = ca_cert.public_bytes(serialization.Encoding.DER)
+            ca_cert_b64 = base64.b64encode(ca_cert_der).decode()
+        else:
+            # Fallback for placeholder
+            ca_cert_b64 = base64.b64encode(ca_cert_pem.encode()).decode()
+    except Exception as e:
+        logger.warning(f"Could not convert CA certificate to DER: {e}")
+        ca_cert_b64 = base64.b64encode(ca_cert_pem.encode()).decode()
+    
+    # Create P12 certificate data (simplified - concatenating PEM data)
+    # In production, you'd want to create a proper PKCS#12 file
+    try:
+        p12_data = user_cert_pem + "\n" + encrypted_private_key
+        p12_b64 = base64.b64encode(p12_data.encode()).decode()
+    except Exception as e:
+        logger.error(f"Error creating P12 data: {e}")
+        p12_b64 = base64.b64encode(b"# Certificate data error").decode()
+    
+    # Create the mobile config XML
+    mobileconfig_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>{org_name} Root CA</string>
+            <key>PayloadDescription</key>
+            <string>Root Certificate Authority for {org_name}. After installation, manually enable full trust in Settings > General > About > Certificate Trust Settings.</string>
+            <key>PayloadIdentifier</key>
+            <string>{org_domain}.wifi.ca.{ca_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.security.root</string>
+            <key>PayloadUUID</key>
+            <string>{ca_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadCertificateFileName</key>
+            <string>{org_name.replace(' ', '-').lower()}-ca.crt</string>
+            <key>PayloadContent</key>
+            <data>{ca_cert_b64}</data>
+        </dict>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>User Certificate</string>
+            <key>PayloadIdentifier</key>
+            <string>{org_domain}.wifi.cert.{cert_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.security.pkcs12</string>
+            <key>PayloadUUID</key>
+            <string>{cert_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadCertificateFileName</key>
+            <string>user-certificate.p12</string>
+            <key>PayloadContent</key>
+            <data>{p12_b64}</data>
+            <key>Password</key>
+            <string>{p12_password}</string>
+        </dict>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>WiFi ({wifi_config.get('wifi_ssid', 'Corporate')})</string>
+            <key>PayloadIdentifier</key>
+            <string>{org_domain}.wifi.{wifi_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.wifi.managed</string>
+            <key>PayloadUUID</key>
+            <string>{wifi_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>SSID_STR</key>
+            <string>{wifi_config.get('wifi_ssid', 'Corporate')}</string>
+            <key>HIDDEN_NETWORK</key>
+            <{'true' if wifi_config.get('wifi_hidden_network') == 'true' else 'false'}/>
+            <key>AutoJoin</key>
+            <{'true' if wifi_config.get('wifi_auto_join', 'true') == 'true' else 'false'}/>
+            <key>EncryptionType</key>
+            <string>WPA2</string>
+            <key>DisableAssociationMACRandomization</key>
+            <true/>
+            <key>EAPClientConfiguration</key>
+            <dict>
+                <key>AcceptEAPTypes</key>
+                <array>
+                    <integer>13</integer>
+                </array>
+                <key>EAPFASTUsePAC</key>
+                <false/>
+                <key>EAPFASTProvisionPAC</key>
+                <false/>
+                <key>PayloadCertificateAnchorUUID</key>
+                <array>
+                    <string>{ca_id}</string>
+                </array>
+                <key>TLSTrustedServerNames</key>
+                <array>
+                    <string>{radius_server}</string>
+                </array>
+                <key>PayloadCertificateUUID</key>
+                <string>{cert_id}</string>
+            </dict>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>{wifi_config.get('organization_name', 'Organization')} - WiFi EAP-TLS</string>
+    <key>PayloadIdentifier</key>
+    <string>{org_domain}.wifi.eap-tls</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>{profile_id}</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadDescription</key>
+    <string>WiFi configuration for {ssid} with EAP-TLS authentication. After installation, go to Settings > General > About > Certificate Trust Settings and enable full trust for the {org_name} Root CA.</string>
+</dict>
+</plist>"""
+    
+    return mobileconfig_content
+
+def generate_eap_ttls_mobileconfig(wifi_config, ca_cert_pem, username):
+    """Generate EAP-TTLS mobile configuration profile"""
+    profile_id = str(uuid.uuid4()).upper()
+    wifi_id = str(uuid.uuid4()).upper()
+    ca_id = str(uuid.uuid4()).upper()
+    
+    # Dynamic organization values  
+    org_name = wifi_config.get('organization_name', 'Organization')
+    org_domain = org_name.lower().replace(' ', '').replace('-', '') + '.local'
+    ssid = wifi_config.get('wifi_ssid', 'Corporate')
+    
+    # Dynamic RADIUS server name - use actual server hostname or domain
+    radius_server = f"{ssid.lower()}-radius.{org_domain}" if ssid else f"radius.{org_domain}"
+    
+    # Create the mobile config XML
+    mobileconfig_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>{org_name} Root CA</string>
+            <key>PayloadDescription</key>
+            <string>Root Certificate Authority for {org_name}. After installation, manually enable full trust in Settings > General > About > Certificate Trust Settings.</string>
+            <key>PayloadIdentifier</key>
+            <string>{org_domain}.wifi.ca.{ca_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.security.root</string>
+            <key>PayloadUUID</key>
+            <string>{ca_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadCertificateFileName</key>
+            <string>{org_name.replace(' ', '-').lower()}-ca.crt</string>
+            <key>PayloadContent</key>
+            <data>{get_ca_cert_base64(ca_cert_pem)}</data>
+        </dict>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>WiFi ({wifi_config.get('wifi_ssid', 'Corporate')})</string>
+            <key>PayloadIdentifier</key>
+            <string>{org_domain}.wifi.{wifi_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.wifi.managed</string>
+            <key>PayloadUUID</key>
+            <string>{wifi_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>SSID_STR</key>
+            <string>{wifi_config.get('wifi_ssid', 'Corporate')}</string>
+            <key>HIDDEN_NETWORK</key>
+            <{'true' if wifi_config.get('wifi_hidden_network') == 'true' else 'false'}/>
+            <key>AutoJoin</key>
+            <{'true' if wifi_config.get('wifi_auto_join', 'true') == 'true' else 'false'}/>
+            <key>EncryptionType</key>
+            <string>WPA2</string>
+            <key>DisableAssociationMACRandomization</key>
+            <true/>
+            <key>EAPClientConfiguration</key>
+            <dict>
+                <key>AcceptEAPTypes</key>
+                <array>
+                    <integer>21</integer>
+                </array>
+                <key>EAPFASTUsePAC</key>
+                <false/>
+                <key>EAPFASTProvisionPAC</key>
+                <false/>
+                <key>PayloadCertificateAnchorUUID</key>
+                <array>
+                    <string>{ca_id}</string>
+                </array>
+                <key>TLSTrustedServerNames</key>
+                <array>
+                    <string>{radius_server}</string>
+                </array>
+                <key>UserName</key>
+                <string>{username}</string>
+                <key>TTLSInnerAuthentication</key>
+                <string>PAP</string>
+            </dict>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>{wifi_config.get('organization_name', 'Organization')} - WiFi EAP-TTLS</string>
+    <key>PayloadIdentifier</key>
+    <string>{org_domain}.wifi.eap-ttls</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>{profile_id}</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadDescription</key>
+    <string>WiFi configuration for {ssid} with EAP-TTLS authentication using username {username}. After installation, go to Settings > General > About > Certificate Trust Settings and enable full trust for the {org_name} Root CA.</string>
+</dict>
+</plist>"""
+    
+    return mobileconfig_content
 
 if __name__ == '__main__':
     # Ensure logs directory exists

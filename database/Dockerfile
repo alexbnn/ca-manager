@@ -14,3 +14,6 @@ COPY 05-system-config.sql /docker-entrypoint-initdb.d/
 COPY 06-intermediate-ca-schema.sql /docker-entrypoint-initdb.d/
 COPY 07-email-verification.sql /docker-entrypoint-initdb.d/
 COPY 10-smtp-config.sql /docker-entrypoint-initdb.d/
+COPY 12-enhanced-vlan-policies.sql /docker-entrypoint-initdb.d/
+COPY 13-idp-certificates.sql /docker-entrypoint-initdb.d/
+COPY 14-wifi-config.sql /docker-entrypoint-initdb.d/

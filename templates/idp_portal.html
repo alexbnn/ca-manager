@@ -151,6 +151,8 @@
         }
 
         .card {
+            display: flex;
+            flex-direction: column;
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
@@ -484,9 +486,11 @@
             </div>
         </div>
 
-        <!-- RADIUS WiFi Credentials Card -->
-        <div class="card" id="radiusCredentialsCard" style="margin-bottom: 40px;">
-            <h2>📶 WiFi Credentials</h2>
+        <!-- WiFi & Mobile Config Grid -->
+        <div class="content-grid">
+            <!-- RADIUS WiFi Credentials Card -->
+            <div class="card" id="radiusCredentialsCard">
+                <h2>📶 WiFi Credentials</h2>
             <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 14px;">
                 Use these credentials to connect to corporate WiFi networks that use WPA2-Enterprise/802.1X authentication.
             </p>
@@ -508,6 +512,47 @@
                     <li><strong>CA Certificate:</strong> Install the CA certificate from above</li>
                     <li><strong>Username & Password:</strong> Use the credentials shown below</li>
                 </ul>
+            </div>
+        </div>
+
+            <!-- Mobile Configuration Section -->
+            <div class="card">
+                <h2>📱 Mobile Device Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 14px;">
+                    Download configuration profiles for automatic WiFi setup on iPhone, iPad, and macOS devices.
+                </p>
+                
+                <div class="info-box" style="margin-bottom: 20px; background: #e1f5fe; border: 1px solid #0277bd;">
+                    <h3 style="color: #01579b; margin-bottom: 10px;">📋 How Mobile Configuration Works</h3>
+                    <ul style="color: #01579b;">
+                        <li><strong>EAP-TLS:</strong> Uses your certificate for authentication (more secure, recommended)</li>
+                        <li><strong>EAP-TTLS:</strong> Uses your WiFi credentials for authentication</li>
+                        <li><strong>Automatic Setup:</strong> Includes WiFi settings, CA certificate, and authentication details</li>
+                        <li><strong>Supported Devices:</strong> iPhone/iPad (iOS 12+), macOS (10.14+)</li>
+                    </ul>
+                </div>
+                
+                <div id="mobileConfigStatus" class="cert-status">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Checking mobile configuration availability...</p>
+                    </div>
+                </div>
+                
+                <div class="action-buttons" id="mobileConfigActions" style="display: none;">
+                    <button class="btn btn-primary" onclick="downloadMobileConfig('certificate')" id="mobileConfigCert" style="display: none;">
+                        <span>📱</span> Download EAP-TLS Profile
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadMobileConfig('credentials')" id="mobileConfigCreds" style="display: none;">
+                        <span>📱</span> Download EAP-TTLS Profile
+                    </button>
+                </div>
+                
+                <div id="mobileConfigInfo" style="display: none; margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+                    <p style="color: #856404; margin: 0; font-size: 14px;">
+                        <strong>⚠️ Setup Required:</strong> To download mobile configuration profiles, you need either a certificate or WiFi credentials. Please set those up first.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -706,6 +751,7 @@
             await loadCertificateStatus();
             await loadCertificateHistory();
             await loadRADIUSCredentials();
+            await loadMobileConfigStatus();
         });
 
         async function loadUserInfo() {
@@ -978,6 +1024,7 @@
                     if (data.status === 'success') {
                         showAlert('WiFi credentials created successfully!', 'success');
                         await loadRADIUSCredentials();
+                        await loadMobileConfigStatus();
                         
                         // Store and show the password temporarily
                         setTimeout(() => {
@@ -1011,6 +1058,7 @@
                     if (data.status === 'success') {
                         showAlert('RADIUS password regenerated successfully! The new password is displayed below.', 'success');
                         await loadRADIUSCredentials();
+                        await loadMobileConfigStatus();
                         
                         // Store and show the new password temporarily
                         setTimeout(() => {
@@ -1172,6 +1220,7 @@
                             showAlert('Certificate generated successfully! Check your email for the certificate.', 'success');
                             await loadCertificateStatus();
                             await loadCertificateHistory();
+                            await loadMobileConfigStatus();
                         }, 2000);
                     } else {
                         // Handle error
@@ -1392,6 +1441,185 @@
             });
         }
         
+        // Mobile Configuration Functions
+        async function loadMobileConfigStatus() {
+            try {
+                const statusDiv = document.getElementById('mobileConfigStatus');
+                const actionsDiv = document.getElementById('mobileConfigActions');
+                const infoDiv = document.getElementById('mobileConfigInfo');
+                const certBtn = document.getElementById('mobileConfigCert');
+                const credsBtn = document.getElementById('mobileConfigCreds');
+                
+                // Check if user has certificate
+                const certResponse = await fetch('/api/idp/certificate-status');
+                const certData = await certResponse.json();
+                // The API returns 'certificate' (singular) not 'certificates' (plural)
+                const hasCertificate = certData.status === 'success' && certData.certificate;
+                console.log('Certificate check:', { 
+                    response: certData, 
+                    status: certData.status,
+                    certificate: certData.certificate,
+                    hasCertificate 
+                });
+                
+                // Check if user has RADIUS credentials
+                const credsResponse = await fetch('/api/idp/radius-credentials');
+                const credsData = await credsResponse.json();
+                const hasCredentials = credsData.status === 'success' && credsData.credentials;
+                console.log('Credentials check:', { 
+                    response: credsData, 
+                    status: credsData.status,
+                    credentials: credsData.credentials,
+                    hasCredentials 
+                });
+                
+                // Check if WiFi is configured
+                const wifiResponse = await fetch('/api/wifi-config');
+                const wifiData = await wifiResponse.json();
+                const wifiConfigured = wifiData.status === 'success' && wifiData.config && wifiData.config.wifi_ssid;
+                
+                statusDiv.style.display = 'none';
+                
+                if (!wifiConfigured) {
+                    statusDiv.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <h3 style="color: #dc3545; margin-bottom: 10px;">⚠️ WiFi Not Configured</h3>
+                            <p style="color: #666;">Mobile configuration profiles are not available because WiFi settings haven't been configured by your administrator.</p>
+                        </div>
+                    `;
+                    statusDiv.style.display = 'block';
+                    actionsDiv.style.display = 'none';
+                    infoDiv.style.display = 'none';
+                    return;
+                }
+                
+                if (!hasCertificate && !hasCredentials) {
+                    actionsDiv.style.display = 'none';
+                    infoDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Show available options
+                actionsDiv.style.display = 'block';
+                infoDiv.style.display = 'none';
+                
+                console.log('Showing buttons:', { hasCertificate, hasCredentials });
+                
+                if (hasCertificate) {
+                    certBtn.style.display = 'inline-block';
+                    console.log('Showing EAP-TLS button');
+                }
+                
+                if (hasCredentials) {
+                    credsBtn.style.display = 'inline-block';
+                    console.log('Showing EAP-TTLS button');
+                }
+                
+            } catch (error) {
+                console.error('Error loading mobile config status:', error);
+                const statusDiv = document.getElementById('mobileConfigStatus');
+                statusDiv.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <h3 style="color: #dc3545; margin-bottom: 10px;">❌ Error</h3>
+                        <p style="color: #666;">Failed to check mobile configuration availability.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function downloadMobileConfig(authMethod) {
+            try {
+                const response = await fetch('/api/idp/mobileconfig', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        auth_method: authMethod
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to download mobile config');
+                }
+                
+                // Get the filename from the response headers
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'wifi-config.mobileconfig';
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (match) {
+                        filename = match[1];
+                    }
+                }
+                
+                // Download the file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Show success message
+                showSuccessMessage(`Mobile configuration profile downloaded successfully! Install it on your device to automatically configure WiFi.`);
+                
+            } catch (error) {
+                console.error('Error downloading mobile config:', error);
+                alert(`Error downloading mobile configuration: ${error.message}`);
+            }
+        }
+
+        function showSuccessMessage(message) {
+            // Create and show a temporary success message
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 9999;
+                max-width: 400px;
+                font-size: 14px;
+            `;
+            messageDiv.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <span style="font-size: 18px;">✅</span>
+                    <div>
+                        <strong>Download Complete!</strong><br>
+                        ${message}
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        background: none; 
+                        border: none; 
+                        color: #155724; 
+                        cursor: pointer; 
+                        font-size: 18px; 
+                        padding: 0; 
+                        margin-left: 10px;
+                    ">&times;</button>
+                </div>
+            `;
+            
+            document.body.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentElement) {
+                    messageDiv.remove();
+                }
+            }, 5000);
+        }
+
         // Utility function for delays
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
