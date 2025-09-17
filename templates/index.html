@@ -2583,11 +2583,12 @@
                                 <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Automatically connect to this network</small>
                             </div>
                             <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="wifiDisableMacRandomization" checked>
-                                    Disable MAC Randomization
-                                </label>
-                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Disable MAC address randomization for device tracking and network policies</small>
+                                <label for="wifiMacRandomization">MAC Address Randomization:</label>
+                                <select id="wifiMacRandomization" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="disabled">Disabled (Better for device tracking)</option>
+                                    <option value="enabled">Enabled (Enhanced privacy)</option>
+                                </select>
+                                <small style="color: var(--medium-gray);">Control MAC address randomization for network policies and device tracking</small>
                             </div>
                         </div>
 
@@ -7992,7 +7993,7 @@ Dependencies:
                     document.getElementById('profileDescription').value = data.config.profile_description || '';
                     document.getElementById('wifiHiddenNetwork').checked = data.config.wifi_hidden_network === 'true';
                     document.getElementById('wifiAutoJoin').checked = data.config.wifi_auto_join !== 'false';
-                    document.getElementById('wifiDisableMacRandomization').checked = data.config.wifi_disable_mac_randomization !== 'false';
+                    document.getElementById('wifiMacRandomization').value = data.config.wifi_disable_mac_randomization === 'true' ? 'disabled' : 'enabled';
 
                     document.getElementById('wifi-status').innerHTML = '<div class="status-success">✅ WiFi configuration loaded successfully</div>';
                 } else {
@@ -8014,7 +8015,7 @@ Dependencies:
                 profile_description: document.getElementById('profileDescription').value.trim(),
                 wifi_hidden_network: document.getElementById('wifiHiddenNetwork').checked ? 'true' : 'false',
                 wifi_auto_join: document.getElementById('wifiAutoJoin').checked ? 'true' : 'false',
-                wifi_disable_mac_randomization: document.getElementById('wifiDisableMacRandomization').checked ? 'true' : 'false'
+                wifi_disable_mac_randomization: document.getElementById('wifiMacRandomization').value === 'disabled' ? 'true' : 'false'
             };
 
             // Validate required fields
@@ -8062,7 +8063,7 @@ Dependencies:
                 profile_description: document.getElementById('profileDescription').value.trim(),
                 wifi_hidden_network: document.getElementById('wifiHiddenNetwork').checked ? 'true' : 'false',
                 wifi_auto_join: document.getElementById('wifiAutoJoin').checked ? 'true' : 'false',
-                wifi_disable_mac_randomization: document.getElementById('wifiDisableMacRandomization').checked ? 'true' : 'false'
+                wifi_disable_mac_randomization: document.getElementById('wifiMacRandomization').value === 'disabled' ? 'true' : 'false'
             };
 
             // Validate required fields
@@ -8099,7 +8100,7 @@ Dependencies:
                                 <li><strong>Profile Description:</strong> ${preview.profile_description}</li>
                                 <li><strong>Auto-Join:</strong> ${config.wifi_auto_join === 'true' ? 'Yes' : 'No'}</li>
                                 <li><strong>Hidden Network:</strong> ${config.wifi_hidden_network === 'true' ? 'Yes' : 'No'}</li>
-                                <li><strong>MAC Randomization:</strong> ${config.wifi_disable_mac_randomization === 'true' ? 'Disabled' : 'Enabled'}</li>
+                                <li><strong>MAC Randomization:</strong> ${config.wifi_disable_mac_randomization === 'true' ? 'Disabled (Better for device tracking)' : 'Enabled (Enhanced privacy)'}</li>
                             </ul>
                             <p style="margin-top: 0.5rem; margin-bottom: 0; font-size: 0.875rem;">
                                 <strong>Note:</strong> Users can download personalized profiles from the IDP portal at <code>/idp</code>
