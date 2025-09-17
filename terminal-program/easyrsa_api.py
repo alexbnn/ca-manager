@@ -595,10 +595,78 @@ def build_client_full(params):
         # Remove CN for signing step to avoid conflicts
         sign_env.pop('EASYRSA_REQ_CN', None)
         
-        # Try signing with server type for more flexible key usage
-        # Server certificates typically have more flexible key usage than client certificates
-        sign_result = run_easyrsa_command(['sign-req', 'server', name],
-                                        input_text="yes\n", custom_env=sign_env)
+        # Create custom extension file for maximum compatibility
+        import tempfile
+
+        # Create a temporary extension configuration file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.cnf', delete=False) as ext_file:
+            ext_file.write(f"""# Custom certificate extensions for maximum compatibility
+[ req ]
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+subjectAltName = email:{name}
+""")
+            ext_filename = ext_file.name
+
+        try:
+            # Sign with custom extensions using OpenSSL directly for RADIUS client auth
+            # First, let's try the EasyRSA way with client type
+            sign_result = run_easyrsa_command(['sign-req', 'client', name],
+                                            input_text="yes\n", custom_env=sign_env)
+
+            # If that works, we'll enhance it with custom extensions using OpenSSL
+            if sign_result.returncode == 0:
+                # The certificate was created successfully, now let's check if we need to enhance it
+                cert_path = os.path.join(PKI_PATH, 'issued', f'{name}.crt')
+                key_path = os.path.join(PKI_PATH, 'private', f'{name}.key')
+                req_path = os.path.join(PKI_PATH, 'reqs', f'{name}.req')
+                ca_cert = os.path.join(PKI_PATH, 'ca.crt')
+                ca_key = os.path.join(PKI_PATH, 'private', 'ca.key')
+
+                # Create a new certificate with enhanced extensions using OpenSSL directly
+                openssl_cmd = [
+                    'openssl', 'x509', '-req',
+                    '-in', req_path,
+                    '-CA', ca_cert,
+                    '-CAkey', ca_key,
+                    '-CAcreateserial',
+                    '-out', f'{cert_path}.enhanced',
+                    '-days', '365',
+                    '-extensions', 'v3_req',
+                    '-extfile', ext_filename
+                ]
+
+                # Try to create enhanced certificate
+                import subprocess
+                try:
+                    openssl_result = subprocess.run(openssl_cmd, capture_output=True, text=True, timeout=30)
+                    if openssl_result.returncode == 0:
+                        # Replace original certificate with enhanced version
+                        import shutil
+                        shutil.move(f'{cert_path}.enhanced', cert_path)
+                        print(f"Enhanced certificate created for {name} with flexible key usage")
+                except Exception as openssl_error:
+                    print(f"OpenSSL enhancement failed, using standard certificate: {openssl_error}")
+                    # Clean up enhanced file if it exists
+                    try:
+                        os.unlink(f'{cert_path}.enhanced')
+                    except:
+                        pass
+
+        finally:
+            # Clean up temporary extension file
+            try:
+                os.unlink(ext_filename)
+            except:
+                pass
         
         # Clean up the certificate request file after successful certificate creation
         if sign_result.returncode == 0:
@@ -615,7 +683,7 @@ def build_client_full(params):
             "return_code": sign_result.returncode,
             "stdout": sign_result.stdout,
             "stderr": sign_result.stderr,
-            "message": f"Certificate for {name} created successfully with CN={name} (server-type for flexible usage)" if sign_result.returncode == 0 else f"Failed to create certificate for {name}"
+            "message": f"RADIUS client certificate for {name} created successfully with CN={name} (optimized for EAP-TLS authentication)" if sign_result.returncode == 0 else f"Failed to create certificate for {name}"
         })
         
     except Exception as e:
