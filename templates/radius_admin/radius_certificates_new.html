@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <a href="/ca-manager" class="btn btn-primary btn-sm">🏛️ Manage CA</a>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item active">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>Server Cert</h3>
+                    <div class="value" id="serverCertStatus">🟢</div>
+                    <div class="label" id="serverCertLabel">Valid</div>
+                </div>
+                <div class="metric-card">
+                    <h3>CA Certificate</h3>
+                    <div class="value" id="caCertStatus">🟢</div>
+                    <div class="label" id="caCertLabel">Active</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Client Certs</h3>
+                    <div class="value" id="clientCerts">0</div>
+                    <div class="label">Active certificates</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Expiring Soon</h3>
+                    <div class="value" id="expiringSoon">0</div>
+                    <div class="label">Next 30 days</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- RADIUS Server Certificates -->
+            <div class="section">
+                <h2><span class="section-icon">🔒</span>RADIUS Server Certificates</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Server Certificate</h3>
+                            <span class="status-indicator success" id="serverCertIndicator">
+                                <span>●</span> Valid
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Subject:</strong> <span id="serverCertSubject">Loading...</span></p>
+                            <p><strong>Issuer:</strong> <span id="serverCertIssuer">Loading...</span></p>
+                            <p><strong>Valid From:</strong> <span id="serverCertValidFrom">Loading...</span></p>
+                            <p><strong>Valid Until:</strong> <span id="serverCertValidUntil">Loading...</span></p>
+                            <p><strong>Serial Number:</strong> <span id="serverCertSerial">Loading...</span></p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-info btn-sm" onclick="viewServerCert()">👁️ View Details</button>
+                            <button class="btn btn-warning btn-sm" onclick="renewServerCert(this)">🆕 Generate New</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">CA Certificate</h3>
+                            <span class="status-indicator success" id="caCertIndicator">
+                                <span>●</span> Valid
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Subject:</strong> <span id="caCertSubject">Loading...</span></p>
+                            <p><strong>Valid From:</strong> <span id="caCertValidFrom">Loading...</span></p>
+                            <p><strong>Valid Until:</strong> <span id="caCertValidUntil">Loading...</span></p>
+                            <p><strong>Key Usage:</strong> <span id="caCertKeyUsage">Certificate Sign, CRL Sign</span></p>
+                            <p><strong>Serial Number:</strong> <span id="caCertSerial">Loading...</span></p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-info btn-sm" onclick="viewCACert()">👁️ View Details</button>
+                            <button class="btn btn-warning btn-sm" onclick="syncCACert()">🔄 Sync from PKI</button>
+                            <a href="/ca-manager" class="btn btn-primary btn-sm">🏛️ Manage CA</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Client Certificates -->
+            <div class="section">
+                <h2><span class="section-icon">👥</span>Client Certificates</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Active Client Certificates</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshClientCerts()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="clientCertsTable">
+                            <div class="loading">Loading client certificates...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="/ca-manager/certificates" class="btn btn-primary btn-sm">📋 View All Certificates</a>
+                        <a href="/ca-manager/certificate-request" class="btn btn-success btn-sm">➕ Request Certificate</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Certificate Configuration -->
+            <div class="section">
+                <h2><span class="section-icon">⚙️</span>Certificate Configuration</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">EAP-TLS Settings</h3>
+                            <span class="status-indicator success">
+                                <span>●</span> Enabled
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableEapTls" checked>
+                                    Enable EAP-TLS authentication
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="requireClientCert" checked>
+                                    Require client certificate
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="checkCertCrl" checked>
+                                    Check certificate revocation
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="verifyChain" checked>
+                                    Verify certificate chain
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="maxCertAge">Max Certificate Age (days):</label>
+                                <input type="number" id="maxCertAge" value="365" min="1" max="3650">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateEapTlsSettings()">💾 Save Settings</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Certificate Validation</h3>
+                            <span class="status-indicator info">
+                                <span>ℹ</span> Configured
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="ocspUrl">OCSP URL:</label>
+                                <input type="url" id="ocspUrl" placeholder="http://ocsp.example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="crlUrl">CRL URL:</label>
+                                <input type="url" id="crlUrl" placeholder="http://crl.example.com/ca.crl">
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableOcsp">
+                                    Enable OCSP validation
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableCrl">
+                                    Enable CRL checking
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateValidationSettings()">💾 Update Validation</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Certificate Health Check -->
+            <div class="section">
+                <h2><span class="section-icon">🩺</span>Certificate Health Check</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Certificate Status Overview</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="runHealthCheck()">🔍 Run Health Check</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="healthCheckResults">
+                            <div class="loading">Click "Run Health Check" to verify certificate status</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-warning btn-sm" onclick="exportCertificateReport()">📄 Export Report</button>
+                        <button class="btn btn-info btn-sm" onclick="scheduleHealthCheck()">⏰ Schedule Checks</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Certificate Details Modal -->
+    <div id="certDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="certDetailsTitle">Certificate Details</h3>
+                <button class="modal-close" onclick="hideCertDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="certDetailsContent">
+                    <div class="loading">Loading certificate details...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideCertDetailsModal()">Close</button>
+                <button class="btn btn-info" onclick="downloadCert()">📥 Download</button>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCertificateStatus();
+            loadClientCertificates();
+            initializeScrollEffects();
+
+            // Auto-refresh every 5 minutes
+            setInterval(loadCertificateStatus, 300000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadCertificateStatus() {
+            try {
+                const response = await fetch('/radius-admin/api/certificates');
+                const data = await response.json();
+
+                // Update server certificate info
+                if (data.server_cert) {
+                    const cert = data.server_cert;
+                    document.getElementById('serverCertSubject').textContent = cert.subject || 'Unknown';
+                    document.getElementById('serverCertIssuer').textContent = cert.issuer || 'Unknown';
+                    document.getElementById('serverCertValidFrom').textContent = cert.valid_from || 'Unknown';
+                    document.getElementById('serverCertValidUntil').textContent = cert.valid_until || 'Unknown';
+                    document.getElementById('serverCertSerial').textContent = cert.serial || 'Unknown';
+
+                    // Update status indicators
+                    const serverIndicator = document.getElementById('serverCertIndicator');
+                    const serverStatus = document.getElementById('serverCertStatus');
+                    const serverLabel = document.getElementById('serverCertLabel');
+
+                    if (cert.is_valid) {
+                        serverIndicator.innerHTML = '<span>●</span> Valid';
+                        serverIndicator.className = 'status-indicator success';
+                        serverStatus.textContent = '🟢';
+                        serverLabel.textContent = 'Valid';
+                    } else {
+                        serverIndicator.innerHTML = '<span>●</span> Invalid';
+                        serverIndicator.className = 'status-indicator error';
+                        serverStatus.textContent = '🔴';
+                        serverLabel.textContent = 'Invalid';
+                    }
+                }
+
+                // Update CA certificate info
+                if (data.ca_cert) {
+                    const cert = data.ca_cert;
+                    document.getElementById('caCertSubject').textContent = cert.subject || 'Unknown';
+                    document.getElementById('caCertValidFrom').textContent = cert.valid_from || 'Unknown';
+                    document.getElementById('caCertValidUntil').textContent = cert.valid_until || 'Unknown';
+                    document.getElementById('caCertSerial').textContent = cert.serial || 'Unknown';
+
+                    // Update status indicators
+                    const caIndicator = document.getElementById('caCertIndicator');
+                    const caStatus = document.getElementById('caCertStatus');
+                    const caLabel = document.getElementById('caCertLabel');
+
+                    if (cert.is_valid) {
+                        caIndicator.innerHTML = '<span>●</span> Valid';
+                        caIndicator.className = 'status-indicator success';
+                        caStatus.textContent = '🟢';
+                        caLabel.textContent = 'Active';
+                    } else {
+                        caIndicator.innerHTML = '<span>●</span> Invalid';
+                        caIndicator.className = 'status-indicator error';
+                        caStatus.textContent = '🔴';
+                        caLabel.textContent = 'Invalid';
+                    }
+                }
+
+                // Update metrics
+                document.getElementById('clientCerts').textContent = data.client_cert_count || 0;
+                document.getElementById('expiringSoon').textContent = data.expiring_soon || 0;
+
+            } catch (error) {
+                console.error('Error loading certificate status:', error);
+            }
+        }
+
+        async function loadClientCertificates() {
+            try {
+                const response = await fetch('/radius-admin/api/client-certificates');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('clientCertsTable');
+
+                if (data.certificates && data.certificates.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Subject</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Valid Until</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.certificates.map(cert => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-family: monospace;">${cert.subject}</td>
+                                        <td style="padding: 0.5rem;">${cert.valid_until}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${cert.is_valid ? 'success' : 'error'}">
+                                                ${cert.is_valid ? '✓ Valid' : '✗ Invalid'}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 0.5rem;">
+                                            <button class="btn btn-info btn-sm" onclick="viewClientCert('${cert.serial}')">👁️ View</button>
+                                            <button class="btn btn-danger btn-sm" onclick="revokeCert('${cert.serial}')">🚫 Revoke</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No client certificates found</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading client certificates:', error);
+                document.getElementById('clientCertsTable').innerHTML = '<div class="loading">Error loading client certificates</div>';
+            }
+        }
+
+        function viewServerCert() {
+            showCertDetails('server', 'RADIUS Server Certificate');
+        }
+
+        function viewCACert() {
+            showCertDetails('ca', 'CA Certificate');
+        }
+
+        async function syncCACert() {
+            if (!confirm('This will sync the CA certificate from the PKI system and remove any invalid server certificates. Continue?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/radius-admin/api/certificates/sync-ca', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    alert('✅ ' + result.message);
+
+                    // Refresh certificate status after sync
+                    setTimeout(() => {
+                        loadCertificateStatus();
+                    }, 1000);
+                } else {
+                    alert('❌ ' + (result.message || 'Failed to sync CA certificate'));
+                }
+            } catch (error) {
+                alert('❌ Error syncing CA certificate: ' + error.message);
+            }
+        }
+
+        function viewClientCert(serial) {
+            showCertDetails('client', 'Client Certificate', serial);
+        }
+
+        async function showCertDetails(type, title, serial = null) {
+            document.getElementById('certDetailsTitle').textContent = title;
+            document.getElementById('certDetailsModal').style.display = 'flex';
+
+            try {
+                let url = `/radius-admin/api/certificate-details/${type}`;
+                if (serial) url += `?serial=${serial}`;
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                let content;
+                if (data.exists === false) {
+                    content = `
+                        <div style="padding: 1rem; text-align: center; color: var(--warning-orange);">
+                            <h3>⚠️ Certificate Not Found</h3>
+                            <p>${data.error}</p>
+                            <p><strong>Path:</strong> ${data.path}</p>
+                        </div>
+                    `;
+                } else if (data.error) {
+                    content = `
+                        <div style="padding: 1rem; text-align: center; color: var(--danger-red);">
+                            <h3>❌ Error Loading Certificate</h3>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                } else {
+                    // Format certificate details nicely
+                    content = `
+                        <div style="font-family: var(--font-secondary); background: var(--light-gray); padding: 1rem; border-radius: 4px;">
+                            <div style="margin-bottom: 1rem;">
+                                <strong>Certificate Type:</strong> ${data.cert_type.toUpperCase()}
+                            </div>
+                            ${data.subject ? `<div style="margin-bottom: 1rem;"><strong>Subject:</strong> ${data.subject}</div>` : ''}
+                            ${data.issuer ? `<div style="margin-bottom: 1rem;"><strong>Issuer:</strong> ${data.issuer}</div>` : ''}
+                            ${data.not_before ? `<div style="margin-bottom: 1rem;"><strong>Valid From:</strong> ${data.not_before}</div>` : ''}
+                            ${data.not_after ? `<div style="margin-bottom: 1rem;"><strong>Valid Until:</strong> ${data.not_after}</div>` : ''}
+                            ${data.days_until_expiry !== undefined ? `
+                                <div style="margin-bottom: 1rem;">
+                                    <strong>Expiry Status:</strong>
+                                    ${data.expired ? '🔴 EXPIRED' : data.expires_soon ? '🟡 Expires Soon' : '🟢 Valid'}
+                                    (${data.days_until_expiry} days)
+                                </div>
+                            ` : ''}
+                            <div style="margin-top: 1.5rem;">
+                                <strong>File Path:</strong> <code>${data.path}</code>
+                            </div>
+                        </div>
+                        ${data.raw_output ? `
+                            <details style="margin-top: 1rem;">
+                                <summary style="cursor: pointer; font-weight: bold;">🔍 Raw Certificate Data</summary>
+                                <div style="font-family: monospace; white-space: pre-wrap; background: #f8f9fa; padding: 1rem; border-radius: 4px; max-height: 300px; overflow-y: auto; margin-top: 0.5rem; font-size: 0.875rem;">
+${data.raw_output}
+                                </div>
+                            </details>
+                        ` : ''}
+                    `;
+                }
+                document.getElementById('certDetailsContent').innerHTML = content;
+
+            } catch (error) {
+                console.error('Error loading certificate details:', error);
+                document.getElementById('certDetailsContent').innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: var(--danger-red);">
+                        <h3>❌ Connection Error</h3>
+                        <p>Failed to load certificate details: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function hideCertDetailsModal() {
+            document.getElementById('certDetailsModal').style.display = 'none';
+        }
+
+        async function renewServerCert(buttonElement) {
+            if (confirm('Are you sure you want to generate a new RADIUS server certificate? This will replace the current certificate.')) {
+                // Show loading state
+                const button = buttonElement;
+                const originalText = button.innerHTML;
+                button.innerHTML = '🔄 Generating...';
+                button.disabled = true;
+
+                try {
+
+                    const response = await fetch('/radius-admin/api/certificates/generate-server', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+
+                    if (result.status === 'success') {
+                        alert('✅ New RADIUS server certificate generated successfully!');
+                        // Reload certificate status
+                        loadCertificateStatus();
+                    } else {
+                        alert(`❌ Failed to generate certificate: ${result.message}`);
+                    }
+
+                } catch (error) {
+                    console.error('Error generating server certificate:', error);
+                    alert('❌ Error generating server certificate. Please try again.');
+                } finally {
+                    // Restore button state
+                    if (button) {
+                        button.innerHTML = '🆕 Generate New';
+                        button.disabled = false;
+                    }
+                }
+            }
+        }
+
+        function refreshClientCerts() {
+            loadClientCertificates();
+        }
+
+        function revokeCert(serial) {
+            if (confirm(`Are you sure you want to revoke certificate ${serial}?`)) {
+                console.log('Revoke certificate:', serial);
+                // TODO: Implement certificate revocation
+            }
+        }
+
+        function updateEapTlsSettings() {
+            const settings = {
+                enableEapTls: document.getElementById('enableEapTls').checked,
+                requireClientCert: document.getElementById('requireClientCert').checked,
+                checkCertCrl: document.getElementById('checkCertCrl').checked,
+                verifyChain: document.getElementById('verifyChain').checked,
+                maxCertAge: document.getElementById('maxCertAge').value
+            };
+
+            console.log('Update EAP-TLS settings:', settings);
+            // TODO: Implement EAP-TLS settings update
+        }
+
+        function updateValidationSettings() {
+            const settings = {
+                ocspUrl: document.getElementById('ocspUrl').value,
+                crlUrl: document.getElementById('crlUrl').value,
+                enableOcsp: document.getElementById('enableOcsp').checked,
+                enableCrl: document.getElementById('enableCrl').checked
+            };
+
+            console.log('Update validation settings:', settings);
+            // TODO: Implement validation settings update
+        }
+
+        async function runHealthCheck() {
+            document.getElementById('healthCheckResults').innerHTML = '<div class="loading">Running certificate health check...</div>';
+
+            try {
+                const response = await fetch('/radius-admin/api/certificate-health-check');
+                const data = await response.json();
+
+                const results = `
+                    <div style="space-y: 1rem;">
+                        ${data.checks.map(check => `
+                            <div style="padding: 0.5rem; border-left: 4px solid ${check.status === 'pass' ? 'var(--success-green)' : 'var(--error-red)'}; background: var(--light-gray); margin-bottom: 0.5rem;">
+                                <strong>${check.name}:</strong>
+                                <span class="status-indicator ${check.status === 'pass' ? 'success' : 'error'}">
+                                    ${check.status === 'pass' ? '✓' : '✗'} ${check.message}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                document.getElementById('healthCheckResults').innerHTML = results;
+
+            } catch (error) {
+                console.error('Error running health check:', error);
+                document.getElementById('healthCheckResults').innerHTML = '<div class="loading">Error running health check</div>';
+            }
+        }
+
+        function exportCertificateReport() {
+            console.log('Export certificate report');
+            // TODO: Implement certificate report export
+        }
+
+        function scheduleHealthCheck() {
+            console.log('Schedule health check');
+            // TODO: Implement health check scheduling
+        }
+
+        function downloadCert() {
+            console.log('Download certificate');
+            // TODO: Implement certificate download
+        }
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

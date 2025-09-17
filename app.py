@@ -45,6 +45,14 @@ app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Register RADIUS Admin Blueprint
+try:
+    from radius_admin import radius_admin_bp
+    app.register_blueprint(radius_admin_bp)
+    logger.info("RADIUS Admin interface registered at /radius-admin")
+except ImportError as e:
+    logger.warning(f"Could not import RADIUS Admin blueprint: {e}")
+
 # Helper function for CA certificate base64 encoding
 def get_ca_cert_base64(ca_cert_pem):
     """Convert CA certificate PEM to proper base64 for mobile config"""
@@ -417,6 +425,48 @@ def log_operation(operation, details=None):
     }
     logging.info(f"AUDIT: {json.dumps(log_entry)}")
 
+def sync_radius_ca_certificate():
+    """Automatically sync CA certificate to RADIUS server after PKI operations"""
+    try:
+        logger.info("Starting automatic RADIUS CA certificate sync...")
+
+        # Copy CA certificate from EasyRSA to RADIUS server
+        copy_cmd = [
+            'docker', 'exec', 'ca-manager-f-easyrsa-container-1',
+            'cat', '/app/pki/ca.crt'
+        ]
+        ca_cert_result = subprocess.run(copy_cmd, capture_output=True, text=True, timeout=10)
+
+        if ca_cert_result.returncode != 0:
+            logger.error(f"Failed to read CA certificate: {ca_cert_result.stderr}")
+            return False
+
+        # Write CA certificate to RADIUS server
+        write_cmd = [
+            'docker', 'exec', '-i', 'ca-manager-f-radius-server-1',
+            'tee', '/etc/raddb/certs/ca/ca.crt'
+        ]
+        write_result = subprocess.run(write_cmd, input=ca_cert_result.stdout,
+                                    capture_output=True, text=True, timeout=10)
+
+        if write_result.returncode != 0:
+            logger.error(f"Failed to write CA certificate to RADIUS: {write_result.stderr}")
+            return False
+
+        # Remove old server certificates (they're invalid with new CA)
+        cleanup_cmd = [
+            'docker', 'exec', 'ca-manager-f-radius-server-1',
+            'rm', '-f', '/etc/raddb/certs/server/server.crt', '/etc/raddb/certs/server/server.key'
+        ]
+        subprocess.run(cleanup_cmd, capture_output=True, timeout=5)
+
+        logger.info("RADIUS CA certificate sync completed successfully")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error syncing RADIUS CA certificate: {str(e)}")
+        return False
+
 def get_system_config(config_key, default_value=None):
     """Get system configuration value from database"""
     conn = get_db_connection()
@@ -610,7 +660,7 @@ def index():
         logger.error(f"Error loading custom colors: {e}")
         custom_colors = {}
     
-    return render_template('index.html', user=user_info, custom_colors=custom_colors)
+    return render_template('home_dashboard.html', user=user_info, custom_colors=custom_colors)
 
 @app.route('/login')
 def login_page():
@@ -657,6 +707,55 @@ def login_page():
                     custom_colors = {}
                 return render_template('login.html', version=BUILD_TIMESTAMP, custom_colors=custom_colors)
     return redirect('/')
+
+@app.route('/ca-manager')
+def ca_manager():
+    """CA Manager application interface"""
+    # Ensure database is initialized
+    ensure_database_initialized()
+
+    if AUTHENTICATION_ENABLED:
+        if MULTI_USER_MODE:
+            if not session.get('authenticated'):
+                return redirect('/')
+        else:
+            if 'authenticated' not in session:
+                return redirect('/')
+
+    # Check if user logged in via IDP - serve specialized portal
+    if session.get('idp_user'):
+        logger.info(f"IDP user detected: {session.get('username')}, serving IDP portal")
+        return render_template('idp_portal.html')
+
+    # Get user info for template (regular admin users)
+    user_info = {
+        'username': session.get('username', 'guest'),
+        'is_admin': session.get('is_admin', False),
+        'roles': session.get('roles', [])
+    }
+
+    # Load custom color theme for injection into template
+    custom_colors = {}
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT config_key, config_value
+                FROM system_config
+                WHERE config_key LIKE 'theme_color_%'
+            """)
+
+            for row in cursor.fetchall():
+                key = row['config_key'].replace('theme_color_', '')
+                custom_colors[key] = row['config_value']
+
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error loading custom colors: {e}")
+        custom_colors = {}
+
+    return render_template('index.html', user=user_info, custom_colors=custom_colors)
 
 @app.route('/health')
 def health():
@@ -1116,12 +1215,18 @@ def init_pki():
             result['message'] = f"{original_message}. Cleared {total_cleared} total certificate records from database ({', '.join([f'{count} {table}' for table, count in tables_cleared.items() if count > 0])})."
             
             logger.info(f"PKI reset completed: cleared certificate data - {tables_cleared}")
-            
+
         except Exception as e:
             logger.error(f"Error clearing database during PKI reset: {e}")
             # Don't fail the entire operation if database cleanup fails
             result['message'] = result.get('message', '') + f" (Warning: Could not clear database records: {str(e)})"
-    
+
+    # Auto-sync RADIUS CA certificate after PKI reset
+    try:
+        sync_radius_ca_certificate()
+    except Exception as e:
+        logger.warning(f"RADIUS CA sync failed after PKI reset: {str(e)}")
+
     return jsonify(result)
 
 @app.route('/api/pki/status', methods=['GET'])
@@ -1156,6 +1261,14 @@ def build_ca():
     
     log_operation('build_ca', ca_config)
     result = make_easyrsa_request('build-ca', ca_config)
+
+    # Auto-sync RADIUS CA certificate after CA creation
+    if result.get('status') == 'success':
+        try:
+            sync_radius_ca_certificate()
+        except Exception as e:
+            logger.warning(f"RADIUS CA sync failed after CA build: {str(e)}")
+
     return jsonify(result)
 
 @app.route('/api/ca/upload', methods=['POST'])
@@ -1308,7 +1421,14 @@ def upload_ca():
                 # Don't fail the entire operation if database cleanup fails
                 result['ca_info'] = ca_info
                 result['message'] = f"Successfully imported CA: {ca_info['common_name']} (Warning: Could not clear database records: {str(e)})"
-        
+
+        # Auto-sync RADIUS CA certificate after CA upload
+        if result.get('status') == 'success':
+            try:
+                sync_radius_ca_certificate()
+            except Exception as e:
+                logger.warning(f"RADIUS CA sync failed after CA upload: {str(e)}")
+
         return jsonify(result)
         
     except Exception as e:
@@ -1328,26 +1448,34 @@ def show_ca():
 @app.route('/api/ca/download', methods=['GET'])
 @auth_required(permission='ca_read')
 def download_ca():
-    """Download CA certificate (with private key for admin users)"""
+    """Download CA certificate (with optional private key)"""
     try:
         log_operation('download_ca')
-        
-        # Check if user is admin
+
+        # Check if private key should be included
+        include_key = request.args.get('include_key', 'false').lower() == 'true'
+
+        # Only admin users can download with private key
         is_admin = session.get('is_admin', False)
-        
+        if include_key and not is_admin:
+            return jsonify({
+                "status": "error",
+                "message": "Admin permissions required to download CA private key"
+            }), 403
+
         # Get CA certificate
         cert_response = requests.get(f"{TERMINAL_CONTAINER_URL}/download-ca", timeout=REQUEST_TIMEOUT)
-        
+
         if cert_response.status_code != 200:
             return jsonify({
-                "status": "error", 
+                "status": "error",
                 "message": f"CA certificate not found. Container response: {cert_response.status_code}"
             }), 404
-        
+
         ca_cert_content = cert_response.text
-        
-        if is_admin:
-            # Admin users get combined certificate + private key
+
+        if include_key:
+            # Include private key with certificate (admin only)
             try:
                 # Get CA private key
                 key_response = requests.post(
@@ -1381,7 +1509,7 @@ def download_ca():
                 app.logger.warning(f"Failed to retrieve CA private key: {str(key_error)}")
                 # Continue to provide certificate-only download
         
-        # Regular users or fallback: certificate only
+        # Certificate only (default or fallback)
         file_obj = io.BytesIO(ca_cert_content.encode('utf-8'))
         
         return send_file(
@@ -1543,14 +1671,84 @@ def download_certificate(name):
             pem_content = result.get('certificate', '')
             if include_key and 'private_key' in result:
                 pem_content += '\n' + result['private_key']
-            
+
             return send_file(
                 io.BytesIO(pem_content.encode()),
                 as_attachment=True,
                 download_name=f"{name}.pem",
                 mimetype='application/x-pem-file'
             )
-            
+
+        elif cert_type == 'p12' or cert_type == 'pkcs12':
+            # Create PKCS#12 bundle - use consistent password with user portal
+            from cryptography import x509
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.serialization import pkcs12
+            from cryptography.hazmat.backends import default_backend
+
+            try:
+                # Parse certificate
+                cert_pem = result.get('certificate', '')
+                cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+
+                # Parse private key
+                key_pem = result.get('private_key', '')
+                private_key = serialization.load_pem_private_key(
+                    key_pem.encode(),
+                    password=None,
+                    backend=default_backend()
+                )
+
+                # Parse CA certificate if available
+                ca_cert = None
+                if 'ca_certificate' in result:
+                    ca_pem = result['ca_certificate']
+                    ca_cert = x509.load_pem_x509_certificate(ca_pem.encode(), default_backend())
+
+                # Use consistent password with user portal - "certificate"
+                p12_password = b"certificate"
+
+                # Create PKCS#12 with or without CA cert
+                if ca_cert:
+                    p12_data = pkcs12.serialize_key_and_certificates(
+                        name=name.encode('utf-8'),
+                        key=private_key,
+                        cert=cert,
+                        cas=[ca_cert],
+                        encryption_algorithm=serialization.BestAvailableEncryption(p12_password)
+                    )
+                else:
+                    p12_data = pkcs12.serialize_key_and_certificates(
+                        name=name.encode('utf-8'),
+                        key=private_key,
+                        cert=cert,
+                        cas=None,
+                        encryption_algorithm=serialization.BestAvailableEncryption(p12_password)
+                    )
+
+                # Return P12 file
+                return send_file(
+                    io.BytesIO(p12_data),
+                    as_attachment=True,
+                    download_name=f"{name}.p12",
+                    mimetype='application/x-pkcs12'
+                )
+
+            except Exception as p12_error:
+                # If P12 generation fails, return error
+                logging.error(f"P12 generation failed for {name}: {str(p12_error)}")
+                return jsonify({
+                    "status": "error",
+                    "message": f"Failed to generate PKCS#12 bundle: {str(p12_error)}"
+                }), 500
+
+        else:
+            # Invalid format requested
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid download format: {cert_type}. Supported formats: zip, pem, p12"
+            }), 400
+
     except Exception as e:
         return jsonify({
             "status": "error",

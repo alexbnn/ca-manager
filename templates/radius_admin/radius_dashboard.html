@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --dark: #202124;
+            --light: #f8f9fa;
+            --border: #dadce0;
+            --text: #3c4043;
+            --text-light: #5f6368;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        /* Navigation */
+        .nav-container {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .nav-brand .icon {
+            font-size: 1.5rem;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .nav-menu a:hover {
+            background: var(--light);
+        }
+
+        .nav-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .nav-user {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-user .user-info {
+            text-align: right;
+        }
+
+        .nav-user .username {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .nav-user .role {
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Metric Card */
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .metric-title {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .metric-icon.success { background: rgba(52, 168, 83, 0.1); color: var(--success); }
+        .metric-icon.primary { background: rgba(26, 115, 232, 0.1); color: var(--primary); }
+        .metric-icon.warning { background: rgba(251, 188, 4, 0.1); color: var(--warning); }
+        .metric-icon.danger { background: rgba(234, 67, 53, 0.1); color: var(--danger); }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-change {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .metric-change.positive { color: var(--success); }
+        .metric-change.negative { color: var(--danger); }
+
+        /* Server Status */
+        .server-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .server-status.online {
+            background: rgba(52, 168, 83, 0.1);
+            color: var(--success);
+        }
+
+        .server-status.offline {
+            background: rgba(234, 67, 53, 0.1);
+            color: var(--danger);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Section Cards */
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1557b0;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: #e8eaed;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            background: var(--light);
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.875rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .data-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        .data-table tr:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background: rgba(52, 168, 83, 0.1);
+            color: var(--success);
+        }
+
+        .badge-danger {
+            background: rgba(234, 67, 53, 0.1);
+            color: var(--danger);
+        }
+
+        .badge-warning {
+            background: rgba(251, 188, 4, 0.1);
+            color: var(--warning);
+        }
+
+        /* Activity Feed */
+        .activity-feed {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 1rem;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.success {
+            background: rgba(52, 168, 83, 0.1);
+            color: var(--success);
+        }
+
+        .activity-icon.failure {
+            background: rgba(234, 67, 53, 0.1);
+            color: var(--danger);
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-message {
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-meta {
+            color: var(--text-light);
+            font-size: 0.75rem;
+        }
+
+        /* Charts placeholder */
+        .chart-container {
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--light);
+            border-radius: 8px;
+            color: var(--text-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-menu {
+                display: none;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav-container">
+        <div class="nav-content">
+            <a href="/radius-admin" class="nav-brand">
+                <span class="icon">📡</span>
+                RADIUS Admin
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/radius-admin/dashboard" class="active">Dashboard</a></li>
+                <li><a href="/radius-admin/clients">Clients</a></li>
+                <li><a href="/radius-admin/vlans">VLANs</a></li>
+                <li><a href="/radius-admin/policies">Policies</a></li>
+                <li><a href="/radius-admin/testing">Testing</a></li>
+                <li><a href="/radius-admin/certificates">Certificates</a></li>
+                <li><a href="/radius-admin/monitoring">Monitoring</a></li>
+                <li><a href="/radius-admin/reports">Reports</a></li>
+                <li><a href="/ca-manager">CA Manager</a></li>
+            </ul>
+
+            <div class="nav-user">
+                <div class="user-info">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="role">{{ user.roles|join(', ') }}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Dashboard Metrics -->
+        <div class="dashboard-grid">
+            <!-- Active Sessions -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Active Sessions</span>
+                    <div class="metric-icon success">👥</div>
+                </div>
+                <div class="metric-value">{{ metrics.active_sessions|default(0) }}</div>
+                <div class="metric-change positive">
+                    <span>↑ Live connections</span>
+                </div>
+            </div>
+
+            <!-- Success Rate -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Success Rate</span>
+                    <div class="metric-icon primary">📊</div>
+                </div>
+                <div class="metric-value">{{ metrics.success_rate|default(0) }}%</div>
+                <div class="metric-change">
+                    <span>Last hour</span>
+                </div>
+            </div>
+
+            <!-- Today's Authentications -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Today's Auths</span>
+                    <div class="metric-icon warning">🔐</div>
+                </div>
+                <div class="metric-value">{{ metrics.today_auths|default(0) }}</div>
+                <div class="metric-change">
+                    <span>Since midnight</span>
+                </div>
+            </div>
+
+            <!-- RADIUS Status -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">RADIUS Server</span>
+                    <div class="metric-icon {% if metrics.radius_status == 'Online' %}success{% else %}danger{% endif %}">🖥️</div>
+                </div>
+                <div class="server-status {% if metrics.radius_status == 'Online' %}online{% else %}offline{% endif %}">
+                    <span class="status-dot"></span>
+                    {{ metrics.radius_status|default('Unknown') }}
+                </div>
+                <div class="metric-change">
+                    <span>Port 1812/1813 UDP</span>
+                </div>
+            </div>
+
+            <!-- Active VLANs -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Active VLANs</span>
+                    <div class="metric-icon primary">🌐</div>
+                </div>
+                <div class="metric-value">{{ metrics.active_vlans|default(0) }}</div>
+                <div class="metric-change">
+                    <span>Configured networks</span>
+                </div>
+            </div>
+
+            <!-- Active Policies -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Active Policies</span>
+                    <div class="metric-icon warning">📋</div>
+                </div>
+                <div class="metric-value">{{ metrics.active_policies|default(0) }}</div>
+                <div class="metric-change">
+                    <span>VLAN assignment rules</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Recent Authentication Activity</h2>
+                <div class="section-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="refreshActivity()">
+                        🔄 Refresh
+                    </button>
+                    <a href="/radius-admin/monitoring" class="btn btn-sm btn-primary">
+                        📊 Live Monitor
+                    </a>
+                </div>
+            </div>
+
+            <div class="activity-feed" id="activityFeed">
+                <div class="activity-item">
+                    <div class="activity-icon success">✓</div>
+                    <div class="activity-content">
+                        <div class="activity-message">Loading recent activity...</div>
+                        <div class="activity-meta">Please wait</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Quick Actions</h2>
+            </div>
+
+            <div class="dashboard-grid">
+                <a href="/radius-admin/clients" class="btn btn-primary">
+                    ➕ Add RADIUS Client
+                </a>
+                <a href="/radius-admin/vlans" class="btn btn-primary">
+                    🌐 Configure VLAN
+                </a>
+                <a href="/radius-admin/policies" class="btn btn-primary">
+                    📋 Create Policy
+                </a>
+                <a href="/radius-admin/reports" class="btn btn-primary">
+                    📊 Generate Report
+                </a>
+            </div>
+        </div>
+
+        <!-- Statistics Chart -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Authentication Trends (24h)</h2>
+                <div class="section-actions">
+                    <select class="btn btn-sm btn-secondary" onchange="updateChart(this.value)">
+                        <option value="1h">Last Hour</option>
+                        <option value="24h" selected>Last 24 Hours</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chart-container" id="authChart">
+                <span>📈 Chart will be rendered here</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(() => {
+            fetchMetrics();
+            fetchActivity();
+        }, 30000);
+
+        // Fetch dashboard metrics
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/metrics');
+                const metrics = await response.json();
+                updateMetricsDisplay(metrics);
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+            }
+        }
+
+        // Fetch recent activity
+        async function fetchActivity() {
+            try {
+                const response = await fetch('/radius-admin/api/auth-logs?limit=10');
+                const data = await response.json();
+                updateActivityFeed(data.logs);
+            } catch (error) {
+                console.error('Error fetching activity:', error);
+            }
+        }
+
+        // Update metrics display
+        function updateMetricsDisplay(metrics) {
+            // Update metric values dynamically
+            document.querySelectorAll('.metric-value').forEach(element => {
+                // Implementation for updating metric values
+            });
+        }
+
+        // Update activity feed
+        function updateActivityFeed(logs) {
+            const feed = document.getElementById('activityFeed');
+            if (!logs || logs.length === 0) {
+                feed.innerHTML = '<div class="activity-item"><div class="activity-content">No recent activity</div></div>';
+                return;
+            }
+
+            feed.innerHTML = logs.map(log => {
+                const isSuccess = log.success;
+                const icon = isSuccess ? '✓' : '✗';
+                const iconClass = isSuccess ? 'success' : 'failure';
+                const time = new Date(log.timestamp).toLocaleTimeString();
+
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon ${iconClass}">${icon}</div>
+                        <div class="activity-content">
+                            <div class="activity-message">
+                                <strong>${log.username}</strong> ${isSuccess ? 'authenticated' : 'failed'}
+                                via ${log.auth_type}
+                                ${log.vlan_id ? `→ VLAN ${log.vlan_id}` : ''}
+                            </div>
+                            <div class="activity-meta">
+                                ${log.nas_ip} • ${log.mac_address || 'Unknown MAC'} • ${time}
+                                ${log.error ? ` • ${log.error}` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Refresh activity manually
+        function refreshActivity() {
+            fetchActivity();
+        }
+
+        // Update chart (placeholder)
+        function updateChart(period) {
+            console.log('Updating chart for period:', period);
+            // Chart implementation would go here
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchActivity();
+        });
+    </script>
+</body>
+</html>

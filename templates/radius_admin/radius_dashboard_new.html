@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+    <style>
+        /* Profile Modal Styles */
+        #profileModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .profile-modal-content {
+            background-color: var(--text-light);
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .profile-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .profile-modal-header h2 {
+            margin: 0;
+            color: var(--text-dark);
+        }
+
+        .close-profile {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--medium-gray);
+        }
+
+        .profile-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .profile-section h3 {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-bottom: 2px solid var(--light-gray);
+            padding-bottom: 0.5rem;
+        }
+
+        .profile-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .profile-label {
+            font-weight: 600;
+            color: var(--medium-gray);
+        }
+
+        .profile-value {
+            color: var(--text-dark);
+        }
+
+        .password-change-form {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .password-change-form .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .password-change-form label {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.875rem;
+        }
+
+        .password-change-form input {
+            padding: 0.75rem;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .password-change-form input:focus {
+            outline: none;
+            border-color: var(--primary-purple);
+            box-shadow: 0 0 0 3px rgba(91, 5, 156, 0.1);
+        }
+
+        .password-change-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+
+        /* FORCE WHITE BACKGROUND FOR METRICS DASHBOARD */
+        .fixed-metrics-dashboard {
+            background-color: #ffffff !important;
+            background-image: none !important;
+            background: #ffffff !important;
+            margin-top: 0 !important;
+            padding: 8px 2rem 0 2rem !important;
+            position: static !important;
+            width: 100% !important;
+            border-bottom: 2px solid #EAECF0 !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+                <li><a href="/radius-admin/dashboard" class="tab-item active">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+            </ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard" style="background-color: #ffffff !important; background-image: none !important; background: #ffffff !important; margin-top: 0 !important; padding: 8px 2rem 0 2rem !important; position: static !important; width: 100% !important; border-bottom: 2px solid #EAECF0 !important; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;">
+            <div class="metrics-dashboard">
+                <div class="metric-card" id="activeSessionsCard">
+                    <h3>Active Sessions</h3>
+                    <div class="value" id="activeSessions">0</div>
+                    <div class="label">Current connections</div>
+                </div>
+                <div class="metric-card" id="successRateCard">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="successRate">0%</div>
+                    <div class="label">Last hour</div>
+                </div>
+                <div class="metric-card" id="todayAuthsCard">
+                    <h3>Today's Auths</h3>
+                    <div class="value" id="todayAuths">0</div>
+                    <div class="label">Authentication attempts</div>
+                </div>
+                <div class="metric-card" id="activeVlansCard">
+                    <h3>Active VLANs</h3>
+                    <div class="value" id="activeVlans">0</div>
+                    <div class="label">Configured VLANs</div>
+                </div>
+                <div class="metric-card" id="serverStatusCard">
+                    <h3>Server Status</h3>
+                    <div class="value" id="serverStatus">🟢</div>
+                    <div class="label" id="serverStatusLabel">Online</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- RADIUS Server Overview -->
+            <div class="section">
+                <h2><span class="section-icon">📡</span>RADIUS Server Overview</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Server Health</h3>
+                            <span class="status-indicator success" id="healthStatus">
+                                <span>●</span> Healthy
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Uptime:</strong> <span id="serverUptime">Loading...</span></p>
+                            <p><strong>Memory Usage:</strong> <span id="memoryUsage">Loading...</span></p>
+                            <p><strong>CPU Usage:</strong> <span id="cpuUsage">Loading...</span></p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-info btn-sm" onclick="refreshServerStatus()">🔄 Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Authentication Activity</h3>
+                            <span class="status-indicator info">
+                                <span>ℹ</span> Real-time
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Active Sessions:</strong> <span id="currentSessions">0</span></p>
+                            <p><strong>Requests/min:</strong> <span id="requestsPerMin">0</span></p>
+                            <p><strong>Success Rate:</strong> <span id="currentSuccessRate">0%</span></p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="viewLiveActivity()">📊 Live Activity</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="section">
+                <h2><span class="section-icon">⚡</span>Quick Actions</h2>
+
+                <div class="button-grid">
+                    <a href="/radius-admin/clients" class="btn btn-primary">
+                        🖥️ Manage Clients
+                    </a>
+                    <a href="/radius-admin/testing" class="btn btn-secondary">
+                        🧪 Test Authentication
+                    </a>
+                    <a href="/radius-admin/certificates" class="btn btn-info">
+                        🔒 Certificate Status
+                    </a>
+                    <a href="/radius-admin/vlans" class="btn btn-warning">
+                        🌐 Configure VLANs
+                    </a>
+                    <a href="/radius-admin/idp-bridge" class="btn btn-success">
+                        🔐 IDP Integration
+                    </a>
+                    <a href="/radius-admin/monitoring" class="btn btn-info">
+                        📈 Live Monitoring
+                    </a>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="section">
+                <h2><span class="section-icon">📋</span>Recent Authentication Activity</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Latest Authentication Attempts</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshRecentActivity()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="recentActivityTable">
+                            <div class="loading">Loading recent activity...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="/radius-admin/reports" class="btn btn-info btn-sm">📄 View Full Reports</a>
+                        <a href="/radius-admin/monitoring" class="btn btn-primary btn-sm">📈 Live Monitoring</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Statistics -->
+            <div class="section">
+                <h2><span class="section-icon">📊</span>System Statistics</h2>
+
+                <div class="grid grid-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Total Clients</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="totalClients">0</div>
+                            <div class="label">Configured clients</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Active Policies</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="activePolicies">0</div>
+                            <div class="label">VLAN policies</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">IDP Mappings</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="idpMappings">0</div>
+                            <div class="label">Active mappings</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Certificates</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="activeCertificates">0</div>
+                            <div class="label">Valid certificates</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal">
+        <div class="profile-modal-content">
+            <div class="profile-modal-header">
+                <h2>User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()">&times;</button>
+            </div>
+
+            <div class="profile-section">
+                <h3>Profile Information</h3>
+                <div class="profile-info">
+                    <div class="profile-label">Username:</div>
+                    <div class="profile-value" id="profileUsername">-</div>
+                    <div class="profile-label">Email:</div>
+                    <div class="profile-value" id="profileEmail">-</div>
+                    <div class="profile-label">Full Name:</div>
+                    <div class="profile-value" id="profileFullName">-</div>
+                    <div class="profile-label">Role:</div>
+                    <div class="profile-value" id="profileRole">-</div>
+                    <div class="profile-label">Last Login:</div>
+                    <div class="profile-value" id="profileLastLogin">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                    </div>
+                    <div class="password-change-actions">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardMetrics();
+            loadRecentActivity();
+            initializeScrollEffects();
+
+            // Auto-refresh every 30 seconds
+            setInterval(loadDashboardMetrics, 30000);
+            setInterval(loadRecentActivity, 60000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadDashboardMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/metrics');
+                const data = await response.json();
+
+                // Update fixed metrics
+                document.getElementById('activeSessions').textContent = data.active_sessions || 0;
+                document.getElementById('successRate').textContent = (data.success_rate || 0) + '%';
+                document.getElementById('todayAuths').textContent = data.today_auths || 0;
+                document.getElementById('activeVlans').textContent = data.active_vlans || 0;
+
+                // Update server status
+                const statusElement = document.getElementById('serverStatus');
+                const statusLabel = document.getElementById('serverStatusLabel');
+
+                if (data.radius_status === 'Online') {
+                    statusElement.textContent = '🟢';
+                    statusLabel.textContent = 'Online';
+                    document.getElementById('healthStatus').innerHTML = '<span>●</span> Healthy';
+                    document.getElementById('healthStatus').className = 'status-indicator success';
+                } else {
+                    statusElement.textContent = '🔴';
+                    statusLabel.textContent = 'Offline';
+                    document.getElementById('healthStatus').innerHTML = '<span>●</span> Offline';
+                    document.getElementById('healthStatus').className = 'status-indicator error';
+                }
+
+                // Update server health metrics
+                document.getElementById('serverUptime').textContent = data.server_uptime || 'Unknown';
+                document.getElementById('memoryUsage').textContent = data.memory_usage || '0%';
+                document.getElementById('cpuUsage').textContent = data.cpu_usage || '0%';
+
+                // Update main content metrics
+                document.getElementById('currentSessions').textContent = data.active_sessions || 0;
+                document.getElementById('currentSuccessRate').textContent = (data.success_rate || 0) + '%';
+
+                // Update statistics
+                document.getElementById('totalClients').textContent = data.total_clients || 0;
+                document.getElementById('activePolicies').textContent = data.active_policies || 0;
+                document.getElementById('idpMappings').textContent = data.idp_mappings || 0;
+                document.getElementById('activeCertificates').textContent = data.active_certificates || 0;
+
+            } catch (error) {
+                console.error('Error loading dashboard metrics:', error);
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const response = await fetch('/radius-admin/api/auth-logs?limit=10');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('recentActivityTable');
+
+                if (data.logs && data.logs.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">User</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Auth Type</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">VLAN</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.logs.map(log => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-family: monospace;">${log.username || 'Unknown'}</td>
+                                        <td style="padding: 0.5rem;">${log.auth_type || 'Unknown'}</td>
+                                        <td style="padding: 0.5rem;">${log.vlan_id || 'Default'}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${log.success ? 'success' : 'error'}">
+                                                ${log.success ? '✓ Success' : '✗ Failed'}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 0.5rem; font-size: 0.8rem; color: var(--medium-gray);">
+                                            ${log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Unknown'}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No recent authentication activity</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+                document.getElementById('recentActivityTable').innerHTML = '<div class="loading">Error loading activity</div>';
+            }
+        }
+
+        function refreshServerStatus() {
+            loadDashboardMetrics();
+        }
+
+        function refreshRecentActivity() {
+            loadRecentActivity();
+        }
+
+        function viewLiveActivity() {
+            window.location.href = '/radius-admin/monitoring';
+        }
+
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

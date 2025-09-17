@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <button class="btn btn-primary btn-sm" onclick="exportMonitoringData()">
+                        📥 Export Data
+                    </button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item active">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>Server Status</h3>
+                    <div class="value" id="serverStatus">🟢</div>
+                    <div class="label" id="serverStatusLabel">Online</div>
+                </div>
+                <div class="metric-card">
+                    <h3>CPU Usage</h3>
+                    <div class="value" id="cpuUsage">0%</div>
+                    <div class="label">Current CPU load</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Memory Usage</h3>
+                    <div class="value" id="memoryUsage">0%</div>
+                    <div class="label">RAM utilization</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Request Rate</h3>
+                    <div class="value" id="requestRate">0</div>
+                    <div class="label">Requests per minute</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Live Activity Monitor -->
+            <div class="section">
+                <h2><span class="section-icon">📈</span>Live Activity Monitor</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Real-time Authentication Requests</h3>
+                            <span class="status-indicator success">
+                                <span>●</span> Live
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div id="liveAuthRequests" style="height: 300px; background: var(--text-dark); color: var(--success-green); font-family: monospace; font-size: 0.8rem; overflow-y: auto; padding: 1rem; border-radius: 4px;">
+                                <div>Waiting for authentication requests...</div>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-success btn-sm" onclick="startLiveMonitoring()" id="startMonitoringBtn">▶️ Start Monitoring</button>
+                            <button class="btn btn-warning btn-sm" onclick="stopLiveMonitoring()" id="stopMonitoringBtn" disabled>⏸️ Stop Monitoring</button>
+                            <button class="btn btn-secondary btn-sm" onclick="clearLiveLog()">🗑️ Clear Log</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">System Performance</h3>
+                            <span class="status-indicator info">
+                                <span>📊</span> Real-time
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div id="performanceChart" style="height: 300px; display: flex; align-items: center; justify-content: center; background: var(--light-gray); border-radius: 4px;">
+                                <div>Performance chart will appear here</div>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-info btn-sm" onclick="refreshPerformanceChart()">🔄 Refresh Chart</button>
+                            <select id="chartTimeRange" onchange="updateChartTimeRange()">
+                                <option value="1h">Last Hour</option>
+                                <option value="6h">Last 6 Hours</option>
+                                <option value="24h" selected>Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Health -->
+            <div class="section">
+                <h2><span class="section-icon">🏥</span>System Health</h2>
+
+                <div class="grid grid-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Server Uptime</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="serverUptime">Loading...</div>
+                            <div class="label">System uptime</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Disk Usage</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="diskUsage">0%</div>
+                            <div class="label">Storage utilization</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Network I/O</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="networkIO">0 KB/s</div>
+                            <div class="label">Network throughput</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Load Average</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="value" id="loadAverage">0.00</div>
+                            <div class="label">1-minute average</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Client Statistics -->
+            <div class="section">
+                <h2><span class="section-icon">🖥️</span>Client Statistics</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Active Client Connections</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshClientStats()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="clientStatsTable">
+                            <div class="loading">Loading client statistics...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-info btn-sm" onclick="viewDetailedClientStats()">📊 Detailed View</button>
+                        <button class="btn btn-warning btn-sm" onclick="exportClientStats()">📥 Export Stats</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Configuration -->
+            <div class="section">
+                <h2><span class="section-icon">🚨</span>Alert Configuration</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">System Alerts</h3>
+                            <span class="status-indicator success">
+                                <span>●</span> Active
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertHighCpu" checked>
+                                    High CPU usage (>80%)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertHighMemory" checked>
+                                    High memory usage (>90%)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertDiskSpace" checked>
+                                    Low disk space (<10%)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertServerDown" checked>
+                                    Server down/unreachable
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="alertEmail">Alert Email:</label>
+                                <input type="email" id="alertEmail" placeholder="admin@example.com">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateSystemAlerts()">💾 Save Alerts</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Authentication Alerts</h3>
+                            <span class="status-indicator info">
+                                <span>ℹ</span> Configured
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertAuthFailures" checked>
+                                    High authentication failure rate (>50%)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertSuspiciousActivity">
+                                    Suspicious authentication patterns
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertClientOffline">
+                                    RADIUS client disconnected
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="alertCertExpiry" checked>
+                                    Certificate expiring soon (<30 days)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="alertThreshold">Failure Rate Threshold (%):</label>
+                                <input type="number" id="alertThreshold" value="50" min="1" max="100">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateAuthAlerts()">💾 Save Alerts</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Alerts -->
+            <div class="section">
+                <h2><span class="section-icon">⚠️</span>Recent Alerts</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Alert History</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshAlerts()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="alertsTable">
+                            <div class="loading">Loading recent alerts...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-warning btn-sm" onclick="clearAllAlerts()">🗑️ Clear All</button>
+                        <button class="btn btn-info btn-sm" onclick="exportAlerts()">📥 Export Alerts</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let liveMonitoringInterval;
+        let performanceInterval;
+        let isMonitoring = false;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSystemHealth();
+            loadClientStats();
+            loadAlerts();
+            initializeScrollEffects();
+
+            // Auto-refresh every 30 seconds
+            setInterval(loadSystemHealth, 30000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadSystemHealth() {
+            try {
+                const response = await fetch('/radius-admin/api/system-health');
+                const data = await response.json();
+
+                // Update server status
+                const statusElement = document.getElementById('serverStatus');
+                const statusLabel = document.getElementById('serverStatusLabel');
+
+                if (data.server_online) {
+                    statusElement.textContent = '🟢';
+                    statusLabel.textContent = 'Online';
+                } else {
+                    statusElement.textContent = '🔴';
+                    statusLabel.textContent = 'Offline';
+                }
+
+                // Update system metrics
+                document.getElementById('cpuUsage').textContent = (data.cpu_usage || 0) + '%';
+                document.getElementById('memoryUsage').textContent = (data.memory_usage || 0) + '%';
+                document.getElementById('requestRate').textContent = data.request_rate || 0;
+                document.getElementById('serverUptime').textContent = data.uptime || 'Unknown';
+                document.getElementById('diskUsage').textContent = (data.disk_usage || 0) + '%';
+                document.getElementById('networkIO').textContent = (data.network_io || 0) + ' KB/s';
+                document.getElementById('loadAverage').textContent = data.load_average || '0.00';
+
+            } catch (error) {
+                console.error('Error loading system health:', error);
+            }
+        }
+
+        async function loadClientStats() {
+            try {
+                const response = await fetch('/radius-admin/api/client-stats');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('clientStatsTable');
+
+                if (data.clients && data.clients.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Client</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Requests/min</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Success Rate</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Avg Response Time</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.clients.map(client => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-family: monospace;">${client.name}</td>
+                                        <td style="padding: 0.5rem; text-align: center;">${client.requests_per_minute}</td>
+                                        <td style="padding: 0.5rem; text-align: center;">${client.success_rate}%</td>
+                                        <td style="padding: 0.5rem; text-align: center;">${client.avg_response_time}ms</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${client.online ? 'success' : 'error'}">
+                                                ${client.online ? '🟢 Online' : '🔴 Offline'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No client statistics available</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading client stats:', error);
+                document.getElementById('clientStatsTable').innerHTML = '<div class="loading">Error loading client statistics</div>';
+            }
+        }
+
+        async function loadAlerts() {
+            try {
+                const response = await fetch('/radius-admin/api/alerts');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('alertsTable');
+
+                if (data.alerts && data.alerts.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Type</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Message</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Severity</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Time</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.alerts.map(alert => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem;">${alert.type}</td>
+                                        <td style="padding: 0.5rem;">${alert.message}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${alert.severity === 'critical' ? 'error' : alert.severity === 'warning' ? 'warning' : 'info'}">
+                                                ${alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 0.5rem; font-size: 0.8rem;">${alert.timestamp}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${alert.acknowledged ? 'success' : 'warning'}">
+                                                ${alert.acknowledged ? '✓ Acknowledged' : '⚠ New'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No recent alerts</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+                document.getElementById('alertsTable').innerHTML = '<div class="loading">Error loading alerts</div>';
+            }
+        }
+
+        function startLiveMonitoring() {
+            isMonitoring = true;
+            document.getElementById('startMonitoringBtn').disabled = true;
+            document.getElementById('stopMonitoringBtn').disabled = false;
+
+            const logContainer = document.getElementById('liveAuthRequests');
+            logContainer.innerHTML = '<div>Starting live monitoring...</div>';
+
+            // Simulate live authentication requests
+            liveMonitoringInterval = setInterval(() => {
+                const timestamp = new Date().toLocaleTimeString();
+                const users = ['alice@example.com', 'bob@company.org', 'charlie@test.net', 'diana@corp.com'];
+                const methods = ['EAP-TLS', 'PEAP-MSCHAPv2', 'MAC-Auth', 'EAP-TTLS'];
+                const vlans = ['100', '200', '300', 'Default'];
+                const statuses = ['Accept', 'Reject', 'Challenge'];
+
+                const user = users[Math.floor(Math.random() * users.length)];
+                const method = methods[Math.floor(Math.random() * methods.length)];
+                const vlan = vlans[Math.floor(Math.random() * vlans.length)];
+                const status = statuses[Math.floor(Math.random() * statuses.length)];
+                const color = status === 'Accept' ? 'var(--success-green)' : status === 'Reject' ? 'var(--error-red)' : 'var(--warning-orange)';
+
+                const logEntry = `<div style="color: ${color};">[${timestamp}] ${user} - ${method} - VLAN:${vlan} - ${status}</div>`;
+                logContainer.innerHTML += logEntry;
+
+                // Keep only last 50 entries
+                const entries = logContainer.children;
+                if (entries.length > 50) {
+                    logContainer.removeChild(entries[0]);
+                }
+
+                // Auto-scroll to bottom
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }, 2000 + Math.random() * 3000); // Random interval between 2-5 seconds
+        }
+
+        function stopLiveMonitoring() {
+            isMonitoring = false;
+            document.getElementById('startMonitoringBtn').disabled = false;
+            document.getElementById('stopMonitoringBtn').disabled = true;
+
+            if (liveMonitoringInterval) {
+                clearInterval(liveMonitoringInterval);
+            }
+
+            const logContainer = document.getElementById('liveAuthRequests');
+            logContainer.innerHTML += '<div style="color: var(--warning-orange);">Live monitoring stopped.</div>';
+        }
+
+        function clearLiveLog() {
+            document.getElementById('liveAuthRequests').innerHTML = '<div>Live log cleared. Start monitoring to see authentication requests.</div>';
+        }
+
+        function refreshPerformanceChart() {
+            console.log('Refresh performance chart');
+            // TODO: Implement performance chart refresh
+        }
+
+        function updateChartTimeRange() {
+            const timeRange = document.getElementById('chartTimeRange').value;
+            console.log('Update chart time range:', timeRange);
+            // TODO: Implement chart time range update
+        }
+
+        function refreshClientStats() {
+            loadClientStats();
+        }
+
+        function refreshAlerts() {
+            loadAlerts();
+        }
+
+        function updateSystemAlerts() {
+            const alerts = {
+                highCpu: document.getElementById('alertHighCpu').checked,
+                highMemory: document.getElementById('alertHighMemory').checked,
+                diskSpace: document.getElementById('alertDiskSpace').checked,
+                serverDown: document.getElementById('alertServerDown').checked,
+                email: document.getElementById('alertEmail').value
+            };
+
+            console.log('Update system alerts:', alerts);
+            // TODO: Implement system alerts update
+        }
+
+        function updateAuthAlerts() {
+            const alerts = {
+                authFailures: document.getElementById('alertAuthFailures').checked,
+                suspiciousActivity: document.getElementById('alertSuspiciousActivity').checked,
+                clientOffline: document.getElementById('alertClientOffline').checked,
+                certExpiry: document.getElementById('alertCertExpiry').checked,
+                threshold: document.getElementById('alertThreshold').value
+            };
+
+            console.log('Update auth alerts:', alerts);
+            // TODO: Implement auth alerts update
+        }
+
+        function exportMonitoringData() {
+            console.log('Export monitoring data');
+            // TODO: Implement monitoring data export
+        }
+
+        function viewDetailedClientStats() {
+            console.log('View detailed client stats');
+            // TODO: Implement detailed client stats view
+        }
+
+        function exportClientStats() {
+            console.log('Export client stats');
+            // TODO: Implement client stats export
+        }
+
+        function clearAllAlerts() {
+            if (confirm('Are you sure you want to clear all alerts?')) {
+                console.log('Clear all alerts');
+                // TODO: Implement clear all alerts
+            }
+        }
+
+        function exportAlerts() {
+            console.log('Export alerts');
+            // TODO: Implement alerts export
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (isMonitoring) {
+                stopLiveMonitoring();
+            }
+        });
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

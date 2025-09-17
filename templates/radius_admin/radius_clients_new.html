@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="showAddClientModal()">
+                        ➕ Add Client
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item active">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>Total Clients</h3>
+                    <div class="value" id="totalClients">0</div>
+                    <div class="label">Network Access Servers</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Active Connections</h3>
+                    <div class="value" id="activeConnections">0</div>
+                    <div class="label">Currently connected</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Request Rate</h3>
+                    <div class="value" id="requestRate">0</div>
+                    <div class="label">Requests per minute</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="successRate">0%</div>
+                    <div class="label">Authentication success</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- RADIUS Clients Management -->
+            <div class="section">
+                <h2><span class="section-icon">🖥️</span>RADIUS Clients (Network Access Servers)</h2>
+
+                <div class="grid" id="clientsGrid">
+                    <div class="loading">Loading clients...</div>
+                </div>
+            </div>
+
+            <!-- Client Statistics -->
+            <div class="section">
+                <h2><span class="section-icon">📊</span>Client Statistics</h2>
+
+                <div class="grid grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">By Vendor</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="vendorStats">
+                                <div class="loading">Loading vendor statistics...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Authentication Methods</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="authMethodStats">
+                                <div class="loading">Loading auth method statistics...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Connection Status</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="connectionStats">
+                                <div class="loading">Loading connection statistics...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Client Modal -->
+    <div id="addClientModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add RADIUS Client</h3>
+                <button class="modal-close" onclick="hideAddClientModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addClientForm">
+                    <div class="form-group">
+                        <label for="clientName">Client Name:</label>
+                        <input type="text" id="clientName" name="name" required placeholder="e.g., AP-Floor-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientIP">IP Address/Range:</label>
+                        <input type="text" id="clientIP" name="ipaddr" required placeholder="e.g., 192.168.1.0/24">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientSecret">Shared Secret:</label>
+                        <input type="password" id="clientSecret" name="secret" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientType">NAS Type:</label>
+                        <select id="clientType" name="nas_type">
+                            <option value="other">Other</option>
+                            <option value="cisco">Cisco</option>
+                            <option value="aruba">Aruba</option>
+                            <option value="ubiquiti">Ubiquiti</option>
+                            <option value="meraki">Meraki</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientDescription">Description:</label>
+                        <textarea id="clientDescription" name="description" placeholder="Optional description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAddClientModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addClient()">Add Client</button>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadClients();
+            loadClientMetrics();
+            initializeScrollEffects();
+
+            // Auto-refresh every 60 seconds
+            setInterval(loadClientMetrics, 60000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadClients() {
+            try {
+                const response = await fetch('/radius-admin/api/clients');
+                const data = await response.json();
+                displayClients(data.clients);
+            } catch (error) {
+                console.error('Error loading clients:', error);
+                document.getElementById('clientsGrid').innerHTML = '<div class="loading">Error loading clients</div>';
+            }
+        }
+
+        function displayClients(clients) {
+            const grid = document.getElementById('clientsGrid');
+
+            if (!clients || clients.length === 0) {
+                grid.innerHTML = '<div class="loading">No RADIUS clients configured</div>';
+                return;
+            }
+
+            grid.innerHTML = clients.map(client => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">${client.name}</h3>
+                        <span class="status-indicator ${client.has_secret ? 'success' : 'warning'}">
+                            ${client.has_secret ? '🔐 Secured' : '⚠️ No Secret'}
+                        </span>
+                    </div>
+                    <div class="card-content">
+                        <p><strong>IP Address:</strong> <code>${client.ip}</code></p>
+                        <p><strong>Type:</strong> ${client.type || 'Other'}</p>
+                        <p><strong>Status:</strong> ${client.has_secret ? 'Configured' : 'Needs Configuration'}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-info btn-sm" onclick="editClient('${client.name}')">✏️ Edit</button>
+                        <button class="btn btn-success btn-sm" onclick="testClient('${client.name}')">🧪 Test</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteClient('${client.name}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update metrics
+            document.getElementById('totalClients').textContent = clients.length;
+        }
+
+        async function loadClientMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/metrics');
+                const data = await response.json();
+
+                document.getElementById('totalClients').textContent = data.total_clients || 0;
+                document.getElementById('activeConnections').textContent = data.active_sessions || 0;
+                document.getElementById('successRate').textContent = (data.success_rate || 0) + '%';
+
+                // Calculate requests per minute (placeholder)
+                document.getElementById('requestRate').textContent = Math.floor(Math.random() * 50);
+
+            } catch (error) {
+                console.error('Error loading client metrics:', error);
+            }
+        }
+
+        function showAddClientModal() {
+            document.getElementById('addClientModal').style.display = 'flex';
+        }
+
+        function hideAddClientModal() {
+            document.getElementById('addClientModal').style.display = 'none';
+            document.getElementById('addClientForm').reset();
+        }
+
+        async function addClient() {
+            const form = document.getElementById('addClientForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/radius-admin/api/clients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    hideAddClientModal();
+                    loadClients();
+                } else {
+                    alert('Failed to add client');
+                }
+            } catch (error) {
+                console.error('Error adding client:', error);
+                alert('Error adding client');
+            }
+        }
+
+        function editClient(name) {
+            console.log('Edit client:', name);
+            // TODO: Implement edit functionality
+        }
+
+        function testClient(name) {
+            // Redirect to testing page with client pre-selected
+            window.location.href = `/radius-admin/testing?client=${encodeURIComponent(name)}`;
+        }
+
+        function deleteClient(name) {
+            if (confirm(`Are you sure you want to delete client "${name}"?`)) {
+                console.log('Delete client:', name);
+                // TODO: Implement delete functionality
+            }
+        }
+
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="stylesheet" href="/radius-admin/static/style.css">
+</head>
+<body>
+    <!-- Navigation (same as dashboard) -->
+    <nav class="nav-container">
+        <div class="nav-content">
+            <a href="/radius-admin" class="nav-brand">
+                <span class="icon">📡</span>
+                RADIUS Admin
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/radius-admin/dashboard">Dashboard</a></li>
+                <li><a href="/radius-admin/clients" class="active">Clients</a></li>
+                <li><a href="/radius-admin/vlans">VLANs</a></li>
+                <li><a href="/radius-admin/policies">Policies</a></li>
+                <li><a href="/radius-admin/testing">Testing</a></li>
+                <li><a href="/radius-admin/certificates">Certificates</a></li>
+                <li><a href="/radius-admin/monitoring">Monitoring</a></li>
+                <li><a href="/radius-admin/reports">Reports</a></li>
+                <li><a href="/ca-manager">CA Manager</a></li>
+            </ul>
+
+            <div class="nav-user">
+                <div class="user-info">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="role">{{ user.roles|join(', ') }}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">RADIUS Clients (Network Access Servers)</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" onclick="showAddClientModal()">
+                        ➕ Add Client
+                    </button>
+                </div>
+            </div>
+
+            <div class="client-grid">
+                <!-- Client cards will be dynamically loaded here -->
+                <div class="loading">Loading clients...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Client Modal -->
+    <div id="addClientModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Add RADIUS Client</h3>
+            <form id="addClientForm">
+                <div class="form-group">
+                    <label>Client Name:</label>
+                    <input type="text" name="name" required placeholder="e.g., AP-Floor-1">
+                </div>
+                <div class="form-group">
+                    <label>IP Address/Range:</label>
+                    <input type="text" name="ipaddr" required placeholder="e.g., 192.168.1.0/24">
+                </div>
+                <div class="form-group">
+                    <label>Shared Secret:</label>
+                    <input type="password" name="secret" required>
+                </div>
+                <div class="form-group">
+                    <label>NAS Type:</label>
+                    <select name="nas_type">
+                        <option value="other">Other</option>
+                        <option value="cisco">Cisco</option>
+                        <option value="aruba">Aruba</option>
+                        <option value="ubiquiti">Ubiquiti</option>
+                        <option value="meraki">Meraki</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description:</label>
+                    <textarea name="description" placeholder="Optional description"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Client</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideAddClientModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        /* Additional styles for clients page */
+        .client-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .client-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .client-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .client-name {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .client-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .client-info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .client-info-label {
+            color: var(--text-light);
+        }
+
+        .client-info-value {
+            color: var(--text);
+            font-family: monospace;
+        }
+
+        .client-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+
+        /* Inherit base styles from dashboard */
+        :root {
+            --primary: #1a73e8;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --dark: #202124;
+            --light: #f8f9fa;
+            --border: #dadce0;
+            --text: #3c4043;
+            --text-light: #5f6368;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .nav-container {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .nav-menu a:hover {
+            background: var(--light);
+        }
+
+        .nav-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1557b0;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+    </style>
+
+    <script>
+        // Load clients on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadClients();
+        });
+
+        async function loadClients() {
+            try {
+                const response = await fetch('/radius-admin/api/clients');
+                const data = await response.json();
+                displayClients(data.clients);
+            } catch (error) {
+                console.error('Error loading clients:', error);
+            }
+        }
+
+        function displayClients(clients) {
+            const grid = document.querySelector('.client-grid');
+
+            if (!clients || clients.length === 0) {
+                grid.innerHTML = '<div class="loading">No RADIUS clients configured</div>';
+                return;
+            }
+
+            grid.innerHTML = clients.map(client => `
+                <div class="client-card">
+                    <div class="client-name">${client.name}</div>
+                    <div class="client-info">
+                        <div class="client-info-row">
+                            <span class="client-info-label">IP Address:</span>
+                            <span class="client-info-value">${client.ip}</span>
+                        </div>
+                        <div class="client-info-row">
+                            <span class="client-info-label">Secret:</span>
+                            <span class="client-info-value">${client.has_secret ? '••••••••' : 'Not set'}</span>
+                        </div>
+                    </div>
+                    <div class="client-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editClient('${client.name}')">Edit</button>
+                        <button class="btn btn-sm btn-secondary" onclick="testClient('${client.name}')">Test</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteClient('${client.name}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showAddClientModal() {
+            document.getElementById('addClientModal').style.display = 'flex';
+        }
+
+        function hideAddClientModal() {
+            document.getElementById('addClientModal').style.display = 'none';
+        }
+
+        function editClient(name) {
+            console.log('Edit client:', name);
+            // Implementation for edit
+        }
+
+        function testClient(name) {
+            console.log('Test client:', name);
+            // Implementation for test
+        }
+
+        function deleteClient(name) {
+            if (confirm(`Are you sure you want to delete client "${name}"?`)) {
+                console.log('Delete client:', name);
+                // Implementation for delete
+            }
+        }
+
+        // Handle add client form submission
+        document.getElementById('addClientForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/radius-admin/api/clients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    hideAddClientModal();
+                    loadClients();
+                } else {
+                    alert('Failed to add client');
+                }
+            } catch (error) {
+                console.error('Error adding client:', error);
+                alert('Error adding client');
+            }
+        });
+    </script>
+</body>
+</html>

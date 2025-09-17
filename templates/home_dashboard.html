@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CA Manager - Home Dashboard</title>
+    <style>
+        :root {
+            --primary: #5B059C;
+            --primary-light: #7C1BAD;
+            --secondary: #1a73e8;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --dark: #202124;
+            --light: #f8f9fa;
+            --border: #dadce0;
+            --text: #3c4043;
+            --text-light: #5f6368;
+            --background-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--background-gradient);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .user-details {
+            text-align: right;
+        }
+
+        .username {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.875rem;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .logout-btn {
+            padding: 0.5rem 1rem;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .logout-btn:hover {
+            background: #d33b2c;
+            transform: translateY(-1px);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Welcome Section */
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 4rem;
+            color: white;
+        }
+
+        .welcome-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .welcome-subtitle {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        /* System Status Cards */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .status-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: white;
+        }
+
+        .status-icon.ca { background: var(--primary); }
+        .status-icon.radius { background: var(--secondary); }
+        .status-icon.system { background: var(--success); }
+        .status-icon.security { background: var(--warning); }
+
+        .status-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .status-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .status-description {
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online { background: var(--success); }
+        .status-dot.offline { background: var(--danger); }
+        .status-dot.warning { background: var(--warning); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* App Grid */
+        .apps-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .apps-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 2rem;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* App Cards */
+        .app-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .app-card:hover::before {
+            left: 100%;
+        }
+
+        .app-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            border-color: var(--primary);
+        }
+
+        .app-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: white;
+            position: relative;
+            z-index: 1;
+        }
+
+        .app-icon.ca {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        }
+
+        .app-icon.radius {
+            background: linear-gradient(135deg, var(--secondary) 0%, #4285f4 100%);
+        }
+
+        .app-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .app-description {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            line-height: 1.5;
+            position: relative;
+            z-index: 1;
+        }
+
+        .app-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--success);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 2rem 1rem;
+            }
+
+            .welcome-title {
+                font-size: 2rem;
+            }
+
+            .welcome-subtitle {
+                font-size: 1rem;
+            }
+
+            .apps-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-content {
+                padding: 0 1rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">🔐</div>
+                <span>CA Manager Suite</span>
+            </div>
+
+            <div class="user-info">
+                <div class="user-avatar">{{ user.username[0].upper() if user.username else 'U' }}</div>
+                <div class="user-details">
+                    <div class="username">{{ user.username or 'Unknown User' }}</div>
+                    <div class="user-role">{{ user.roles|join(', ') if user.roles else 'User' }}</div>
+                </div>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Welcome Section -->
+        <div class="welcome-section">
+            <h1 class="welcome-title">Welcome to CA Manager</h1>
+            <p class="welcome-subtitle">Your comprehensive certificate authority and network access control platform</p>
+        </div>
+
+        <!-- System Status Overview -->
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-header">
+                    <div class="status-icon ca">🏛️</div>
+                    <div class="status-title">Certificate Authority</div>
+                </div>
+                <div class="status-value" id="ca-status">Loading...</div>
+                <div class="status-description">PKI Infrastructure Status</div>
+                <div class="status-indicator">
+                    <span class="status-dot online" id="ca-dot"></span>
+                    <span id="ca-indicator">Operational</span>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-header">
+                    <div class="status-icon radius">📡</div>
+                    <div class="status-title">RADIUS Server</div>
+                </div>
+                <div class="status-value" id="radius-status">Loading...</div>
+                <div class="status-description">Network Authentication Status</div>
+                <div class="status-indicator">
+                    <span class="status-dot online" id="radius-dot"></span>
+                    <span id="radius-indicator">Online</span>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-header">
+                    <div class="status-icon system">⚡</div>
+                    <div class="status-title">System Health</div>
+                </div>
+                <div class="status-value" id="system-status">Loading...</div>
+                <div class="status-description">Overall System Performance</div>
+                <div class="status-indicator">
+                    <span class="status-dot online" id="system-dot"></span>
+                    <span id="system-indicator">Healthy</span>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-header">
+                    <div class="status-icon security">🛡️</div>
+                    <div class="status-title">Security</div>
+                </div>
+                <div class="status-value" id="security-status">Loading...</div>
+                <div class="status-description">Active Certificates & Security</div>
+                <div class="status-indicator">
+                    <span class="status-dot online" id="security-dot"></span>
+                    <span id="security-indicator">Secure</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Applications Section -->
+        <div class="apps-section">
+            <h2 class="apps-title">Applications</h2>
+
+            <div class="apps-grid">
+                <!-- CA Manager App -->
+                <a href="/ca-manager" class="app-card">
+                    <div class="app-badge">Primary</div>
+                    <div class="app-icon ca">🏛️</div>
+                    <h3 class="app-title">Certificate Authority</h3>
+                    <p class="app-description">
+                        Manage your complete PKI infrastructure, issue certificates, handle SCEP enrollment,
+                        and control certificate lifecycle management.
+                    </p>
+                </a>
+
+                <!-- RADIUS Admin App -->
+                <a href="/radius-admin" class="app-card">
+                    <div class="app-badge">Network</div>
+                    <div class="app-icon radius">📡</div>
+                    <h3 class="app-title">RADIUS Admin</h3>
+                    <p class="app-description">
+                        Configure network authentication, manage RADIUS clients, set up VLAN policies,
+                        and monitor 802.1X authentication activity.
+                    </p>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh metrics every 30 seconds
+        setInterval(loadSystemMetrics, 30000);
+
+        // Load initial metrics
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSystemMetrics();
+        });
+
+        async function loadSystemMetrics() {
+            try {
+                // Load CA status
+                const caResponse = await fetch('/api/pki/status');
+                if (caResponse.ok) {
+                    const caData = await caResponse.json();
+                    updateStatusCard('ca', 'Operational', 'online', 'PKI Ready');
+                } else {
+                    updateStatusCard('ca', 'Offline', 'offline', 'Check PKI');
+                }
+
+                // Load RADIUS status
+                const radiusResponse = await fetch('/api/radius/status');
+                if (radiusResponse.ok) {
+                    const radiusData = await radiusResponse.json();
+                    updateStatusCard('radius', 'Online', 'online', 'Auth Ready');
+                } else {
+                    updateStatusCard('radius', 'Offline', 'offline', 'Check Config');
+                }
+
+                // Load system metrics
+                const metricsResponse = await fetch('/api/metrics');
+                if (metricsResponse.ok) {
+                    const metrics = await metricsResponse.json();
+                    // Calculate actual system health based on components
+                    const systemHealth = calculateSystemHealth(caResponse.ok, radiusResponse.ok, metrics);
+                    updateStatusCard('system', systemHealth.percentage, systemHealth.status, systemHealth.message);
+                    updateStatusCard('security', `${metrics.metrics?.total_certificates || '0'} Certs`, 'online', 'Certificates Issued');
+                } else {
+                    updateStatusCard('system', 'Error', 'warning', 'Metrics Unavailable');
+                    updateStatusCard('security', 'Unknown', 'warning', 'Check Status');
+                }
+
+            } catch (error) {
+                console.error('Error loading system metrics:', error);
+                // Show loading error in a subtle way
+                updateStatusCard('system', 'Error', 'warning', 'Check Connection');
+            }
+        }
+
+        function calculateSystemHealth(caOk, radiusOk, metrics) {
+            let healthScore = 0;
+            let totalComponents = 0;
+
+            // PKI/CA component (30% weight)
+            if (caOk) healthScore += 30;
+            totalComponents += 30;
+
+            // RADIUS component (30% weight)
+            if (radiusOk) healthScore += 30;
+            totalComponents += 30;
+
+            // Metrics availability (20% weight)
+            if (metrics && metrics.status === 'success') healthScore += 20;
+            totalComponents += 20;
+
+            // Certificate health (20% weight)
+            if (metrics && metrics.metrics?.total_certificates > 0) {
+                const expiringSoon = metrics.metrics?.expiring_soon || 0;
+                const expirationHealth = Math.max(0, 20 - (expiringSoon * 5)); // Reduce health for expiring certs
+                healthScore += expirationHealth;
+            }
+            totalComponents += 20;
+
+            const percentage = Math.round((healthScore / totalComponents) * 100);
+
+            let status, message;
+            if (percentage >= 90) {
+                status = 'online';
+                message = 'Excellent';
+            } else if (percentage >= 70) {
+                status = 'warning';
+                message = 'Good';
+            } else {
+                status = 'offline';
+                message = 'Needs Attention';
+            }
+
+            return {
+                percentage: `${percentage}%`,
+                status: status,
+                message: message
+            };
+        }
+
+        function updateStatusCard(type, status, dotClass, indicator) {
+            const statusElement = document.getElementById(`${type}-status`);
+            const dotElement = document.getElementById(`${type}-dot`);
+            const indicatorElement = document.getElementById(`${type}-indicator`);
+
+            if (statusElement) statusElement.textContent = status;
+            if (dotElement) {
+                dotElement.className = `status-dot ${dotClass}`;
+            }
+            if (indicatorElement) indicatorElement.textContent = indicator;
+        }
+
+        // Add subtle hover effects and animations
+        document.querySelectorAll('.app-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>

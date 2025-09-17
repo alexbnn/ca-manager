@@ -841,6 +841,17 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Certificate Download Format Selection Styles */
+        .format-option:hover {
+            border-color: var(--primary-purple) !important;
+            background: rgba(91, 5, 156, 0.05) !important;
+        }
+
+        .format-option:has(input:checked) {
+            border-color: var(--primary-purple) !important;
+            background: rgba(91, 5, 156, 0.1) !important;
+        }
+
         /* Responsive tabs */
         @media (max-width: 768px) {
             .tab-navigation {
@@ -1506,40 +1517,6 @@
             font-size: 1.2rem;
             flex-shrink: 0;
         }
-
-        /* Tab Styles */
-        .tab-btn {
-            background: none;
-            border: none;
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--medium-gray);
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-
-        .tab-btn:hover {
-            color: var(--primary-purple);
-            background: rgba(91, 5, 156, 0.05);
-        }
-
-        .tab-btn.active {
-            color: var(--primary-purple);
-            border-bottom-color: var(--primary-purple);
-            background: rgba(91, 5, 156, 0.05);
-        }
-
-        .tab-content {
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
     </style>
     
     <!-- Dynamic custom color theme injection -->
@@ -1571,6 +1548,7 @@
                     <button class="btn btn-secondary btn-small" onclick="openProfile()">
                         Profile
                     </button>
+                    <a href="/" class="btn btn-secondary btn-small" style="text-decoration: none;">🏠 Home</a>
                     <button class="btn btn-secondary btn-small" onclick="logout()">
                         Logout
                     </button>
@@ -1583,26 +1561,26 @@
             <ul class="tab-list">
                 {% if 'admin' in user.roles or 'operator' in user.roles %}
                 <li><button class="tab-item active" onclick="switchTab('ca-management')" id="tab-ca-management">
-                    <span class="tab-icon">1</span>PKI & Certificate Authority
+                    <span class="tab-icon">🔐</span>PKI & Certificate Authority
                 </button></li>
                 {% endif %}
                 <li><button class="tab-item" onclick="switchTab('certificates')" id="tab-certificates">
-                    <span class="tab-icon">2</span>Certificates
+                    <span class="tab-icon">📜</span>Certificates
                 </button></li>
                 {% if 'admin' in user.roles or 'operator' in user.roles %}
                 <li><button class="tab-item" onclick="switchTab('protocols')" id="tab-protocols">
-                    <span class="tab-icon">3</span>Device Protocols
+                    <span class="tab-icon">📱</span>Device Protocols
                 </button></li>
                 <li><button class="tab-item" onclick="switchTab('radius')" id="tab-radius">
-                    <span class="tab-icon">4</span>RADIUS Server
+                    <span class="tab-icon">📡</span>RADIUS Server
                 </button></li>
                 <li><button class="tab-item" onclick="switchTab('approvals')" id="tab-approvals">
-                    <span class="tab-icon">5</span>Request Approvals & Domain Whitelist
+                    <span class="tab-icon">✅</span>Request Approvals & Domain Whitelist
                 </button></li>
                 {% endif %}
                 {% if user.is_admin %}
                 <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
-                    <span class="tab-icon">6</span>General Settings
+                    <span class="tab-icon">⚙️</span>General Settings
                 </button></li>
                 {% endif %}
             </ul>
@@ -1994,319 +1972,6 @@
                 </div>
                 </div>
 
-                <!-- IDP Users Management Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">👥</span>IDP Users Management</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    View and manage users who have logged in via Identity Providers (Google/Microsoft) and their VLAN assignments.
-                </p>
-
-                <div class="button-grid" style="margin-bottom: 1.5rem;">
-                    <button class="btn btn-primary" onclick="openIDPUsersPage()">
-                        👥 View Users Management
-                    </button>
-                    <button class="btn btn-info" onclick="window.open('/idp-users', '_blank')">
-                        🚀 Quick Access (New Tab)
-                    </button>
-                </div>
-                
-                <div class="info-box" style="background: #e3f2fd; border: 1px solid #2196f3; margin-top: 1rem;">
-                    <h3 style="color: #1976d2; margin-bottom: 0.5rem;">📊 Features Available</h3>
-                    <ul style="color: #1565c0; margin: 0.5rem 0;">
-                        <li>View all IDP authenticated users</li>
-                        <li>Edit individual or bulk VLAN assignments</li>
-                        <li>Filter by provider, status, and VLAN</li>
-                        <li>Export user data to CSV</li>
-                        <li>Real-time search and statistics</li>
-                    </ul>
-                </div>
-
-                <!-- Enhanced VLAN Policy Engine Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">🎯</span>Enhanced VLAN Policy Engine</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Enterprise-grade VLAN assignment with user classification, policy conditions, and automated enforcement.
-                </p>
-
-                <!-- Policy Management Tabs -->
-                <div class="tab-container" style="margin-bottom: 2rem;">
-                    <div class="tab-buttons" style="display: flex; border-bottom: 2px solid var(--light-gray); margin-bottom: 1.5rem;">
-                        <button class="tab-btn active" onclick="switchPolicyTab('classification')" id="classificationTab">
-                            🏷️ User Classification
-                        </button>
-                        <button class="tab-btn" onclick="switchPolicyTab('policies')" id="policiesTab">
-                            📋 Policy Rules
-                        </button>
-                        <button class="tab-btn" onclick="switchPolicyTab('groups')" id="groupsTab">
-                            👥 User Groups
-                        </button>
-                        <button class="tab-btn" onclick="switchPolicyTab('vlans')" id="vlansTab">
-                            🔀 VLAN Management
-                        </button>
-                        <button class="tab-btn" onclick="switchPolicyTab('testing')" id="testingTab">
-                            🧪 Policy Testing
-                        </button>
-                    </div>
-
-                    <!-- User Classification Tab -->
-                    <div id="classificationTabContent" class="tab-content">
-                        <h3>User Classification Rules</h3>
-                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
-                            Define how users are identified and categorized (by domain, subdomain, attributes, etc.).
-                        </p>
-
-                        <div class="button-grid" style="margin-bottom: 1.5rem;">
-                            <button class="btn btn-success" onclick="showAddClassificationRuleForm()">➕ Add Classification Rule</button>
-                            <button class="btn btn-info" onclick="loadUserClassificationRules()">📋 View Rules</button>
-                            <button class="btn btn-secondary" onclick="testUserClassification()">🧪 Test Classification</button>
-                        </div>
-
-                        <!-- Add Classification Rule Form -->
-                        <div id="addClassificationRuleForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                            <h4>Add User Classification Rule</h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                                <div class="form-group">
-                                    <label for="classificationRuleName">Rule Name:</label>
-                                    <input type="text" id="classificationRuleName" placeholder="e.g., Corporate Employees" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="classificationDescription">Description:</label>
-                                    <input type="text" id="classificationDescription" placeholder="Rule description" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="classificationPriority">Priority (lower = higher):</label>
-                                    <input type="number" id="classificationPriority" value="100" min="1" max="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="classificationType">Classification Type:</label>
-                                    <select id="classificationType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                        <option value="domain">Email Domain</option>
-                                        <option value="subdomain">Email Subdomain</option>
-                                        <option value="attribute">User Attribute</option>
-                                        <option value="group">Group Membership</option>
-                                        <option value="certificate">Certificate Field</option>
-                                        <option value="regex">Regular Expression</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="classificationValue">Classification Value:</label>
-                                    <input type="text" id="classificationValue" placeholder="e.g., @company.com or *.engineering.company.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="classificationUserGroup">Assign to Group:</label>
-                                    <input type="text" id="classificationUserGroup" placeholder="e.g., employees, contractors" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="classificationUserCategory">User Category (optional):</label>
-                                    <input type="text" id="classificationUserCategory" placeholder="e.g., corporate, byod, temporary" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                            </div>
-                            
-                            <div class="button-grid" style="margin-top: 1rem;">
-                                <button class="btn btn-success" onclick="createUserClassificationRule()">✅ Create Rule</button>
-                                <button class="btn btn-secondary" onclick="hideAddClassificationRuleForm()">❌ Cancel</button>
-                            </div>
-                        </div>
-
-                        <!-- Classification Rules List -->
-                        <div id="classificationRulesList">
-                            <!-- Classification rules will be loaded here -->
-                        </div>
-                    </div>
-
-                    <!-- Enhanced Policies Tab -->
-                    <div id="policiesTabContent" class="tab-content" style="display: none;">
-                        <h3>Enhanced VLAN Policies</h3>
-                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
-                            Define comprehensive policies with conditions, actions, and enforcement rules.
-                        </p>
-
-                        <div class="button-grid" style="margin-bottom: 1.5rem;">
-                            <button class="btn btn-success" onclick="showAddEnhancedPolicyForm()">➕ Add Policy</button>
-                            <button class="btn btn-info" onclick="loadEnhancedVLANPolicies()">📋 View Policies</button>
-                            <button class="btn btn-secondary" onclick="testPolicyMatching()">🧪 Test Policy</button>
-                        </div>
-
-                        <!-- Add Enhanced Policy Form -->
-                        <div id="addEnhancedPolicyForm" style="display: none; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                            <h4>Add Enhanced VLAN Policy</h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                                <div class="form-group">
-                                    <label for="enhancedPolicyName">Policy Name:</label>
-                                    <input type="text" id="enhancedPolicyName" placeholder="e.g., Corporate Employee Policy" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicyDescription">Description:</label>
-                                    <input type="text" id="enhancedPolicyDescription" placeholder="Policy description" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicyPriority">Priority:</label>
-                                    <input type="number" id="enhancedPolicyPriority" value="100" min="1" max="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicyTargetGroups">Target User Groups:</label>
-                                    <input type="text" id="enhancedPolicyTargetGroups" placeholder="employees,contractors (comma-separated)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicyDefaultVLAN">Default VLAN:</label>
-                                    <select id="enhancedPolicyDefaultVLAN" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                        <option value="">Loading VLANs...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicyFallbackVLAN">Fallback VLAN:</label>
-                                    <select id="enhancedPolicyFallbackVLAN" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                        <option value="">Loading VLANs...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicySessionTimeout">Session Timeout (seconds):</label>
-                                    <input type="number" id="enhancedPolicySessionTimeout" placeholder="28800" min="60" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="enhancedPolicyBandwidthLimit">Bandwidth Limit (Mbps):</label>
-                                    <input type="number" id="enhancedPolicyBandwidthLimit" placeholder="100" min="1" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                            </div>
-                            
-                            <div class="button-grid" style="margin-top: 1rem;">
-                                <button class="btn btn-success" onclick="createEnhancedVLANPolicy()">✅ Create Policy</button>
-                                <button class="btn btn-secondary" onclick="hideAddEnhancedPolicyForm()">❌ Cancel</button>
-                            </div>
-                        </div>
-
-                        <!-- Enhanced Policies List -->
-                        <div id="enhancedPoliciesList">
-                            <!-- Enhanced policies will be loaded here -->
-                        </div>
-                    </div>
-
-                    <!-- User Groups Tab -->
-                    <div id="groupsTabContent" class="tab-content" style="display: none;">
-                        <h3>User Groups</h3>
-                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
-                            Manage predefined user groups for policy targeting and organization.
-                        </p>
-
-                        <div class="button-grid" style="margin-bottom: 1.5rem;">
-                            <button class="btn btn-info" onclick="loadUserGroups()">👥 Load Groups</button>
-                            <button class="btn btn-secondary" onclick="refreshUserGroups()">🔄 Refresh</button>
-                        </div>
-
-                        <!-- User Groups List -->
-                        <div id="userGroupsList">
-                            <!-- User groups will be loaded here -->
-                        </div>
-                    </div>
-
-                    <!-- VLAN Management Tab -->
-                    <div id="vlansTabContent" class="tab-content" style="display: none;">
-                        <h3>VLAN Management</h3>
-                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
-                            Manage available VLANs for policy assignment.
-                        </p>
-
-                        <div class="button-grid" style="margin-bottom: 1.5rem;">
-                            <button class="btn btn-info" onclick="loadVLANs()">📂 Load VLANs</button>
-                            <button class="btn btn-secondary" onclick="loadUserVLANAssignments()">👤 Static Assignments</button>
-                        </div>
-
-                        <!-- VLANs List -->
-                        <div id="vlansListContent">
-                            <!-- VLANs will be loaded here -->
-                        </div>
-
-                        <!-- User VLAN Assignments -->
-                        <div id="userVLANAssignments" style="display: none; margin-top: 1.5rem;">
-                            <h4>Static User VLAN Assignments</h4>
-                            <div style="margin-bottom: 1rem;">
-                                <button class="btn btn-primary" onclick="showAddUserAssignmentForm()">➕ Add Assignment</button>
-                            </div>
-                            <div id="userAssignmentsList">
-                                <!-- User assignments will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Policy Testing Tab -->
-                    <div id="testingTabContent" class="tab-content" style="display: none;">
-                        <h3>Policy Testing & Simulation</h3>
-                        <p style="color: var(--medium-gray); margin-bottom: 1rem; font-size: 0.875rem;">
-                            Test user classification and policy matching with simulated authentication requests.
-                        </p>
-
-                        <!-- Test Form -->
-                        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                            <h4>Test Enhanced VLAN Assignment</h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                                <div class="form-group">
-                                    <label for="testUsername">Username/Email:</label>
-                                    <input type="text" id="testUsername" placeholder="user@company.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="testAuthType">Authentication Type:</label>
-                                    <select id="testAuthType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                        <option value="eap-tls">EAP-TLS</option>
-                                        <option value="eap-peap">EAP-PEAP</option>
-                                        <option value="pap">PAP</option>
-                                        <option value="chap">CHAP</option>
-                                        <option value="idp-sso">IDP SSO</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label for="testAttributes">Additional Attributes (JSON):</label>
-                                    <textarea id="testAttributes" placeholder='{"department": "engineering", "location": "office"}' 
-                                              style="width: 100%; height: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;">
-{}</textarea>
-                                </div>
-                            </div>
-                            
-                            <div class="button-grid" style="margin-top: 1rem;">
-                                <button class="btn btn-primary" onclick="testEnhancedVLANAssignment()">🧪 Test Assignment</button>
-                                <button class="btn btn-secondary" onclick="clearTestResults()">🗑️ Clear Results</button>
-                            </div>
-                        </div>
-
-                        <!-- Test Results -->
-                        <div id="testResults" style="display: none;">
-                            <!-- Test results will be shown here -->
-                        </div>
-                    </div>
-                </div>
-                </div>
-
-                <!-- IDP-RADIUS Authentication Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">🔐</span>IDP-RADIUS Authentication Bridge</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Enable users to authenticate to WiFi using their Google or Microsoft credentials.
-                </p>
-
-                <div class="button-grid" style="margin-bottom: 1.5rem;">
-                    <button class="btn btn-primary" onclick="loadIDPRadiusMappings()">👥 View Mappings</button>
-                    <button class="btn btn-info" onclick="testIDPRadiusAuth()">🧪 Test Authentication</button>
-                    <button class="btn btn-secondary" onclick="viewIDPRadiusLogs()">📊 View Logs</button>
-                </div>
-
-                <!-- IDP-RADIUS Status -->
-                <div id="idpRadiusStatus" class="status-card" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e9ecef; border-radius: 8px; background: #f8f9fa;">
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <div id="idpRadiusStatusIcon" style="font-size: 1.5rem;">🔐</div>
-                        <div style="flex: 1;">
-                            <div id="idpRadiusStatusText" style="font-weight: bold;">IDP-RADIUS Bridge Status</div>
-                            <div id="idpRadiusStatusDetails" style="font-size: 0.875rem; color: #666; margin-top: 0.25rem;">
-                                Click "View Mappings" to see configured users
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- IDP Mappings List -->
-                <div id="idpRadiusMappingsList" style="display: none;">
-                    <!-- Mappings will be loaded here -->
-                </div>
-                </div>
-
                 <!-- RadSec Proxy Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
                 <h2><span class="section-icon">🌐</span>RadSec Proxy (Extreme Networks)</h2>
@@ -2403,211 +2068,6 @@
                         <li><strong>Root CA:</strong> Install your CA certificate on client devices for server verification</li>
                         <li><strong>Shared Secret:</strong> Configure the shared secret in your network device settings</li>
                     </ol>
-                </div>
-
-                <!-- RADIUS Testing Tools Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                    <h2><span class="section-icon">🧪</span>RADIUS Testing Tools</h2>
-                    <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                        Comprehensive RADIUS authentication testing tools for PAP, CHAP, MSCHAP, EAP-TLS, and EAP-TTLS methods.
-                        Test authentication flows, validate configurations, and troubleshoot issues.
-                    </p>
-
-                    <!-- Test Method Selector -->
-                    <div class="test-method-selector" style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                        <h4>🔐 Select Authentication Method</h4>
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-primary" onclick="showRadiusTestForm('pap')">PAP Authentication</button>
-                            <button class="btn btn-primary" onclick="showRadiusTestForm('chap')">CHAP Authentication</button>
-                            <button class="btn btn-primary" onclick="showRadiusTestForm('mschap')">MS-CHAP Authentication</button>
-                            <button class="btn btn-success" onclick="showRadiusTestForm('eap-tls')">EAP-TLS (Certificate)</button>
-                            <button class="btn btn-success" onclick="showRadiusTestForm('eap-ttls')">EAP-TTLS (Tunneled)</button>
-                            <button class="btn btn-info" onclick="showRadiusTestForm('system')">System Tests</button>
-                        </div>
-                    </div>
-
-                    <!-- PAP Test Form -->
-                    <div id="radiusTestForm-pap" class="radius-test-form" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>🔑 PAP (Password Authentication Protocol) Test</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Test basic username/password authentication using PAP protocol.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="papUsername">Username:</label>
-                                <input type="text" id="papUsername" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="papPassword">Password:</label>
-                                <input type="password" id="papPassword" placeholder="password123" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="papNasPort">NAS Port:</label>
-                                <input type="number" id="papNasPort" value="1812" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                        </div>
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-primary" onclick="runRadiusTest('pap')">🧪 Run PAP Test</button>
-                            <button class="btn btn-secondary" onclick="generateRandomCredentials('pap')">🎲 Generate Test Credentials</button>
-                        </div>
-                    </div>
-
-                    <!-- CHAP Test Form -->
-                    <div id="radiusTestForm-chap" class="radius-test-form" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>🔐 CHAP (Challenge Handshake Authentication Protocol) Test</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Test challenge-response authentication using CHAP protocol.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="chapUsername">Username:</label>
-                                <input type="text" id="chapUsername" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="chapPassword">Password:</label>
-                                <input type="password" id="chapPassword" placeholder="password123" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                        </div>
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-primary" onclick="runRadiusTest('chap')">🧪 Run CHAP Test</button>
-                            <button class="btn btn-secondary" onclick="generateRandomCredentials('chap')">🎲 Generate Test Credentials</button>
-                        </div>
-                    </div>
-
-                    <!-- MS-CHAP Test Form -->
-                    <div id="radiusTestForm-mschap" class="radius-test-form" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>🔒 MS-CHAP (Microsoft Challenge Handshake Authentication Protocol) Test</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Test Microsoft challenge-response authentication using MS-CHAP protocol.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="mschapUsername">Username:</label>
-                                <input type="text" id="mschapUsername" placeholder="test@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="mschapPassword">Password:</label>
-                                <input type="password" id="mschapPassword" placeholder="password123" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                        </div>
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-primary" onclick="runRadiusTest('mschap')">🧪 Run MS-CHAP Test</button>
-                            <button class="btn btn-secondary" onclick="generateRandomCredentials('mschap')">🎲 Generate Test Credentials</button>
-                        </div>
-                    </div>
-
-                    <!-- EAP-TLS Test Form -->
-                    <div id="radiusTestForm-eap-tls" class="radius-test-form" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>📜 EAP-TLS (Extensible Authentication Protocol - Transport Layer Security) Test</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Test certificate-based authentication using EAP-TLS protocol.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="eapTlsIdentity">Identity:</label>
-                                <select id="eapTlsIdentity" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="">Loading available certificates...</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="eapTlsMethod">TLS Method:</label>
-                                <select id="eapTlsMethod" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="tls">EAP-TLS</option>
-                                    <option value="tls13">EAP-TLS 1.3</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="certificate-info" style="background: #e8f5e8; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
-                            <h5>📋 Available Certificates:</h5>
-                            <div id="availableCertsList">Loading...</div>
-                        </div>
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-success" onclick="runRadiusTest('eap-tls')">🧪 Run EAP-TLS Test</button>
-                            <button class="btn btn-info" onclick="refreshCertificatesList()">🔄 Refresh Certificates</button>
-                        </div>
-                    </div>
-
-                    <!-- EAP-TTLS Test Form -->
-                    <div id="radiusTestForm-eap-ttls" class="radius-test-form" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>🔐 EAP-TTLS (Extensible Authentication Protocol - Tunneled Transport Layer Security) Test</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Test tunneled authentication using EAP-TTLS with inner authentication methods.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="eapTtlsIdentity">Identity:</label>
-                                <input type="text" id="eapTtlsIdentity" placeholder="user@example.com" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="eapTtlsPassword">Password:</label>
-                                <input type="password" id="eapTtlsPassword" placeholder="password123" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div class="form-group">
-                                <label for="eapTtlsInnerMethod">Inner Authentication:</label>
-                                <select id="eapTtlsInnerMethod" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="PAP">PAP</option>
-                                    <option value="CHAP">CHAP</option>
-                                    <option value="MSCHAP">MS-CHAP</option>
-                                    <option value="MSCHAPv2">MS-CHAPv2</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="button-grid" style="margin-top: 1rem;">
-                            <button class="btn btn-success" onclick="runRadiusTest('eap-ttls')">🧪 Run EAP-TTLS Test</button>
-                            <button class="btn btn-secondary" onclick="generateRandomCredentials('eap-ttls')">🎲 Generate Test Credentials</button>
-                        </div>
-                    </div>
-
-                    <!-- System Tests Form -->
-                    <div id="radiusTestForm-system" class="radius-test-form" style="display: none; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>⚙️ System & Configuration Tests</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Comprehensive system tests for RADIUS server health, configuration, and connectivity.
-                        </p>
-                        <div class="button-grid">
-                            <button class="btn btn-info" onclick="runSystemTest('server-status')">🔍 Server Status Check</button>
-                            <button class="btn btn-info" onclick="runSystemTest('config-validation')">⚙️ Configuration Validation</button>
-                            <button class="btn btn-info" onclick="runSystemTest('certificate-check')">📜 Certificate Health Check</button>
-                            <button class="btn btn-info" onclick="runSystemTest('database-check')">🗄️ Database Connectivity</button>
-                            <button class="btn btn-info" onclick="runSystemTest('vlan-check')">🌐 VLAN Assignment Test</button>
-                            <button class="btn btn-warning" onclick="runSystemTest('full-suite')">🧪 Full Test Suite</button>
-                        </div>
-                    </div>
-
-                    <!-- Test Results Display -->
-                    <div id="radiusTestResults" style="display: none; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4>🧪 Test Results</h4>
-                        <div class="test-results-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                            <div id="testResultsStatus">
-                                <span id="testStatusIcon">⏳</span>
-                                <span id="testStatusText">Running test...</span>
-                            </div>
-                            <div>
-                                <button class="btn btn-sm btn-secondary" onclick="clearTestResults()">Clear Results</button>
-                                <button class="btn btn-sm btn-info" onclick="exportTestResults()">📋 Export Results</button>
-                            </div>
-                        </div>
-                        <div id="testResultsContent" style="background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 1rem; font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">
-                            <!-- Test results will be displayed here -->
-                        </div>
-                    </div>
-
-                    <!-- Live Monitoring -->
-                    <div class="live-monitoring" style="background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem;">
-                        <h4>📊 Live RADIUS Monitoring</h4>
-                        <p style="color: #666; font-size: 0.875rem; margin-bottom: 1rem;">
-                            Monitor RADIUS authentication attempts and server activity in real-time.
-                        </p>
-                        <div class="button-grid" style="margin-bottom: 1rem;">
-                            <button class="btn btn-success" id="startLiveMonitoring" onclick="toggleLiveMonitoring()">▶️ Start Monitoring</button>
-                            <button class="btn btn-danger" id="stopLiveMonitoring" onclick="toggleLiveMonitoring()" style="display: none;">⏹️ Stop Monitoring</button>
-                            <button class="btn btn-secondary" onclick="clearMonitoringLog()">🗑️ Clear Log</button>
-                            <button class="btn btn-info" onclick="exportMonitoringLog()">📋 Export Log</button>
-                        </div>
-                        <div id="liveMonitoringLog" style="background: #000; color: #00ff00; border-radius: 4px; padding: 1rem; font-family: monospace; font-size: 0.8rem; height: 200px; overflow-y: auto;">
-                            <div style="color: #888;">Live monitoring stopped. Click 'Start Monitoring' to begin...</div>
-                        </div>
-                    </div>
                 </div>
                 </div>
             </div>
@@ -3142,86 +2602,6 @@
                 </div>
                 </div>
                 
-                <!-- WiFi Network Configuration Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">📶</span>WiFi Network Configuration</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Configure WiFi network settings for automatic device provisioning with mobile configuration profiles.
-                </p>
-                
-                <form id="wifiConfigForm" class="config-form">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="wifiSSID" class="required">Network Name (SSID)</label>
-                            <input type="text" id="wifiSSID" name="wifi_ssid" required placeholder="CorporateWiFi">
-                            <div class="field-description">The name of your WiFi network</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="wifiSecurityType">Security Type</label>
-                            <select id="wifiSecurityType" name="wifi_security_type">
-                                <option value="WPA2">WPA2-Enterprise</option>
-                                <option value="WPA3">WPA3-Enterprise</option>
-                            </select>
-                            <div class="field-description">WiFi security protocol</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="wifiHidden">Network Visibility</label>
-                            <select id="wifiHidden" name="wifi_hidden_network">
-                                <option value="false">Visible</option>
-                                <option value="true">Hidden</option>
-                            </select>
-                            <div class="field-description">Whether the network broadcasts its SSID</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="wifiAutoJoin">Auto-Join</label>
-                            <select id="wifiAutoJoin" name="wifi_auto_join">
-                                <option value="true">Enabled</option>
-                                <option value="false">Disabled</option>
-                            </select>
-                            <div class="field-description">Automatically connect when in range</div>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <label for="organizationName">Organization Name</label>
-                            <input type="text" id="organizationName" name="organization_name" placeholder="Your Organization">
-                            <div class="field-description">Displayed in the mobile configuration profile</div>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <label for="profileDescription">Profile Description</label>
-                            <textarea id="profileDescription" name="profile_description" rows="2" placeholder="WiFi configuration for secure network access"></textarea>
-                            <div class="field-description">Description shown when installing the profile</div>
-                        </div>
-                    </div>
-                    
-                    <div class="button-grid">
-                        <button type="button" class="btn btn-primary" onclick="saveWiFiConfig()">
-                            <span>💾</span> Save WiFi Settings
-                        </button>
-                        <button type="button" class="btn btn-secondary" onclick="testWiFiConfig()">
-                            <span>🔍</span> Preview Mobile Config
-                        </button>
-                    </div>
-                </form>
-                
-                <div id="wifiConfigStatus" style="margin-top: 1rem; display: none;"></div>
-                
-                <div class="config-instructions" style="margin-top: 2rem; background: #e1f5fe; border: 1px solid #0277bd; border-radius: 8px; padding: 15px;">
-                    <h3 style="margin-bottom: 1rem; color: #01579b;">📱 Mobile Configuration Profiles</h3>
-                    <p style="color: #01579b; margin-bottom: 0.5rem;"><strong>Supported Devices:</strong></p>
-                    <ul style="color: #01579b; margin-left: 1.5rem;">
-                        <li>iPhone/iPad (iOS 12+)</li>
-                        <li>macOS (10.14+)</li>
-                        <li>Automatic EAP-TLS for certificate users</li>
-                        <li>Automatic EAP-TTLS for credential users</li>
-                    </ul>
-                    <p style="color: #01579b; margin-top: 0.5rem;">✅ Users can download personalized profiles from their IDP portal!</p>
-                </div>
-                </div>
-                
                 <!-- IDP Configuration Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
                 <h2><span class="section-icon">🔐</span>Identity Provider (IDP) Configuration</h2>
@@ -3430,134 +2810,6 @@
                         <div id="backupProgressBar" style="display: none; background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 20px; margin: 1rem 0;">
                             <div id="backupProgress" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
                         </div>
-                    </div>
-                </div>
-                </div>
-                
-                <!-- IDP-RADIUS Configuration Section -->
-                <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">🔗</span>IDP-RADIUS Authentication Bridge</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Configure automatic RADIUS account provisioning for Identity Provider users. This allows Google/Microsoft SSO users to authenticate to WiFi networks using generated RADIUS credentials.
-                </p>
-                
-                <div class="idp-radius-config" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
-                    <h3 style="margin-bottom: 1rem; color: var(--text-dark);">🛠️ Auto-Provisioning Settings</h3>
-                    
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div class="form-group">
-                            <label for="autoProvisioningEnabled">Auto-Provisioning:</label>
-                            <select id="autoProvisioningEnabled" class="form-control">
-                                <option value="false">Disabled</option>
-                                <option value="true">Enabled</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="defaultIdpVlan">Default VLAN for IDP Users:</label>
-                            <select id="defaultIdpVlan" class="form-control">
-                                <option value="">Select VLAN...</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div class="form-group">
-                            <label for="radiusUsernameFormat">RADIUS Username Format:</label>
-                            <select id="radiusUsernameFormat" class="form-control">
-                                <option value="email">Use full email address</option>
-                                <option value="local_part">Use email local part only</option>
-                                <option value="custom">Custom format</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="passwordComplexity">Password Complexity:</label>
-                            <select id="passwordComplexity" class="form-control">
-                                <option value="standard">Standard (12 chars)</option>
-                                <option value="strong">Strong (16 chars)</option>
-                                <option value="maximum">Maximum (24 chars)</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="customUsernamePattern">Custom Username Pattern:</label>
-                        <input type="text" id="customUsernamePattern" class="form-control" 
-                               placeholder="{email} or {local_part} or custom-{local_part}" 
-                               style="margin-bottom: 0.5rem;">
-                        <small style="color: var(--medium-gray); font-size: 0.75rem;">
-                            Available placeholders: {email}, {local_part}, {domain}, {provider}
-                        </small>
-                    </div>
-                    
-                    <div class="button-grid" style="margin-bottom: 1.5rem;">
-                        <button class="btn btn-primary" onclick="saveIdpRadiusConfig()">💾 Save Configuration</button>
-                        <button class="btn btn-info" onclick="testIdpRadiusConfig()">🧪 Test Configuration</button>
-                    </div>
-                </div>
-                
-                <!-- Manual IDP User Management -->
-                <div class="idp-users-management" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                        <h3 style="margin: 0; color: var(--text-dark);">👥 IDP-RADIUS User Mappings</h3>
-                        <div class="button-grid" style="margin: 0;">
-                            <button class="btn btn-primary" onclick="showManualIdpMappingForm()">➕ Add Manual Mapping</button>
-                            <button class="btn btn-info" onclick="loadIDPRadiusMappings()">🔄 Refresh</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Manual Mapping Form -->
-                    <div id="manualIdpMappingForm" style="display: none; background: white; border: 2px solid var(--primary-color); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                        <h4 style="margin-bottom: 1rem;">Add Manual IDP-RADIUS Mapping</h4>
-                        
-                        <form id="manualIdpMappingFormElement">
-                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                <div class="form-group">
-                                    <label for="idpEmail">IDP Email Address *:</label>
-                                    <input type="email" id="idpEmail" name="idpEmail" class="form-control" required>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="idpProvider">IDP Provider *:</label>
-                                    <select id="idpProvider" name="idpProvider" class="form-control" required>
-                                        <option value="">Select Provider...</option>
-                                        <option value="google">Google</option>
-                                        <option value="microsoft">Microsoft</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                <div class="form-group">
-                                    <label for="radiusUsername">RADIUS Username *:</label>
-                                    <input type="text" id="radiusUsername" name="radiusUsername" class="form-control" required>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="idpDefaultVlan">Default VLAN:</label>
-                                    <select id="idpDefaultVlan" name="idpDefaultVlan" class="form-control">
-                                        <option value="">No default VLAN</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group" style="margin-bottom: 1.5rem;">
-                                <label for="certificateCn">Certificate CN (for EAP-TLS):</label>
-                                <input type="text" id="certificateCn" name="certificateCn" class="form-control" 
-                                       placeholder="Optional: Common Name for certificate binding">
-                            </div>
-                            
-                            <div class="button-grid">
-                                <button type="button" class="btn btn-primary" onclick="createManualIdpMapping()">✅ Create Mapping</button>
-                                <button type="button" class="btn btn-secondary" onclick="hideManualIdpMappingForm()">❌ Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                    
-                    <!-- IDP Mappings List -->
-                    <div id="idpRadiusMappingsList" style="max-height: 400px; overflow-y: auto;">
-                        <p>Loading IDP-RADIUS mappings...</p>
                     </div>
                 </div>
                 </div>
@@ -4179,6 +3431,111 @@
         </div>
     </div>
 
+    <!-- Certificate Download Format Selection Modal -->
+    <div id="certificateDownloadModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Download Certificate</h2>
+                <span class="close" onclick="closeCertificateDownloadModal()">&times;</span>
+            </div>
+
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 20px; color: var(--medium-gray);">
+                    Choose the format for downloading the certificate "<strong id="downloadCertName"></strong>":
+                </p>
+
+                <div class="format-options" style="display: flex; flex-direction: column; gap: 15px;">
+                    <label class="format-option" style="display: flex; align-items: center; padding: 15px; border: 2px solid var(--light-gray); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <input type="radio" name="downloadFormat" value="pem" checked style="margin-right: 15px; transform: scale(1.2);">
+                        <div>
+                            <strong>PEM Format (.pem)</strong>
+                            <div style="font-size: 0.875rem; color: var(--medium-gray); margin-top: 5px;">
+                                Base64 encoded certificate and private key in separate sections. Compatible with most applications and easy to read.
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="format-option" style="display: flex; align-items: center; padding: 15px; border: 2px solid var(--light-gray); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <input type="radio" name="downloadFormat" value="p12" style="margin-right: 15px; transform: scale(1.2);">
+                        <div>
+                            <strong>PKCS#12 Format (.p12)</strong>
+                            <div style="font-size: 0.875rem; color: var(--medium-gray); margin-top: 5px;">
+                                Binary format containing certificate and private key in a single password-protected file. Ideal for Windows/mobile devices.
+                                <strong style="color: var(--primary-purple);">Password: certificate</strong>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="format-option" style="display: flex; align-items: center; padding: 15px; border: 2px solid var(--light-gray); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <input type="radio" name="downloadFormat" value="zip" style="margin-right: 15px; transform: scale(1.2);">
+                        <div>
+                            <strong>ZIP Bundle (.zip)</strong>
+                            <div style="font-size: 0.875rem; color: var(--medium-gray); margin-top: 5px;">
+                                Complete bundle with separate certificate, private key, and CA files. Best for manual installation and backup.
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--light-gray);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <button type="button" class="btn btn-secondary" onclick="closeCertificateDownloadModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmCertificateDownload()">
+                            📥 Download Certificate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CA Download Options Modal -->
+    <div id="caDownloadModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Download CA Certificate</h2>
+                <span class="close" onclick="closeCADownloadModal()">&times;</span>
+            </div>
+
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 20px; color: var(--medium-gray);">
+                    Choose what to download from the Certificate Authority:
+                </p>
+
+                <div class="format-options" style="display: flex; flex-direction: column; gap: 15px;">
+                    <label class="format-option" style="display: flex; align-items: center; padding: 15px; border: 2px solid var(--light-gray); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <input type="radio" name="caDownloadType" value="cert-only" checked style="margin-right: 15px; transform: scale(1.2);">
+                        <div>
+                            <strong>Certificate Only (.pem)</strong>
+                            <div style="font-size: 0.875rem; color: var(--medium-gray); margin-top: 5px;">
+                                Download only the CA certificate for client validation and trust purposes
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="format-option" style="display: flex; align-items: center; padding: 15px; border: 2px solid var(--light-gray); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                        <input type="radio" name="caDownloadType" value="cert-and-key" style="margin-right: 15px; transform: scale(1.2);">
+                        <div>
+                            <strong>Certificate + Private Key (.pem)</strong>
+                            <div style="font-size: 0.875rem; color: var(--orange); margin-top: 5px;">
+                                ⚠️ <strong>BACKUP ONLY:</strong> Includes private key for full CA backup and restoration
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--light-gray);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <button type="button" class="btn btn-secondary" onclick="closeCADownloadModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmCADownload()">
+                            📥 Download CA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- RADIUS Logs Modal -->
     <div id="radiusLogsModal" class="modal">
         <div class="modal-content" style="max-width: 90%; width: 1200px; height: 80vh; display: flex; flex-direction: column;">
@@ -4255,6 +3612,7 @@ RADIUS Authentication Log Monitor v1.0
     </div>
 
     <script>
+        console.log('Script execution started');
         
         // Global error handler to catch and display JavaScript errors
         window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -4303,9 +3661,6 @@ RADIUS Authentication Log Monitor v1.0
                 // Load version information and available branches for General Settings
                 setTimeout(() => {
                     // Version management removed
-                    loadIdpRadiusConfig().catch(e => console.error('loadIdpRadiusConfig error:', e));
-                    loadVLANsForIdpConfig().catch(e => console.error('loadVLANsForIdpConfig error:', e));
-                    loadIDPRadiusMappings().catch(e => console.error('loadIDPRadiusMappings error:', e));
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
                     loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
                     loadCurrentColorTheme().catch(e => console.error('loadCurrentColorTheme error:', e));
@@ -4317,8 +3672,6 @@ RADIUS Authentication Log Monitor v1.0
                     refreshRadsecStatus().catch(e => console.error('refreshRadsecStatus error:', e));
                     loadRadiusCertificates().catch(e => console.error('loadRadiusCertificates error:', e));
                     refreshRadiusClients().catch(e => console.error('refreshRadiusClients error:', e));
-                    loadVLANPolicies().catch(e => console.error('loadVLANPolicies error:', e));
-                    loadIDPRadiusMappings().catch(e => console.error('loadIDPRadiusMappings error:', e));
                 }, 100);
             }
         }
@@ -5050,36 +4403,43 @@ RADIUS Authentication Log Monitor v1.0
         }
 
         async function downloadCA() {
+            // Show CA download options modal
+            showCADownloadModal();
+        }
+
+        async function downloadCAWithType(includePrivateKey = false) {
             if (isLoading) return;
-            
+
             setLoading(true);
-            showStatus('Downloading CA certificate...', 'loading');
+            const downloadType = includePrivateKey ? 'certificate and private key' : 'certificate only';
+            showStatus(`Downloading CA ${downloadType}...`, 'loading');
 
             try {
-                const response = await fetch('/api/ca/download-public');
-                
+                const endpoint = includePrivateKey ? '/api/ca/download?include_key=true' : '/api/ca/download';
+                const response = await fetch(endpoint);
+
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
-                
+
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = 'ca-certificate.pem';
+                link.download = includePrivateKey ? 'ca-with-key.pem' : 'ca-cert.pem';
                 link.style.display = 'none';
-                
+
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(url);
-                
-                showStatus('✅ CA certificate downloaded successfully', 'success');
-                
+
+                showStatus(`✅ CA ${downloadType} downloaded successfully`, 'success');
+
             } catch (error) {
                 console.error('Download error:', error);
-                showStatus('❌ Failed to download CA certificate: ' + error.message, 'error');
+                showStatus(`❌ Failed to download CA ${downloadType}: ` + error.message, 'error');
             } finally {
                 setLoading(false);
             }
@@ -5481,39 +4841,54 @@ RADIUS Authentication Log Monitor v1.0
 
         async function downloadCert() {
             if (isLoading) return;
-            
+
             const name = document.getElementById('operationCertName').value.trim();
-            
+
             if (!name) {
                 showStatus('Please enter a certificate name', 'error');
                 return;
             }
-            
+
+            // Show format selection modal
+            showCertificateDownloadModal(name);
+        }
+
+        async function downloadCertificateWithFormat(name, format) {
+            if (isLoading) return;
+
             setLoading(true);
-            showStatus(`Downloading certificate for ${name}...`, 'loading');
+            const formatName = format === 'p12' ? 'PKCS#12' : format.toUpperCase();
+            showStatus(`Downloading certificate for ${name} in ${formatName} format...`, 'loading');
 
             try {
-                const response = await fetch(`/api/certificates/download/${encodeURIComponent(name)}?format=pem&include_key=true`);
-                
+                const response = await fetch(`/api/certificates/download/${encodeURIComponent(name)}?format=${format}&include_key=true`);
+
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
-                
+
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `${name}.pem`;
+
+                // Set appropriate file extension
+                let extension = format;
+                if (format === 'p12') extension = 'p12';
+                else if (format === 'pem') extension = 'pem';
+                else if (format === 'zip') extension = 'zip';
+
+                link.download = `${name}.${extension}`;
                 link.style.display = 'none';
-                
+
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(url);
-                
-                showStatus(`✅ Certificate ${name}.pem downloaded successfully`, 'success');
-                
+
+                showStatus(`✅ Certificate ${name}.${extension} downloaded successfully`, 'success');
+
             } catch (error) {
                 console.error('Download error:', error);
                 showStatus('❌ Failed to download certificate: ' + error.message, 'error');
@@ -6453,8 +5828,81 @@ Dependencies:
         }
 
         async function downloadCertificateFromList(name) {
-            document.getElementById('operationCertName').value = name;
-            await downloadCert();
+            // Show format selection modal for list downloads
+            showCertificateDownloadModal(name);
+        }
+
+        // Certificate Download Modal Functions
+        function showCertificateDownloadModal(name) {
+            document.getElementById('downloadCertName').textContent = name;
+            document.getElementById('certificateDownloadModal').style.display = 'block';
+
+            // Reset to PEM format by default
+            document.querySelector('input[name="downloadFormat"][value="pem"]').checked = true;
+
+            // Store certificate name for later use
+            window.currentDownloadCertName = name;
+        }
+
+        function closeCertificateDownloadModal() {
+            document.getElementById('certificateDownloadModal').style.display = 'none';
+            window.currentDownloadCertName = null;
+        }
+
+        async function confirmCertificateDownload() {
+            const selectedFormat = document.querySelector('input[name="downloadFormat"]:checked').value;
+            const certName = window.currentDownloadCertName;
+
+            if (!certName) {
+                showStatus('❌ No certificate selected for download', 'error');
+                return;
+            }
+
+            // Close modal
+            closeCertificateDownloadModal();
+
+            // Start download
+            await downloadCertificateWithFormat(certName, selectedFormat);
+        }
+
+        // CA Download Modal Functions
+        function showCADownloadModal() {
+            document.getElementById('caDownloadModal').style.display = 'block';
+
+            // Reset to cert-only by default
+            document.querySelector('input[name="caDownloadType"][value="cert-only"]').checked = true;
+
+            // Update option styling
+            updateCADownloadOptionStyling();
+        }
+
+        function closeCADownloadModal() {
+            document.getElementById('caDownloadModal').style.display = 'none';
+        }
+
+        function updateCADownloadOptionStyling() {
+            const options = document.querySelectorAll('#caDownloadModal .format-option');
+            options.forEach(option => {
+                const radio = option.querySelector('input[type="radio"]');
+                if (radio.checked) {
+                    option.style.borderColor = 'var(--primary-blue)';
+                    option.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                } else {
+                    option.style.borderColor = 'var(--light-gray)';
+                    option.style.backgroundColor = 'transparent';
+                }
+            });
+        }
+
+        async function confirmCADownload() {
+            const selectedType = document.querySelector('input[name="caDownloadType"]:checked').value;
+            const includePrivateKey = selectedType === 'cert-and-key';
+
+            // Close modal
+            closeCADownloadModal();
+
+            // Start download
+            await downloadCAWithType(includePrivateKey);
         }
 
         async function validateCertificateFromList(name) {
@@ -6828,6 +6276,7 @@ Dependencies:
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOMContentLoaded - starting initialization');
             
             // Initialize tabs
             initializeTabs();
@@ -6871,32 +6320,42 @@ Dependencies:
             try {
                 // Check connection on page load
                 setTimeout(() => {
+                    console.log('Calling checkConnection');
                     checkConnection().catch(e => console.error('checkConnection error:', e));
                 }, 1000);
                 
                 // Check PKI and CA status on page load  
                 setTimeout(() => {
+                    console.log('Calling updatePKIButton');
                     updatePKIButton().catch(e => console.error('updatePKIButton error:', e));
                 }, 1500);
                 
                 setTimeout(() => {
+                    console.log('Calling updateCAButton');
                     updateCAButton().catch(e => console.error('updateCAButton error:', e));
                 }, 2000);
                 
                 // Load SMTP configuration (only for admins and with delay)
                 setTimeout(() => {
+                    console.log('Loading SMTP configuration');
                     const smtpSection = document.getElementById('smtp-section');
                     const smtpServer = document.getElementById('smtpServer');
+                    console.log('SMTP section found:', !!smtpSection);
+                    console.log('SMTP server input found:', !!smtpServer);
                     
                     if (smtpSection && smtpServer) {
                         loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
                     } else if (smtpSection) {
+                        console.log('SMTP section exists but form elements not ready, trying again...');
                         setTimeout(() => loadSMTPConfig(), 3000);
+                    } else {
+                        console.log('SMTP section not found - user may not be admin or section not rendered');
                     }
                 }, 5000);
                 
                 // Load dashboard initially
                 setTimeout(() => {
+                    console.log('Calling loadDashboard');
                     loadDashboard().catch(e => console.error('loadDashboard error:', e));
                 }, 3000);
             } catch(e) {
@@ -7112,6 +6571,12 @@ Dependencies:
                     }
                 });
             }
+
+            // Add event listeners for CA download modal radio buttons
+            const caDownloadRadios = document.querySelectorAll('input[name="caDownloadType"]');
+            caDownloadRadios.forEach(radio => {
+                radio.addEventListener('change', updateCADownloadOptionStyling);
+            });
         });
 
         async function uploadLogo() {
@@ -8064,14 +7529,41 @@ Dependencies:
             tour.start();
         }
 
-        function checkIfFirstTimeUser() {
+        function resetTourStatus() {
+            // Utility function to reset tour completion status
+            localStorage.removeItem('ca-manager-tour-completed');
+            showStatus('Tour status reset. It will show again if PKI/CA is not set up.', 'info');
+        }
+
+        async function checkIfFirstTimeUser() {
             // Check if user has seen the tour before
             const hasSeenTour = localStorage.getItem('ca-manager-tour-completed');
-            if (!hasSeenTour) {
-                // Show tour after a short delay to let the page fully load
-                setTimeout(() => {
-                    startGuidedTour();
-                }, 1500);
+
+            // Also check if PKI and CA are already set up
+            try {
+                const response = await fetch('/api/pki/status');
+                const data = await response.json();
+
+                const pkiInitialized = data?.pki_status?.pki_initialized === true;
+                const caExists = data?.pki_status?.ca_exists === true;
+
+                // Only show tour if:
+                // 1. User hasn't seen it before AND
+                // 2. Either PKI is not initialized OR CA doesn't exist
+                if (!hasSeenTour && (!pkiInitialized || !caExists)) {
+                    // Show tour after a short delay to let the page fully load
+                    setTimeout(() => {
+                        startGuidedTour();
+                    }, 1500);
+                }
+            } catch (error) {
+                console.error('Error checking PKI status for tour:', error);
+                // If we can't check status, only show tour if user hasn't seen it
+                if (!hasSeenTour) {
+                    setTimeout(() => {
+                        startGuidedTour();
+                    }, 1500);
+                }
             }
         }
 
@@ -8250,11 +7742,15 @@ Dependencies:
         // SMTP Configuration Functions
         async function loadSMTPConfig() {
             try {
+                console.log('loadSMTPConfig: Starting...');
+                
                 const response = await fetch('/api/smtp-config', {
                     credentials: 'include'
                 });
+                console.log('loadSMTPConfig: API response received', response.status);
                 
                 const data = await response.json();
+                console.log('loadSMTPConfig: Data parsed', data);
                 
                 if (response.ok) {
                     // Get elements directly since we know they exist
@@ -8283,12 +7779,16 @@ Dependencies:
                     }
                     
                     document.getElementById('smtp-config-content').style.display = 'block';
+                    console.log('loadSMTPConfig: Configuration loaded successfully');
                 } else {
+                    console.log('loadSMTPConfig: API response not OK', data);
                     showError(data.error || 'Failed to load SMTP configuration');
                 }
             } catch (error) {
                 console.error('loadSMTPConfig: Error caught:', error);
                 showError(`Network error loading SMTP configuration: ${error.message}`);
+            } finally {
+                console.log('loadSMTPConfig: Function completed');
             }
         }
 
@@ -8925,13 +8425,15 @@ Dependencies:
                 showStatus('Generating new RADIUS server certificate...', 'loading');
                 
                 // Use existing certificate generation API
-                const response = await fetch('/api/certificates/create-full', {
+                const response = await fetch('/api/generate-certificate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({
-                        name: 'radius-server',
-                        type: 'server'
+                        common_name: 'radius-server',
+                        type: 'server',
+                        key_type: 'rsa',
+                        key_size: '2048'
                     })
                 });
                 
@@ -9647,1438 +9149,6 @@ Dependencies:
             }
         }
 
-        // VLAN Policy Engine Functions
-        async function loadVLANs() {
-            try {
-                const response = await fetch('/api/vlans', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    // Update all VLAN select elements that exist
-                    const vlanSelects = ['policyVLAN', 'policyVlanId', 'defaultIdpVlan', 'idpDefaultVlan'];
-                    
-                    vlanSelects.forEach(selectId => {
-                        const vlanSelect = document.getElementById(selectId);
-                        if (vlanSelect) {
-                            vlanSelect.innerHTML = '<option value="">Select VLAN...</option>';
-                            
-                            data.vlans.forEach(vlan => {
-                                const option = document.createElement('option');
-                                option.value = vlan.id;
-                                option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name} (${vlan.subnet || 'No subnet'})`;
-                                vlanSelect.appendChild(option);
-                            });
-                        }
-                    });
-                } else {
-                    console.error('Failed to load VLANs:', data.message);
-                }
-            } catch (error) {
-                console.error('Error loading VLANs:', error);
-            }
-        }
-
-        function showAddPolicyForm() {
-            document.getElementById('addPolicyForm').style.display = 'block';
-            loadVLANs();
-        }
-
-        function hideAddPolicyForm() {
-            document.getElementById('addPolicyForm').style.display = 'none';
-            document.getElementById('addPolicyFormElement').reset();
-        }
-
-        async function createVLANPolicy() {
-            const form = document.getElementById('addPolicyFormElement');
-            const formData = new FormData(form);
-            
-            try {
-                showStatus('Creating VLAN policy...', 'loading');
-                
-                // Parse JSON fields
-                const conditions = formData.get('conditions') || '{}';
-                const radiusAttributes = formData.get('radiusAttributes') || '{}';
-                
-                const policyData = {
-                    policy_name: formData.get('policyName'),
-                    description: formData.get('description'),
-                    priority: parseInt(formData.get('priority')),
-                    vlan_id: formData.get('vlanId') || null,
-                    conditions: JSON.parse(conditions),
-                    radius_attributes: JSON.parse(radiusAttributes),
-                    allow_access: formData.get('allowAccess') === 'true',
-                    reject_reason: formData.get('rejectReason') || null
-                };
-                
-                const response = await fetch('/api/vlan-policies', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(policyData)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('VLAN policy created successfully', 'success');
-                    hideAddPolicyForm();
-                    loadVLANPolicies();
-                } else {
-                    showStatus(result.message || 'Failed to create VLAN policy', 'error');
-                }
-            } catch (error) {
-                console.error('Error creating VLAN policy:', error);
-                showStatus('Error creating VLAN policy: Invalid JSON in conditions or attributes', 'error');
-            }
-        }
-
-        async function loadVLANPolicies() {
-            try {
-                const response = await fetch('/api/vlan-policies', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const container = document.getElementById('enhancedPoliciesList');
-                    if (!container) {
-                        console.error('Enhanced policies list container not found');
-                        return;
-                    }
-                    container.innerHTML = '';
-                    
-                    if (data.policies.length === 0) {
-                        container.innerHTML = '<p>No VLAN policies configured</p>';
-                        return;
-                    }
-                    
-                    data.policies.forEach(policy => {
-                        const policyDiv = document.createElement('div');
-                        policyDiv.className = 'policy-item';
-                        policyDiv.innerHTML = `
-                            <div class="policy-header">
-                                <h4>${policy.policy_name} ${policy.is_active ? '' : '(Inactive)'}</h4>
-                                <span class="policy-priority">Priority: ${policy.priority}</span>
-                            </div>
-                            <div class="policy-details">
-                                <p><strong>Description:</strong> ${policy.description || 'No description'}</p>
-                                <p><strong>VLAN:</strong> ${policy.vlan_name ? `${policy.vlan_number} - ${policy.vlan_name}` : 'No VLAN assigned'}</p>
-                                <p><strong>Conditions:</strong> <code>${JSON.stringify(policy.conditions)}</code></p>
-                                <p><strong>RADIUS Attributes:</strong> <code>${JSON.stringify(policy.radius_attributes)}</code></p>
-                                <p><strong>Access:</strong> ${policy.allow_access ? 'Allow' : 'Deny'} ${!policy.allow_access && policy.reject_reason ? `(${policy.reject_reason})` : ''}</p>
-                            </div>
-                            <div class="policy-actions">
-                                <button onclick="togglePolicy(${policy.id}, ${!policy.is_active})" class="btn ${policy.is_active ? 'btn-warning' : 'btn-success'}">
-                                    ${policy.is_active ? 'Disable' : 'Enable'}
-                                </button>
-                                <button onclick="deleteVLANPolicy(${policy.id})" class="btn btn-danger">Delete</button>
-                            </div>
-                        `;
-                        container.appendChild(policyDiv);
-                    });
-                } else {
-                    console.error('Failed to load VLAN policies:', data.message);
-                    const container = document.getElementById('enhancedPoliciesList');
-                    if (container) {
-                        container.innerHTML = '<p>Failed to load VLAN policies</p>';
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading VLAN policies:', error);
-                const container = document.getElementById('enhancedPoliciesList');
-                if (container) {
-                    container.innerHTML = '<p>Error loading VLAN policies</p>';
-                }
-            }
-        }
-
-        async function togglePolicy(policyId, enable) {
-            try {
-                showStatus(`${enable ? 'Enabling' : 'Disabling'} VLAN policy...`, 'loading');
-                
-                const response = await fetch(`/api/vlan-policies/${policyId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        is_active: enable
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus(`VLAN policy ${enable ? 'enabled' : 'disabled'} successfully`, 'success');
-                    loadVLANPolicies();
-                } else {
-                    showStatus(result.message || 'Failed to update VLAN policy', 'error');
-                }
-            } catch (error) {
-                console.error('Error updating VLAN policy:', error);
-                showStatus('Error updating VLAN policy', 'error');
-            }
-        }
-
-        async function deleteVLANPolicy(policyId) {
-            if (!confirm('Are you sure you want to delete this VLAN policy? This action cannot be undone.')) {
-                return;
-            }
-            
-            try {
-                showStatus('Deleting VLAN policy...', 'loading');
-                
-                const response = await fetch(`/api/vlan-policies/${policyId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('VLAN policy deleted successfully', 'success');
-                    loadVLANPolicies();
-                } else {
-                    showStatus(result.message || 'Failed to delete VLAN policy', 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting VLAN policy:', error);
-                showStatus('Error deleting VLAN policy', 'error');
-            }
-        }
-
-        // IDP-RADIUS Authentication Bridge Functions
-        async function loadIDPRadiusMappings() {
-            try {
-                const response = await fetch('/api/idp-radius-auth', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const container = document.getElementById('idpRadiusMappingsList');
-                    container.innerHTML = '';
-                    
-                    if (data.mappings.length === 0) {
-                        container.innerHTML = '<p>No IDP-RADIUS mappings configured</p>';
-                        return;
-                    }
-                    
-                    data.mappings.forEach(mapping => {
-                        const mappingDiv = document.createElement('div');
-                        mappingDiv.className = 'mapping-item';
-                        mappingDiv.innerHTML = `
-                            <div class="mapping-header">
-                                <h4>${mapping.idp_email} ${mapping.is_active ? '' : '(Inactive)'}</h4>
-                                <span class="mapping-provider">${mapping.idp_provider.toUpperCase()}</span>
-                            </div>
-                            <div class="mapping-details">
-                                <p><strong>RADIUS Username:</strong> ${mapping.radius_username}</p>
-                                <p><strong>Default VLAN:</strong> ${mapping.vlan_name ? `${mapping.vlan_number} - ${mapping.vlan_name}` : 'No default VLAN'}</p>
-                                <p><strong>Certificate CN:</strong> ${mapping.certificate_cn || 'Not configured'}</p>
-                                <p><strong>Last Auth:</strong> ${mapping.last_auth_at ? new Date(mapping.last_auth_at).toLocaleString() : 'Never'}</p>
-                                <p><strong>Auth Count:</strong> ${mapping.auth_count || 0}</p>
-                            </div>
-                            <div class="mapping-actions">
-                                <button onclick="toggleIDPMapping(${mapping.id}, ${!mapping.is_active})" class="btn ${mapping.is_active ? 'btn-warning' : 'btn-success'}">
-                                    ${mapping.is_active ? 'Disable' : 'Enable'}
-                                </button>
-                                <button onclick="regenerateRadiusPassword(${mapping.id})" class="btn btn-info">Regenerate Password</button>
-                                <button onclick="deleteIDPMapping(${mapping.id})" class="btn btn-danger">Delete</button>
-                            </div>
-                        `;
-                        container.appendChild(mappingDiv);
-                    });
-                } else {
-                    console.error('Failed to load IDP-RADIUS mappings:', data.message);
-                    document.getElementById('idpRadiusMappingsList').innerHTML = '<p>Failed to load IDP-RADIUS mappings</p>';
-                }
-            } catch (error) {
-                console.error('Error loading IDP-RADIUS mappings:', error);
-                document.getElementById('idpRadiusMappingsList').innerHTML = '<p>Error loading IDP-RADIUS mappings</p>';
-            }
-        }
-
-        // Removed IDP Users Management Functions - moved to dedicated page
-
-        // Toggle IDP Mapping function
-        async function toggleIDPMapping(mappingId, enable) {
-            try {
-                showStatus(`${enable ? 'Enabling' : 'Disabling'} IDP-RADIUS mapping...`, 'loading');
-                
-                const response = await fetch(`/api/idp-radius-auth/${mappingId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_active: enable })
-                });
-                
-                if (response.ok) {
-                    showStatus(`IDP-RADIUS mapping ${enable ? 'enabled' : 'disabled'} successfully`, 'success');
-                    await loadIDPUsers(); // Reload the users list
-                } else {
-                    showStatus('Failed to update IDP-RADIUS mapping', 'error');
-                }
-            } catch (error) {
-                console.error('Error toggling IDP mapping:', error);
-                showStatus('Error updating IDP-RADIUS mapping', 'error');
-            }
-        }
-
-        async function loadIDPUsersTable(data) {
-            try {
-                const tbody = document.getElementById('idpUsersTableBody');
-                if (!tbody) return;
-                
-                tbody.innerHTML = '';
-                
-                if (!data.mappings || data.mappings.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #666;">No IDP users found</td></tr>';
-                    const bulkEditBtn = document.getElementById('bulkEditBtn');
-                    if (bulkEditBtn) bulkEditBtn.style.display = 'none';
-                    return;
-                }
-                
-                // Show bulk edit button when there are users
-                const bulkEditBtn = document.getElementById('bulkEditBtn');
-                if (bulkEditBtn) bulkEditBtn.style.display = 'inline-block';
-                
-                data.mappings.forEach(user => {
-                    const row = document.createElement('tr');
-                    const lastLogin = user.last_auth_at ? new Date(user.last_auth_at).toLocaleString() : 'Never';
-                    const vlanDisplay = user.vlan_name ? 
-                        String(user.vlan_number || '') + ' - ' + String(user.vlan_name || '') : 
-                        'None (Policy)';
-                    
-                    // Create cells using DOM methods to avoid template literal issues
-                    const cells = [
-                        // Checkbox cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            const checkbox = document.createElement('input');
-                            checkbox.type = 'checkbox';
-                            checkbox.className = 'user-select-checkbox';
-                            checkbox.setAttribute('data-user-id', user.id);
-                            checkbox.setAttribute('data-user-email', user.idp_email);
-                            checkbox.onchange = updateSelectedUsers;
-                            cell.appendChild(checkbox);
-                            return cell;
-                        })(),
-                        // Email cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            cell.textContent = user.idp_email;
-                            return cell;
-                        })(),
-                        // Provider cell  
-                        (() => {
-                            const cell = document.createElement('td');
-                            const badge = document.createElement('span');
-                            badge.className = 'badge badge-info';
-                            badge.textContent = user.idp_provider.toUpperCase();
-                            cell.appendChild(badge);
-                            return cell;
-                        })(),
-                        // Username cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            cell.textContent = user.radius_username;
-                            return cell;
-                        })(),
-                        // VLAN cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            cell.textContent = vlanDisplay;
-                            return cell;
-                        })(),
-                        // Last login cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            cell.textContent = lastLogin;
-                            return cell;
-                        })(),
-                        // Auth count cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            cell.textContent = user.auth_count || 0;
-                            return cell;
-                        })(),
-                        // Status cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            const statusSpan = document.createElement('span');
-                            if (user.is_active) {
-                                statusSpan.style.color = 'green';
-                                statusSpan.textContent = '✅ Active';
-                            } else {
-                                statusSpan.style.color = 'red';
-                                statusSpan.textContent = '❌ Inactive';
-                            }
-                            cell.appendChild(statusSpan);
-                            return cell;
-                        })(),
-                        // Actions cell
-                        (() => {
-                            const cell = document.createElement('td');
-                            const button = document.createElement('button');
-                            button.className = 'btn btn-sm btn-primary';
-                            button.textContent = '✏️ Edit VLAN';
-                            button.onclick = () => editUserVlan(user.id, user.idp_email, user.default_vlan_id || null);
-                            cell.appendChild(button);
-                            return cell;
-                        })()
-                    ];
-                    
-                    cells.forEach(cell => row.appendChild(cell));
-                    tbody.appendChild(row);
-                });
-                
-                // Load VLANs for the dropdown
-                await loadVlansForDropdown();
-            } catch (error) {
-                console.error('Error loading IDP users table:', error);
-            }
-        }
-
-        async function loadVlansForDropdown() {
-            try {
-                const response = await fetch('/api/vlans');
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    allVlans = data.vlans;
-                    const select = document.getElementById('editUserVlan');
-                    select.innerHTML = '<option value="">No VLAN (Use Policy)</option>';
-                    
-                    data.vlans.forEach(vlan => {
-                        const option = document.createElement('option');
-                        option.value = vlan.id;
-                        option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name}`;
-                        select.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading VLANs:', error);
-            }
-        }
-
-        function editUserVlan(userId, email, currentVlanId) {
-            currentEditUserId = userId;
-            document.getElementById('editUserEmail').value = email;
-            document.getElementById('editUserVlan').value = currentVlanId || '';
-            document.getElementById('vlanEditModal').style.display = 'block';
-        }
-
-        function closeVlanEditModal() {
-            document.getElementById('vlanEditModal').style.display = 'none';
-            currentEditUserId = null;
-        }
-
-        async function saveUserVlan() {
-            if (!currentEditUserId) return;
-            
-            const vlanId = document.getElementById('editUserVlan').value;
-            
-            try {
-                const response = await fetch(`/api/idp-users/${currentEditUserId}/vlan`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ vlan_id: vlanId || null })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    showStatus(data.message, 'success');
-                    closeVlanEditModal();
-                    await loadIDPUsers(); // Reload the table
-                } else {
-                    showStatus(data.error || 'Failed to update VLAN', 'error');
-                }
-            } catch (error) {
-                console.error('Error updating VLAN:', error);
-                showStatus('Failed to update VLAN assignment', 'error');
-            }
-        }
-
-        function exportIDPUsers() {
-            // Create CSV content
-            let csvContent = "Email,Provider,RADIUS Username,VLAN,Last Login,Login Count,Status\n";
-            
-            const rows = document.querySelectorAll('#idpUsersTableBody tr');
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length > 1) { // Skip empty row message
-                    const rowData = [
-                        cells[0].textContent, // Email
-                        cells[1].textContent.trim(), // Provider
-                        cells[2].textContent, // RADIUS Username
-                        cells[3].textContent, // VLAN
-                        cells[4].textContent, // Last Login
-                        cells[5].textContent, // Login Count
-                        cells[6].textContent.includes('Active') ? 'Active' : 'Inactive'
-                    ];
-                    csvContent += rowData.map(cell => `"${cell}"`).join(',') + '\n';
-                }
-            });
-            
-            // Download CSV
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `idp_users_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            showStatus('IDP users exported to CSV', 'success');
-        }
-
-        // Function to open IDP Users Management page
-        function openIDPUsersPage() {
-            window.open('/idp-users', '_blank');
-        }
-
-        // Bulk VLAN Edit Functions
-        let selectedUserIds = [];
-
-        function toggleAllUserSelection() {
-            const selectAll = document.getElementById('selectAllUsers');
-            const checkboxes = document.querySelectorAll('.user-select-checkbox');
-            
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = selectAll.checked;
-            });
-            
-            updateSelectedUsers();
-        }
-
-        function updateSelectedUsers() {
-            const checkboxes = document.querySelectorAll('.user-select-checkbox:checked');
-            selectedUserIds = [];
-            const selectedEmails = [];
-            
-            checkboxes.forEach(checkbox => {
-                selectedUserIds.push(parseInt(checkbox.dataset.userId));
-                selectedEmails.push(checkbox.dataset.userEmail);
-            });
-            
-            // Update the selected count
-            document.getElementById('selectedCount').textContent = selectedUserIds.length;
-            
-            // Update bulk edit button visibility
-            const bulkEditBtn = document.getElementById('bulkEditBtn');
-            if (selectedUserIds.length > 0) {
-                bulkEditBtn.style.display = 'inline-block';
-            } else {
-                bulkEditBtn.style.display = 'none';
-            }
-            
-            // Update select all checkbox state
-            const selectAll = document.getElementById('selectAllUsers');
-            const allCheckboxes = document.querySelectorAll('.user-select-checkbox');
-            if (allCheckboxes.length > 0) {
-                selectAll.checked = checkboxes.length === allCheckboxes.length;
-            }
-        }
-
-        function showBulkVlanEdit() {
-            if (selectedUserIds.length === 0) {
-                showStatus('Please select at least one user', 'error');
-                return;
-            }
-            
-            // Update the modal with selected users info
-            document.getElementById('bulkEditUserCount').textContent = selectedUserIds.length;
-            
-            // Show selected users list
-            const selectedUsersList = document.getElementById('selectedUsersList');
-            const checkboxes = document.querySelectorAll('.user-select-checkbox:checked');
-            let userListHtml = '<ul style="margin: 0; padding-left: 1.5rem;">';
-            
-            checkboxes.forEach(checkbox => {
-                userListHtml += `<li>${checkbox.dataset.userEmail}</li>`;
-            });
-            userListHtml += '</ul>';
-            selectedUsersList.innerHTML = userListHtml;
-            
-            // Load VLANs for the bulk dropdown
-            loadVlansForBulkDropdown();
-            
-            // Show the modal
-            document.getElementById('bulkVlanEditModal').style.display = 'block';
-        }
-
-        function closeBulkVlanEditModal() {
-            document.getElementById('bulkVlanEditModal').style.display = 'none';
-        }
-
-        async function loadVlansForBulkDropdown() {
-            const select = document.getElementById('bulkEditVlan');
-            select.innerHTML = '<option value="">No VLAN (Use Policy)</option>';
-            
-            allVlans.forEach(vlan => {
-                const option = document.createElement('option');
-                option.value = vlan.id;
-                option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name}`;
-                select.appendChild(option);
-            });
-        }
-
-        async function saveBulkVlanChanges() {
-            const vlanId = document.getElementById('bulkEditVlan').value;
-            
-            if (!confirm(`Are you sure you want to update VLAN assignment for ${selectedUserIds.length} users?`)) {
-                return;
-            }
-            
-            showStatus(`Updating VLAN for ${selectedUserIds.length} users...`, 'loading');
-            
-            try {
-                // Process updates in parallel but with a limit to avoid overwhelming the server
-                const batchSize = 5;
-                const results = [];
-                
-                for (let i = 0; i < selectedUserIds.length; i += batchSize) {
-                    const batch = selectedUserIds.slice(i, i + batchSize);
-                    const batchPromises = batch.map(userId => 
-                        fetch(`/api/idp-users/${userId}/vlan`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ vlan_id: vlanId || null })
-                        })
-                    );
-                    
-                    const batchResults = await Promise.allSettled(batchPromises);
-                    results.push(...batchResults);
-                }
-                
-                // Count successes and failures
-                const successes = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
-                const failures = results.length - successes;
-                
-                if (failures > 0) {
-                    showStatus(`Updated ${successes} users successfully, ${failures} failed`, 'warning');
-                } else {
-                    showStatus(`Successfully updated VLAN for ${successes} users`, 'success');
-                }
-                
-                // Close modal and refresh the table
-                closeBulkVlanEditModal();
-                await loadIDPUsers();
-                
-                // Clear selections
-                selectedUserIds = [];
-                document.getElementById('selectAllUsers').checked = false;
-                
-            } catch (error) {
-                console.error('Error updating VLANs:', error);
-                showStatus('Failed to update VLANs: ' + error.message, 'error');
-            }
-        }
-
-        async function toggleIDPMapping(mappingId, enable) {
-            try {
-                showStatus(`${enable ? 'Enabling' : 'Disabling'} IDP-RADIUS mapping...`, 'loading');
-                
-                const response = await fetch(`/api/idp-radius-auth/${mappingId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        is_active: enable
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus(`IDP-RADIUS mapping ${enable ? 'enabled' : 'disabled'} successfully`, 'success');
-                    loadIDPRadiusMappings();
-                } else {
-                    showStatus(result.message || 'Failed to update IDP-RADIUS mapping', 'error');
-                }
-            } catch (error) {
-                console.error('Error updating IDP-RADIUS mapping:', error);
-                showStatus('Error updating IDP-RADIUS mapping', 'error');
-            }
-        }
-
-        async function regenerateRadiusPassword(mappingId) {
-            if (!confirm('Are you sure you want to regenerate the RADIUS password for this user? They will need to reconfigure their devices.')) {
-                return;
-            }
-            
-            try {
-                showStatus('Regenerating RADIUS password...', 'loading');
-                
-                const response = await fetch(`/api/idp-radius-auth/${mappingId}/regenerate-password`, {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('RADIUS password regenerated successfully', 'success');
-                    // Show the new password to the admin
-                    alert(`New RADIUS password for user: ${result.new_password}\n\nPlease save this password securely. It will not be shown again.`);
-                } else {
-                    showStatus(result.message || 'Failed to regenerate RADIUS password', 'error');
-                }
-            } catch (error) {
-                console.error('Error regenerating RADIUS password:', error);
-                showStatus('Error regenerating RADIUS password', 'error');
-            }
-        }
-
-        async function deleteIDPMapping(mappingId) {
-            if (!confirm('Are you sure you want to delete this IDP-RADIUS mapping? This action cannot be undone.')) {
-                return;
-            }
-            
-            try {
-                showStatus('Deleting IDP-RADIUS mapping...', 'loading');
-                
-                const response = await fetch(`/api/idp-radius-auth/${mappingId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('IDP-RADIUS mapping deleted successfully', 'success');
-                    loadIDPRadiusMappings();
-                } else {
-                    showStatus(result.message || 'Failed to delete IDP-RADIUS mapping', 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting IDP-RADIUS mapping:', error);
-                showStatus('Error deleting IDP-RADIUS mapping', 'error');
-            }
-        }
-
-        // IDP-RADIUS Configuration Functions
-        async function loadIdpRadiusConfig() {
-            try {
-                const response = await fetch('/api/idp-radius-config', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const config = data.config;
-                    document.getElementById('autoProvisioningEnabled').value = config.auto_provisioning_enabled ? 'true' : 'false';
-                    document.getElementById('defaultIdpVlan').value = config.default_vlan_id || '';
-                    document.getElementById('radiusUsernameFormat').value = config.radius_username_format || 'email';
-                    document.getElementById('passwordComplexity').value = config.password_complexity || 'standard';
-                    document.getElementById('customUsernamePattern').value = config.custom_username_pattern || '';
-                }
-            } catch (error) {
-                console.error('Error loading IDP-RADIUS config:', error);
-            }
-        }
-
-        async function saveIdpRadiusConfig() {
-            try {
-                showStatus('Saving IDP-RADIUS configuration...', 'loading');
-                
-                const config = {
-                    auto_provisioning_enabled: document.getElementById('autoProvisioningEnabled').value === 'true',
-                    default_vlan_id: document.getElementById('defaultIdpVlan').value || null,
-                    radius_username_format: document.getElementById('radiusUsernameFormat').value,
-                    password_complexity: document.getElementById('passwordComplexity').value,
-                    custom_username_pattern: document.getElementById('customUsernamePattern').value
-                };
-                
-                const response = await fetch('/api/idp-radius-config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(config)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('IDP-RADIUS configuration saved successfully', 'success');
-                } else {
-                    showStatus(result.message || 'Failed to save IDP-RADIUS configuration', 'error');
-                }
-            } catch (error) {
-                console.error('Error saving IDP-RADIUS config:', error);
-                showStatus('Error saving IDP-RADIUS configuration', 'error');
-            }
-        }
-
-        async function testIdpRadiusConfig() {
-            try {
-                showStatus('Testing IDP-RADIUS configuration...', 'loading');
-                
-                const response = await fetch('/api/idp-radius-config/test', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('IDP-RADIUS configuration test completed successfully', 'success');
-                    alert(`Test Results:\n\n${result.test_results.join('\n')}`);
-                } else {
-                    showStatus(result.message || 'IDP-RADIUS configuration test failed', 'error');
-                }
-            } catch (error) {
-                console.error('Error testing IDP-RADIUS config:', error);
-                showStatus('Error testing IDP-RADIUS configuration', 'error');
-            }
-        }
-
-        function showManualIdpMappingForm() {
-            document.getElementById('manualIdpMappingForm').style.display = 'block';
-            // Load VLANs for both dropdowns
-            loadVLANsForIdpConfig();
-        }
-
-        function hideManualIdpMappingForm() {
-            document.getElementById('manualIdpMappingForm').style.display = 'none';
-            document.getElementById('manualIdpMappingFormElement').reset();
-        }
-
-        async function loadVLANsForIdpConfig() {
-            try {
-                const response = await fetch('/api/vlans', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    // Update both VLAN dropdowns
-                    const dropdowns = ['defaultIdpVlan', 'idpDefaultVlan'];
-                    
-                    dropdowns.forEach(dropdownId => {
-                        const select = document.getElementById(dropdownId);
-                        if (select) {
-                            const currentValue = select.value;
-                            select.innerHTML = dropdownId === 'defaultIdpVlan' ? 
-                                '<option value="">Select VLAN...</option>' : 
-                                '<option value="">No default VLAN</option>';
-                            
-                            data.vlans.forEach(vlan => {
-                                const option = document.createElement('option');
-                                option.value = vlan.id;
-                                option.textContent = `${vlan.vlan_id} - ${vlan.vlan_name} (${vlan.subnet || 'No subnet'})`;
-                                select.appendChild(option);
-                            });
-                            
-                            // Restore previous selection if it exists
-                            if (currentValue) {
-                                select.value = currentValue;
-                            }
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading VLANs for IDP config:', error);
-            }
-        }
-
-        async function createManualIdpMapping() {
-            const form = document.getElementById('manualIdpMappingFormElement');
-            const formData = new FormData(form);
-            
-            try {
-                showStatus('Creating IDP-RADIUS mapping...', 'loading');
-                
-                const mappingData = {
-                    idp_email: formData.get('idpEmail'),
-                    idp_provider: formData.get('idpProvider'),
-                    radius_username: formData.get('radiusUsername'),
-                    default_vlan_id: formData.get('idpDefaultVlan') || null,
-                    certificate_cn: formData.get('certificateCn') || null
-                };
-                
-                const response = await fetch('/api/idp-radius-auth', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(mappingData)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('IDP-RADIUS mapping created successfully', 'success');
-                    hideManualIdpMappingForm();
-                    loadIDPRadiusMappings();
-                    
-                    // Show the generated password
-                    if (result.radius_password) {
-                        alert(`IDP-RADIUS mapping created successfully!\n\nRADIUS Password: ${result.radius_password}\n\nPlease save this password securely. It will not be shown again.`);
-                    }
-                } else {
-                    showStatus(result.message || 'Failed to create IDP-RADIUS mapping', 'error');
-                }
-            } catch (error) {
-                console.error('Error creating IDP-RADIUS mapping:', error);
-                showStatus('Error creating IDP-RADIUS mapping', 'error');
-            }
-        }
-
-        // User VLAN Assignment Functions
-        async function loadUserVLANAssignments() {
-            try {
-                const response = await fetch('/api/user-vlan-assignments', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    showStatus('User VLAN assignments loaded', 'success');
-                    
-                    // Create a new window to show the assignments
-                    const assignmentWindow = window.open('', 'User VLAN Assignments', 'width=1000,height=600,scrollbars=yes');
-                    const assignmentContent = data.assignments.map(assignment => 
-                        `${assignment.username || assignment.user_id} -> VLAN ${assignment.vlan_id} (${assignment.vlan_name}) ${assignment.expires_at ? 'expires: ' + new Date(assignment.expires_at).toLocaleString() : 'no expiration'}`
-                    ).join('\n');
-                    
-                    assignmentWindow.document.write(`
-                        <html>
-                            <head><title>User VLAN Assignments</title></head>
-                            <body style="font-family: monospace; padding: 20px;">
-                                <h2>User VLAN Assignments</h2>
-                                <pre>${assignmentContent || 'No user assignments found'}</pre>
-                            </body>
-                        </html>
-                    `);
-                    assignmentWindow.document.close();
-                } else {
-                    showStatus(data.message || 'Failed to load user VLAN assignments', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading user VLAN assignments:', error);
-                showStatus('Error loading user VLAN assignments', 'error');
-            }
-        }
-
-        // Enhanced VLAN Policy Functions
-        function switchPolicyTab(tabName) {
-            // Hide all tab contents
-            const tabs = ['classification', 'policies', 'groups', 'vlans', 'testing'];
-            tabs.forEach(tab => {
-                const content = document.getElementById(`${tab}TabContent`);
-                const button = document.getElementById(`${tab}Tab`);
-                if (content) content.style.display = 'none';
-                if (button) button.classList.remove('active');
-            });
-            
-            // Show selected tab content
-            const selectedContent = document.getElementById(`${tabName}TabContent`);
-            const selectedButton = document.getElementById(`${tabName}Tab`);
-            if (selectedContent) selectedContent.style.display = 'block';
-            if (selectedButton) selectedButton.classList.add('active');
-        }
-
-        // User Classification Rules Functions
-        function showAddClassificationRuleForm() {
-            document.getElementById('addClassificationRuleForm').style.display = 'block';
-        }
-
-        function hideAddClassificationRuleForm() {
-            document.getElementById('addClassificationRuleForm').style.display = 'none';
-            // Clear form
-            document.getElementById('classificationRuleName').value = '';
-            document.getElementById('classificationDescription').value = '';
-            document.getElementById('classificationPriority').value = '100';
-            document.getElementById('classificationType').value = 'domain';
-            document.getElementById('classificationValue').value = '';
-            document.getElementById('classificationUserGroup').value = '';
-            document.getElementById('classificationUserCategory').value = '';
-        }
-
-        async function loadUserClassificationRules() {
-            try {
-                showStatus('Loading user classification rules...', 'loading');
-                const response = await fetch('/api/user-classification-rules', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const container = document.getElementById('classificationRulesList');
-                    if (data.rules.length === 0) {
-                        container.innerHTML = '<p style="color: var(--medium-gray); text-align: center; margin: 2rem 0;">No classification rules found. Create your first rule to get started.</p>';
-                    } else {
-                        let html = '<div style="display: grid; gap: 1rem;">';
-                        data.rules.forEach(rule => {
-                            html += `
-                                <div class="policy-card" style="border: 1px solid var(--light-gray); padding: 1rem; border-radius: 8px; background: #fff;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                                        <div style="flex: 1;">
-                                            <h4 style="margin: 0; color: var(--primary-purple);">${rule.rule_name}</h4>
-                                            <p style="margin: 0.25rem 0; color: var(--medium-gray); font-size: 0.875rem;">${rule.description || 'No description'}</p>
-                                        </div>
-                                        <div style="display: flex; gap: 0.5rem;">
-                                            <span class="badge" style="background: ${rule.is_active ? '#e8f5e8' : '#fff2e8'}; color: ${rule.is_active ? '#166534' : '#b45309'}; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">
-                                                ${rule.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                            <button class="btn btn-sm btn-danger" onclick="deleteUserClassificationRule(${rule.id})" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">🗑️</button>
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">
-                                        <div><strong>Type:</strong> ${rule.classification_type}</div>
-                                        <div><strong>Value:</strong> <code style="background: #f1f3f4; padding: 0.125rem 0.25rem; border-radius: 2px;">${rule.classification_value}</code></div>
-                                        <div><strong>Group:</strong> ${rule.user_group}</div>
-                                        <div><strong>Category:</strong> ${rule.user_category || 'None'}</div>
-                                        <div><strong>Priority:</strong> ${rule.priority}</div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        html += '</div>';
-                        container.innerHTML = html;
-                    }
-                    showStatus(`Loaded ${data.rules.length} classification rules`, 'success');
-                } else {
-                    showStatus(data.message || 'Failed to load classification rules', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading classification rules:', error);
-                showStatus('Error loading classification rules', 'error');
-            }
-        }
-
-        async function createUserClassificationRule() {
-            try {
-                const data = {
-                    rule_name: document.getElementById('classificationRuleName').value,
-                    description: document.getElementById('classificationDescription').value,
-                    priority: parseInt(document.getElementById('classificationPriority').value),
-                    classification_type: document.getElementById('classificationType').value,
-                    classification_value: document.getElementById('classificationValue').value,
-                    user_group: document.getElementById('classificationUserGroup').value,
-                    user_category: document.getElementById('classificationUserCategory').value || null
-                };
-
-                if (!data.rule_name || !data.classification_value || !data.user_group) {
-                    showStatus('Please fill in all required fields', 'error');
-                    return;
-                }
-
-                showStatus('Creating classification rule...', 'loading');
-                
-                const response = await fetch('/api/user-classification-rules', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('Classification rule created successfully', 'success');
-                    hideAddClassificationRuleForm();
-                    loadUserClassificationRules();
-                } else {
-                    showStatus(result.message || 'Failed to create classification rule', 'error');
-                }
-            } catch (error) {
-                console.error('Error creating classification rule:', error);
-                showStatus('Error creating classification rule', 'error');
-            }
-        }
-
-        async function deleteUserClassificationRule(ruleId) {
-            if (!confirm('Are you sure you want to delete this classification rule?')) {
-                return;
-            }
-
-            try {
-                showStatus('Deleting classification rule...', 'loading');
-                
-                const response = await fetch(`/api/user-classification-rules/${ruleId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('Classification rule deleted successfully', 'success');
-                    loadUserClassificationRules();
-                } else {
-                    showStatus(result.message || 'Failed to delete classification rule', 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting classification rule:', error);
-                showStatus('Error deleting classification rule', 'error');
-            }
-        }
-
-        // Enhanced Policy Functions
-        function showAddEnhancedPolicyForm() {
-            document.getElementById('addEnhancedPolicyForm').style.display = 'block';
-            loadVLANsForPolicyForm();
-        }
-
-        function hideAddEnhancedPolicyForm() {
-            document.getElementById('addEnhancedPolicyForm').style.display = 'none';
-            // Clear form
-            document.getElementById('enhancedPolicyName').value = '';
-            document.getElementById('enhancedPolicyDescription').value = '';
-            document.getElementById('enhancedPolicyPriority').value = '100';
-            document.getElementById('enhancedPolicyTargetGroups').value = '';
-            document.getElementById('enhancedPolicySessionTimeout').value = '';
-            document.getElementById('enhancedPolicyBandwidthLimit').value = '';
-        }
-
-        async function loadVLANsForPolicyForm() {
-            try {
-                const response = await fetch('/api/vlans', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const defaultSelect = document.getElementById('enhancedPolicyDefaultVLAN');
-                    const fallbackSelect = document.getElementById('enhancedPolicyFallbackVLAN');
-                    
-                    let options = '<option value="">Select VLAN...</option>';
-                    data.vlans.forEach(vlan => {
-                        options += `<option value="${vlan.id}">VLAN ${vlan.vlan_id} - ${vlan.vlan_name}</option>`;
-                    });
-                    
-                    if (defaultSelect) defaultSelect.innerHTML = options;
-                    if (fallbackSelect) fallbackSelect.innerHTML = options;
-                }
-            } catch (error) {
-                console.error('Error loading VLANs for policy form:', error);
-            }
-        }
-
-        async function loadEnhancedVLANPolicies() {
-            try {
-                showStatus('Loading enhanced VLAN policies...', 'loading');
-                const response = await fetch('/api/vlan-policies-v2', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const container = document.getElementById('enhancedPoliciesList');
-                    if (data.policies.length === 0) {
-                        container.innerHTML = '<p style="color: var(--medium-gray); text-align: center; margin: 2rem 0;">No enhanced policies found. Create your first policy to get started.</p>';
-                    } else {
-                        let html = '<div style="display: grid; gap: 1rem;">';
-                        data.policies.forEach(policy => {
-                            html += `
-                                <div class="policy-card" style="border: 1px solid var(--light-gray); padding: 1rem; border-radius: 8px; background: #fff;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                                        <div style="flex: 1;">
-                                            <h4 style="margin: 0; color: var(--primary-purple);">${policy.policy_name}</h4>
-                                            <p style="margin: 0.25rem 0; color: var(--medium-gray); font-size: 0.875rem;">${policy.description || 'No description'}</p>
-                                        </div>
-                                        <div style="display: flex; gap: 0.5rem;">
-                                            <span class="badge" style="background: ${policy.is_active ? '#e8f5e8' : '#fff2e8'}; color: ${policy.is_active ? '#166534' : '#b45309'}; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">
-                                                ${policy.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">
-                                        <div><strong>Target Groups:</strong> ${policy.target_user_groups ? policy.target_user_groups.join(', ') : 'None'}</div>
-                                        <div><strong>Default VLAN:</strong> ${policy.default_vlan_display || 'None'}</div>
-                                        <div><strong>Priority:</strong> ${policy.priority}</div>
-                                        <div><strong>Session Timeout:</strong> ${policy.session_timeout || 'None'}s</div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        html += '</div>';
-                        container.innerHTML = html;
-                    }
-                    showStatus(`Loaded ${data.policies.length} enhanced policies`, 'success');
-                } else {
-                    showStatus(data.message || 'Failed to load enhanced policies', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading enhanced policies:', error);
-                showStatus('Error loading enhanced policies', 'error');
-            }
-        }
-
-        async function createEnhancedVLANPolicy() {
-            try {
-                const data = {
-                    policy_name: document.getElementById('enhancedPolicyName').value,
-                    description: document.getElementById('enhancedPolicyDescription').value,
-                    priority: parseInt(document.getElementById('enhancedPolicyPriority').value),
-                    target_user_groups: document.getElementById('enhancedPolicyTargetGroups').value.split(',').map(g => g.trim()).filter(g => g),
-                    default_vlan_id: parseInt(document.getElementById('enhancedPolicyDefaultVLAN').value) || null,
-                    fallback_vlan_id: parseInt(document.getElementById('enhancedPolicyFallbackVLAN').value) || null,
-                    session_timeout: parseInt(document.getElementById('enhancedPolicySessionTimeout').value) || null,
-                    bandwidth_limit: parseInt(document.getElementById('enhancedPolicyBandwidthLimit').value) || null
-                };
-
-                if (!data.policy_name || !data.target_user_groups.length) {
-                    showStatus('Please fill in policy name and target user groups', 'error');
-                    return;
-                }
-
-                showStatus('Creating enhanced VLAN policy...', 'loading');
-                
-                const response = await fetch('/api/vlan-policies-v2', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('Enhanced VLAN policy created successfully', 'success');
-                    hideAddEnhancedPolicyForm();
-                    loadEnhancedVLANPolicies();
-                } else {
-                    showStatus(result.message || 'Failed to create enhanced policy', 'error');
-                }
-            } catch (error) {
-                console.error('Error creating enhanced policy:', error);
-                showStatus('Error creating enhanced policy', 'error');
-            }
-        }
-
-        // User Groups Functions
-        async function loadUserGroups() {
-            try {
-                showStatus('Loading user groups...', 'loading');
-                const response = await fetch('/api/user-groups', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const container = document.getElementById('userGroupsList');
-                    if (data.groups.length === 0) {
-                        container.innerHTML = '<p style="color: var(--medium-gray); text-align: center; margin: 2rem 0;">No user groups found.</p>';
-                    } else {
-                        let html = '<div style="display: grid; gap: 1rem;">';
-                        data.groups.forEach(group => {
-                            html += `
-                                <div class="group-card" style="border: 1px solid var(--light-gray); padding: 1rem; border-radius: 8px; background: #fff;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                                        <div style="flex: 1;">
-                                            <h4 style="margin: 0; color: var(--primary-purple);">${group.group_name}</h4>
-                                            <p style="margin: 0.25rem 0; color: var(--medium-gray); font-size: 0.875rem;">${group.description || 'No description'}</p>
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">
-                                        <div><strong>Type:</strong> ${group.group_type}</div>
-                                        <div><strong>Display Name:</strong> ${group.display_name || 'None'}</div>
-                                        <div><strong>Default VLAN:</strong> ${group.default_vlan_display || 'None'}</div>
-                                        <div><strong>Parent Group:</strong> ${group.parent_group_name || 'None'}</div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        html += '</div>';
-                        container.innerHTML = html;
-                    }
-                    showStatus(`Loaded ${data.groups.length} user groups`, 'success');
-                } else {
-                    showStatus(data.message || 'Failed to load user groups', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading user groups:', error);
-                showStatus('Error loading user groups', 'error');
-            }
-        }
-
-        function refreshUserGroups() {
-            loadUserGroups();
-        }
-
-        // Policy Testing Functions
-        async function testEnhancedVLANAssignment() {
-            try {
-                const username = document.getElementById('testUsername').value;
-                const authType = document.getElementById('testAuthType').value;
-                const attributesText = document.getElementById('testAttributes').value;
-                
-                if (!username) {
-                    showStatus('Please enter a username', 'error');
-                    return;
-                }
-
-                let attributes = {};
-                if (attributesText.trim()) {
-                    try {
-                        attributes = JSON.parse(attributesText);
-                    } catch (e) {
-                        showStatus('Invalid JSON in attributes field', 'error');
-                        return;
-                    }
-                }
-
-                showStatus('Testing enhanced VLAN assignment...', 'loading');
-                
-                const response = await fetch('/api/enhanced-vlan-assignment', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        username: username,
-                        auth_type: authType,
-                        attributes: attributes
-                    })
-                });
-
-                const result = await response.json();
-                
-                const resultsContainer = document.getElementById('testResults');
-                resultsContainer.style.display = 'block';
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('VLAN assignment test completed', 'success');
-                    resultsContainer.innerHTML = `
-                        <div style="background: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 8px; padding: 1.5rem;">
-                            <h4 style="margin: 0 0 1rem 0; color: #166534;">✅ Assignment Successful</h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.875rem;">
-                                <div><strong>Assigned VLAN:</strong> ${result.vlan_id} (${result.vlan_name})</div>
-                                <div><strong>User Group:</strong> ${result.user_group || 'None'}</div>
-                                <div><strong>User Category:</strong> ${result.user_category || 'None'}</div>
-                                <div><strong>Assignment Reason:</strong> ${result.assignment_reason}</div>
-                                <div><strong>Session Timeout:</strong> ${result.session_timeout || 'None'}s</div>
-                                <div><strong>Bandwidth Limit:</strong> ${result.bandwidth_limit || 'None'} Mbps</div>
-                            </div>
-                            ${result.radius_attributes && Object.keys(result.radius_attributes).length > 0 ? `
-                                <div style="margin-top: 1rem;">
-                                    <strong>RADIUS Attributes:</strong>
-                                    <pre style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-top: 0.5rem;">${JSON.stringify(result.radius_attributes, null, 2)}</pre>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                } else {
-                    showStatus('VLAN assignment test failed', 'error');
-                    resultsContainer.innerHTML = `
-                        <div style="background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 1.5rem;">
-                            <h4 style="margin: 0 0 1rem 0; color: #dc2626;">❌ Assignment Failed</h4>
-                            <p style="margin: 0; color: #dc2626;">${result.message || 'Unknown error'}</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error testing VLAN assignment:', error);
-                showStatus('Error testing VLAN assignment', 'error');
-                
-                const resultsContainer = document.getElementById('testResults');
-                resultsContainer.style.display = 'block';
-                resultsContainer.innerHTML = `
-                    <div style="background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 1.5rem;">
-                        <h4 style="margin: 0 0 1rem 0; color: #dc2626;">❌ Test Error</h4>
-                        <p style="margin: 0; color: #dc2626;">Failed to execute test: ${error.message}</p>
-                    </div>
-                `;
-            }
-        }
-
-        function clearTestResults() {
-            document.getElementById('testResults').style.display = 'none';
-            document.getElementById('testUsername').value = '';
-            document.getElementById('testAttributes').value = '{}';
-        }
-
-        // Missing IDP-RADIUS Functions
-        async function testIDPRadiusAuth() {
-            try {
-                showStatus('Testing IDP-RADIUS authentication...', 'loading');
-                
-                const response = await fetch('/api/idp-radius-auth/test', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showStatus('IDP-RADIUS authentication test completed', 'success');
-                    alert(`Test Results:\n\n${result.test_results.join('\n')}`);
-                } else {
-                    showStatus(result.message || 'IDP-RADIUS authentication test failed', 'error');
-                }
-            } catch (error) {
-                console.error('Error testing IDP-RADIUS authentication:', error);
-                showStatus('Error testing IDP-RADIUS authentication', 'error');
-            }
-        }
-
-        async function viewIDPRadiusLogs() {
-            try {
-                showStatus('Loading IDP-RADIUS logs...', 'loading');
-                
-                const response = await fetch('/api/vlan-assignment-log?type=idp', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    showStatus('IDP-RADIUS logs loaded', 'success');
-                    
-                    // Create a new window to show the logs
-                    const logWindow = window.open('', 'IDP-RADIUS Logs', 'width=1000,height=600,scrollbars=yes');
-                    const logContent = data.logs.map(log => 
-                        `[${new Date(log.timestamp).toLocaleString()}] ${log.username} (${log.auth_type}) -> VLAN ${log.assigned_vlan_id || 'none'} (${log.assignment_reason}) ${log.success ? '✓' : '✗' + (log.error_message ? ': ' + log.error_message : '')}`
-                    ).join('\n');
-                    
-                    logWindow.document.write(`
-                        <html>
-                            <head><title>IDP-RADIUS Authentication Logs</title></head>
-                            <body style="font-family: monospace; padding: 20px;">
-                                <h2>IDP-RADIUS Authentication Logs</h2>
-                                <pre>${logContent || 'No logs found'}</pre>
-                            </body>
-                        </html>
-                    `);
-                    logWindow.document.close();
-                } else {
-                    showStatus(data.message || 'Failed to load IDP-RADIUS logs', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading IDP-RADIUS logs:', error);
-                showStatus('Error loading IDP-RADIUS logs', 'error');
-            }
-        }
-
         // PKI Backup & Restore Functions
         function toggleBackupPasswordVisibility() {
             const field = document.getElementById('backupPassword');
@@ -11436,22 +9506,6 @@ Dependencies:
         window.exportRadiusLogs = exportRadiusLogs;
         window.clearRadiusLogs = clearRadiusLogs;
         
-        // Enhanced VLAN policy window assignments
-        window.switchPolicyTab = switchPolicyTab;
-        window.showAddClassificationRuleForm = showAddClassificationRuleForm;
-        window.hideAddClassificationRuleForm = hideAddClassificationRuleForm;
-        window.loadUserClassificationRules = loadUserClassificationRules;
-        window.createUserClassificationRule = createUserClassificationRule;
-        window.deleteUserClassificationRule = deleteUserClassificationRule;
-        window.showAddEnhancedPolicyForm = showAddEnhancedPolicyForm;
-        window.hideAddEnhancedPolicyForm = hideAddEnhancedPolicyForm;
-        window.loadEnhancedVLANPolicies = loadEnhancedVLANPolicies;
-        window.createEnhancedVLANPolicy = createEnhancedVLANPolicy;
-        window.loadUserGroups = loadUserGroups;
-        window.refreshUserGroups = refreshUserGroups;
-        window.testEnhancedVLANAssignment = testEnhancedVLANAssignment;
-        window.clearTestResults = clearTestResults;
-        
         // RadSec Proxy functions
         window.parseExtremeCommand = parseExtremeCommand;
         window.refreshRadsecStatus = refreshRadsecStatus;
@@ -11488,562 +9542,6 @@ Dependencies:
             // Colors are now loaded server-side and injected into CSS variables
             // Just load the current theme for the color picker interface
             loadCurrentColorTheme().catch(e => console.debug('Color theme load for UI:', e));
-            
-            // Load WiFi configuration on page load
-            loadWiFiConfig().catch(e => console.debug('WiFi config load:', e));
-        });
-
-        // WiFi Configuration Functions
-        async function loadWiFiConfig() {
-            try {
-                const response = await fetch('/api/wifi-config', {
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
-                    const config = data.config;
-                    
-                    // Populate form fields
-                    document.getElementById('wifiSSID').value = config.wifi_ssid || '';
-                    document.getElementById('wifiSecurityType').value = config.wifi_security_type || 'WPA2';
-                    document.getElementById('wifiHidden').value = config.wifi_hidden_network || 'false';
-                    document.getElementById('wifiAutoJoin').value = config.wifi_auto_join || 'true';
-                    document.getElementById('organizationName').value = config.organization_name || '';
-                    document.getElementById('profileDescription').value = config.profile_description || '';
-                }
-            } catch (error) {
-                console.debug('Error loading WiFi configuration:', error);
-            }
-        }
-
-        async function saveWiFiConfig() {
-            const form = document.getElementById('wifiConfigForm');
-            const formData = new FormData(form);
-            
-            try {
-                showWiFiConfigStatus('Saving WiFi configuration...', 'loading');
-                
-                const configData = {
-                    wifi_ssid: formData.get('wifi_ssid'),
-                    wifi_security_type: formData.get('wifi_security_type'),
-                    wifi_hidden_network: formData.get('wifi_hidden_network'),
-                    wifi_auto_join: formData.get('wifi_auto_join'),
-                    organization_name: formData.get('organization_name'),
-                    profile_description: formData.get('profile_description')
-                };
-                
-                const response = await fetch('/api/wifi-config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(configData)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showWiFiConfigStatus('WiFi configuration saved successfully', 'success');
-                } else {
-                    showWiFiConfigStatus(result.message || 'Failed to save WiFi configuration', 'error');
-                }
-            } catch (error) {
-                console.error('Error saving WiFi configuration:', error);
-                showWiFiConfigStatus('Error saving WiFi configuration', 'error');
-            }
-        }
-
-        async function testWiFiConfig() {
-            const form = document.getElementById('wifiConfigForm');
-            const formData = new FormData(form);
-            
-            try {
-                showWiFiConfigStatus('Generating preview mobile config...', 'loading');
-                
-                const configData = {
-                    wifi_ssid: formData.get('wifi_ssid'),
-                    wifi_security_type: formData.get('wifi_security_type'),
-                    wifi_hidden_network: formData.get('wifi_hidden_network'),
-                    wifi_auto_join: formData.get('wifi_auto_join'),
-                    organization_name: formData.get('organization_name'),
-                    profile_description: formData.get('profile_description'),
-                    preview: true
-                };
-                
-                const response = await fetch('/api/mobileconfig/preview', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(configData)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    showWiFiConfigStatus('Mobile config preview generated successfully', 'success');
-                    
-                    // Show preview modal
-                    const modal = document.createElement('div');
-                    modal.className = 'modal';
-                    modal.style.display = 'block';
-                    modal.innerHTML = `
-                        <div class="modal-content" style="max-width: 600px;">
-                            <div class="modal-header">
-                                <h2>📱 Mobile Config Preview</h2>
-                                <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
-                            </div>
-                            <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                                <h4>Profile Information:</h4>
-                                <p><strong>Organization:</strong> ${configData.organization_name || 'Not set'}</p>
-                                <p><strong>Description:</strong> ${configData.profile_description || 'Not set'}</p>
-                                <p><strong>WiFi SSID:</strong> ${configData.wifi_ssid || 'Not set'}</p>
-                                <p><strong>Security:</strong> ${configData.wifi_security_type || 'WPA2'}</p>
-                                <p><strong>Hidden:</strong> ${configData.wifi_hidden_network === 'true' ? 'Yes' : 'No'}</p>
-                                <p><strong>Auto-join:</strong> ${configData.wifi_auto_join === 'true' ? 'Yes' : 'No'}</p>
-                            </div>
-                            <p style="color: #666; font-size: 0.875rem; margin-bottom: 1.5rem;">
-                                ✅ This configuration will generate personalized mobile config files for IDP users.
-                                Users with certificates will get EAP-TLS, users with credentials will get EAP-TTLS.
-                            </p>
-                            <div style="text-align: right;">
-                                <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">
-                                    Close Preview
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    document.body.appendChild(modal);
-                } else {
-                    showWiFiConfigStatus(result.message || 'Failed to generate mobile config preview', 'error');
-                }
-            } catch (error) {
-                console.error('Error generating mobile config preview:', error);
-                showWiFiConfigStatus('Error generating mobile config preview', 'error');
-            }
-        }
-
-        function showWiFiConfigStatus(message, type) {
-            const statusDiv = document.getElementById('wifiConfigStatus');
-            if (!statusDiv) return;
-            
-            statusDiv.style.display = 'block';
-            statusDiv.className = `status-message ${type}`;
-            statusDiv.textContent = message;
-            
-            if (type === 'success') {
-                setTimeout(() => {
-                    statusDiv.style.display = 'none';
-                }, 3000);
-            }
-        }
-
-        // ===================================
-        // RADIUS Testing Functions
-        // ===================================
-
-        let radiusTestMonitoringInterval = null;
-        let radiusTestResults = {};
-
-        // Show specific RADIUS test form
-        function showRadiusTestForm(testType) {
-            // Hide all test forms
-            document.querySelectorAll('.radius-test-form').forEach(form => {
-                form.style.display = 'none';
-            });
-            
-            // Show selected form
-            const selectedForm = document.getElementById(`radiusTestForm-${testType}`);
-            if (selectedForm) {
-                selectedForm.style.display = 'block';
-            }
-            
-            // Update button styles
-            document.querySelectorAll('.radius-test-selector button').forEach(btn => {
-                btn.classList.remove('btn-primary');
-                btn.classList.add('btn-secondary');
-            });
-            
-            const activeBtn = document.querySelector(`[onclick*="${testType}"]`);
-            if (activeBtn) {
-                activeBtn.classList.remove('btn-secondary');
-                activeBtn.classList.add('btn-primary');
-            }
-
-            // Load data specific to the test type
-            if (testType === 'eap-tls') {
-                refreshCertificatesList();
-            }
-        }
-
-        // Run RADIUS test based on type
-        async function runRadiusTest(testType) {
-            try {
-                const testData = collectTestData(testType);
-                if (!testData) return;
-
-                showTestResults();
-                updateTestStatus('running', '⏳ Running RADIUS test...');
-
-                const response = await fetch('/api/radius/test', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        test_type: testType,
-                        ...testData
-                    })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateTestStatus('success', '✅ Test completed successfully');
-                    displayTestResults(result.data);
-                } else {
-                    updateTestStatus('error', '❌ Test failed');
-                    displayTestResults(result.error || 'Test failed with unknown error');
-                }
-                
-                radiusTestResults[testType] = result;
-                
-            } catch (error) {
-                console.error('RADIUS test error:', error);
-                updateTestStatus('error', '❌ Test error occurred');
-                displayTestResults(`Error: ${error.message}`);
-            }
-        }
-
-        // Collect test data from forms
-        function collectTestData(testType) {
-            const data = {};
-            
-            switch (testType) {
-                case 'pap':
-                    data.username = document.getElementById('papUsername')?.value;
-                    data.password = document.getElementById('papPassword')?.value;
-                    break;
-                    
-                case 'chap':
-                    data.username = document.getElementById('chapUsername')?.value;
-                    data.password = document.getElementById('chapPassword')?.value;
-                    break;
-                    
-                case 'mschap':
-                    data.username = document.getElementById('mschapUsername')?.value;
-                    data.password = document.getElementById('mschapPassword')?.value;
-                    data.version = document.getElementById('mschapVersion')?.value;
-                    break;
-                    
-                case 'eap-tls':
-                    data.identity = document.getElementById('eapTlsIdentity')?.value;
-                    data.method = document.getElementById('eapTlsMethod')?.value;
-                    break;
-                    
-                case 'eap-ttls':
-                    data.identity = document.getElementById('eapTtlsIdentity')?.value;
-                    data.password = document.getElementById('eapTtlsPassword')?.value;
-                    data.inner_method = document.getElementById('eapTtlsInnerMethod')?.value;
-                    break;
-            }
-            
-            // Validate required fields
-            if (testType !== 'eap-tls' && !data.username) {
-                alert('Username is required');
-                return null;
-            }
-            if (['pap', 'chap', 'mschap', 'eap-ttls'].includes(testType) && !data.password) {
-                alert('Password is required');
-                return null;
-            }
-            if (testType === 'eap-tls' && !data.identity) {
-                alert('Identity is required for EAP-TLS');
-                return null;
-            }
-            
-            return data;
-        }
-
-        // Run system tests
-        async function runSystemTest(testType) {
-            try {
-                showTestResults();
-                updateTestStatus('running', `⏳ Running ${testType.replace('-', ' ')} test...`);
-
-                const response = await fetch('/api/radius/system-test', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        test_type: testType
-                    })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateTestStatus('success', '✅ System test completed');
-                    displayTestResults(result.data);
-                } else {
-                    updateTestStatus('error', '❌ System test failed');
-                    displayTestResults(result.error || 'System test failed');
-                }
-                
-            } catch (error) {
-                console.error('System test error:', error);
-                updateTestStatus('error', '❌ System test error');
-                displayTestResults(`Error: ${error.message}`);
-            }
-        }
-
-        // Show/hide test results area
-        function showTestResults() {
-            const resultsDiv = document.getElementById('radiusTestResults');
-            if (resultsDiv) {
-                resultsDiv.style.display = 'block';
-            }
-        }
-
-        // Update test status
-        function updateTestStatus(status, message) {
-            const statusIcon = document.getElementById('testStatusIcon');
-            const statusText = document.getElementById('testStatusText');
-            
-            if (statusIcon && statusText) {
-                statusText.textContent = message;
-                
-                switch (status) {
-                    case 'running':
-                        statusIcon.textContent = '⏳';
-                        break;
-                    case 'success':
-                        statusIcon.textContent = '✅';
-                        break;
-                    case 'error':
-                        statusIcon.textContent = '❌';
-                        break;
-                }
-            }
-        }
-
-        // Display test results
-        function displayTestResults(data) {
-            const resultsContent = document.getElementById('testResultsContent');
-            if (!resultsContent) return;
-
-            let output = '';
-            
-            if (typeof data === 'string') {
-                output = data;
-            } else if (typeof data === 'object') {
-                // Format object data nicely
-                output = JSON.stringify(data, null, 2);
-            } else {
-                output = String(data);
-            }
-            
-            // Add timestamp
-            const timestamp = new Date().toLocaleString();
-            const formattedOutput = `[${timestamp}] Test Results:\n${output}\n\n`;
-            
-            // Append to existing content
-            resultsContent.textContent += formattedOutput;
-            
-            // Scroll to bottom
-            resultsContent.scrollTop = resultsContent.scrollHeight;
-        }
-
-        // Clear test results
-        function clearTestResults() {
-            const resultsContent = document.getElementById('testResultsContent');
-            if (resultsContent) {
-                resultsContent.textContent = '';
-            }
-            
-            const resultsDiv = document.getElementById('radiusTestResults');
-            if (resultsDiv) {
-                resultsDiv.style.display = 'none';
-            }
-        }
-
-        // Export test results
-        function exportTestResults() {
-            const resultsContent = document.getElementById('testResultsContent');
-            if (!resultsContent || !resultsContent.textContent.trim()) {
-                alert('No test results to export');
-                return;
-            }
-            
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `radius-test-results-${timestamp}.txt`;
-            
-            const blob = new Blob([resultsContent.textContent], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            
-            URL.revokeObjectURL(url);
-        }
-
-        // Refresh certificates list for EAP-TLS
-        async function refreshCertificatesList() {
-            try {
-                const response = await fetch('/api/radius/certificates');
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateCertificatesList(result.certificates);
-                } else {
-                    console.error('Failed to load certificates:', result.error);
-                }
-            } catch (error) {
-                console.error('Error loading certificates:', error);
-            }
-        }
-
-        // Update certificates dropdown and list
-        function updateCertificatesList(certificates) {
-            const identitySelect = document.getElementById('eapTlsIdentity');
-            const certsList = document.getElementById('availableCertsList');
-            
-            if (identitySelect) {
-                identitySelect.innerHTML = '<option value="">Select a certificate...</option>';
-                certificates.forEach(cert => {
-                    const option = document.createElement('option');
-                    option.value = cert.idp_email;
-                    option.textContent = `${cert.idp_email} (${cert.certificate_cn})`;
-                    identitySelect.appendChild(option);
-                });
-            }
-            
-            if (certsList) {
-                if (certificates.length === 0) {
-                    certsList.innerHTML = '<div style="color: #666;">No active certificates found</div>';
-                } else {
-                    certsList.innerHTML = certificates.map(cert => `
-                        <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
-                            <strong>${cert.idp_email}</strong><br>
-                            <small>CN: ${cert.certificate_cn} | Serial: ${cert.certificate_serial?.substring(0, 16)}...</small>
-                        </div>
-                    `).join('');
-                }
-            }
-        }
-
-        // Generate random credentials for testing
-        function generateRandomCredentials(testType) {
-            const randomUser = `testuser${Math.floor(Math.random() * 1000)}`;
-            const randomPass = `TestPass${Math.floor(Math.random() * 10000)}!`;
-            
-            if (testType === 'eap-ttls') {
-                document.getElementById('eapTtlsIdentity').value = `${randomUser}@example.com`;
-                document.getElementById('eapTtlsPassword').value = randomPass;
-            }
-        }
-
-        // Live monitoring functions
-        function toggleLiveMonitoring() {
-            const startBtn = document.getElementById('startLiveMonitoring');
-            const stopBtn = document.getElementById('stopLiveMonitoring');
-            
-            if (radiusTestMonitoringInterval) {
-                // Stop monitoring
-                clearInterval(radiusTestMonitoringInterval);
-                radiusTestMonitoringInterval = null;
-                
-                startBtn.style.display = 'inline-block';
-                stopBtn.style.display = 'none';
-                
-                appendToMonitoringLog('🔴 Live monitoring stopped');
-            } else {
-                // Start monitoring
-                radiusTestMonitoringInterval = setInterval(fetchMonitoringData, 2000);
-                
-                startBtn.style.display = 'none';
-                stopBtn.style.display = 'inline-block';
-                
-                appendToMonitoringLog('🟢 Live monitoring started');
-                fetchMonitoringData(); // Initial fetch
-            }
-        }
-
-        // Fetch monitoring data
-        async function fetchMonitoringData() {
-            try {
-                const response = await fetch('/api/radius/monitoring');
-                const result = await response.json();
-                
-                if (result.success && result.logs) {
-                    result.logs.forEach(log => appendToMonitoringLog(log));
-                }
-            } catch (error) {
-                console.error('Monitoring fetch error:', error);
-            }
-        }
-
-        // Append log to monitoring area
-        function appendToMonitoringLog(message) {
-            const logDiv = document.getElementById('liveMonitoringLog');
-            if (!logDiv) return;
-            
-            const timestamp = new Date().toLocaleTimeString();
-            const logEntry = document.createElement('div');
-            logEntry.textContent = `[${timestamp}] ${message}`;
-            
-            logDiv.appendChild(logEntry);
-            logDiv.scrollTop = logDiv.scrollHeight;
-            
-            // Keep only last 100 entries
-            while (logDiv.children.length > 100) {
-                logDiv.removeChild(logDiv.firstChild);
-            }
-        }
-
-        // Clear monitoring log
-        function clearMonitoringLog() {
-            const logDiv = document.getElementById('liveMonitoringLog');
-            if (logDiv) {
-                logDiv.innerHTML = '<div style="color: #888;">Log cleared. Monitoring continues...</div>';
-            }
-        }
-
-        // Export monitoring log
-        function exportMonitoringLog() {
-            const logDiv = document.getElementById('liveMonitoringLog');
-            if (!logDiv || !logDiv.textContent.trim()) {
-                alert('No monitoring data to export');
-                return;
-            }
-            
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `radius-monitoring-log-${timestamp}.txt`;
-            
-            const blob = new Blob([logDiv.textContent], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            
-            URL.revokeObjectURL(url);
-        }
-
-        // Initialize RADIUS testing when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load certificates if EAP-TLS form exists
-            if (document.getElementById('eapTlsIdentity')) {
-                refreshCertificatesList();
-            }
         });
     </script>
 

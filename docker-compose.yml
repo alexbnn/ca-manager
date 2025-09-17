@@ -54,6 +54,7 @@ services:
       - ./ssl:/app/ssl:ro
       # Mount source files for live updates
       - ./app.py:/app/app.py:ro
+      - ./radius_admin.py:/app/radius_admin.py:ro
       - ./templates:/app/templates:ro
       # Enable version management functionality
       - /var/run/docker.sock:/var/run/docker.sock

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="stylesheet" href="/radius-admin/static/style.css">
+</head>
+<body>
+    <!-- Navigation (same as dashboard) -->
+    <nav class="nav-container">
+        <div class="nav-content">
+            <a href="/radius-admin" class="nav-brand">
+                <span class="icon">📡</span>
+                RADIUS Admin
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/radius-admin/dashboard">Dashboard</a></li>
+                <li><a href="/radius-admin/clients">Clients</a></li>
+                <li><a href="/radius-admin/vlans">VLANs</a></li>
+                <li><a href="/radius-admin/policies">Policies</a></li>
+                <li><a href="/radius-admin/testing">Testing</a></li>
+                <li><a href="/radius-admin/certificates">Certificates</a></li>
+                <li><a href="/radius-admin/monitoring">Monitoring</a></li>
+                <li><a href="/radius-admin/reports">Reports</a></li>
+                <li><a href="/ca-manager">CA Manager</a></li>
+            </ul>
+
+            <div class="nav-user">
+                <div class="user-info">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="role">{{ user.roles|join(', ') }}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- RadSec Status Overview -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">🌐 RadSec Proxy Status</h2>
+                <div class="section-actions">
+                    <button class="btn btn-secondary" onclick="refreshStatus()">
+                        🔄 Refresh Status
+                    </button>
+                </div>
+            </div>
+
+            <div class="status-overview" id="statusOverview">
+                <div class="status-card">
+                    <div class="status-indicator">
+                        <span class="status-dot" id="statusDot">⚪</span>
+                        <div class="status-info">
+                            <div class="status-text" id="statusText">Checking...</div>
+                            <div class="status-details" id="statusDetails">Loading status...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deployment Section -->
+        <div class="section-card" id="deploymentSection">
+            <div class="section-header">
+                <h2 class="section-title">🚀 Deploy RadSec Proxy</h2>
+            </div>
+
+            <div class="deployment-form">
+                <p class="form-description">
+                    Deploy a RadSec proxy to connect your RADIUS server to Extreme Networks Cloud Platform.
+                    Paste the deployment command from your Extreme Networks dashboard below:
+                </p>
+
+                <div class="form-group">
+                    <label for="deploymentCommand">Extreme Networks Deployment Command:</label>
+                    <textarea
+                        id="deploymentCommand"
+                        class="command-input"
+                        placeholder="curl -L https://your-server.com/proxy-installer/master-installer.sh | bash -s -- -o deploy -t your-token-here"
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <div class="parsed-info" id="parsedInfo" style="display: none;">
+                    <h4>Parsed Configuration:</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Server:</span>
+                            <span class="info-value" id="parsedServer">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Proxy ID:</span>
+                            <span class="info-value" id="parsedProxyId">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Site ID:</span>
+                            <span class="info-value" id="parsedSiteId">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Workspace ID:</span>
+                            <span class="info-value" id="parsedWorkspaceId">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="parseCommand()">📝 Parse Command</button>
+                    <button class="btn btn-primary" onclick="deployProxy()" id="deployBtn" disabled>
+                        🚀 Deploy RadSec Proxy
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Management Section -->
+        <div class="section-card" id="managementSection" style="display: none;">
+            <div class="section-header">
+                <h2 class="section-title">⚙️ RadSec Proxy Management</h2>
+            </div>
+
+            <div class="management-grid">
+                <button class="btn btn-info" onclick="viewLogs()">
+                    📋 View Logs
+                </button>
+                <button class="btn btn-secondary" onclick="updateCertificates()">
+                    🔄 Update Certificates
+                </button>
+                <button class="btn btn-warning" onclick="restartProxy()">
+                    🔄 Restart Proxy
+                </button>
+                <button class="btn btn-danger" onclick="removeProxy()">
+                    🗑️ Remove Proxy
+                </button>
+            </div>
+        </div>
+
+        <!-- Operation Logs -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">📋 Operation Logs</h2>
+                <div class="section-actions">
+                    <button class="btn btn-secondary" onclick="clearLogs()">
+                        🗑️ Clear Logs
+                    </button>
+                </div>
+            </div>
+
+            <div class="terminal-container">
+                <div class="terminal" id="operationLogs">
+                    RadSec Proxy Management - Ready
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Modal -->
+    <div id="logsModal" class="modal" style="display: none;">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>RadSec Proxy Logs</h3>
+                <button class="modal-close" onclick="closeLogsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="terminal" id="proxyLogs" style="height: 400px;">
+                    Loading logs...
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeLogsModal()">Close</button>
+                <button class="btn btn-info" onclick="refreshLogs()">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Status Overview */
+        .status-overview {
+            margin-top: 1.5rem;
+        }
+
+        .status-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-dot {
+            font-size: 1.5rem;
+        }
+
+        .status-info {
+            flex: 1;
+        }
+
+        .status-text {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .status-details {
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+
+        /* Deployment Form */
+        .deployment-form {
+            margin-top: 1.5rem;
+        }
+
+        .form-description {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .command-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+        }
+
+        .parsed-info {
+            background: #f8f9fa;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .parsed-info h4 {
+            margin: 0 0 1rem 0;
+            color: var(--dark);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: var(--text-light);
+        }
+
+        .info-value {
+            font-family: monospace;
+            color: var(--text);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        /* Management Grid */
+        .management-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Terminal */
+        .terminal-container {
+            margin-top: 1.5rem;
+        }
+
+        .terminal {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 1rem;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-content.large {
+            max-width: 900px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        /* Base styles */
+        :root {
+            --primary: #1a73e8;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --dark: #202124;
+            --light: #f8f9fa;
+            --border: #dadce0;
+            --text: #3c4043;
+            --text-light: #5f6368;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .nav-container {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .nav-menu a:hover {
+            background: var(--light);
+        }
+
+        .nav-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1557b0;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-info {
+            background: #e8f4fd;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .btn-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        .btn-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+    </style>
+
+    <script>
+        let parsedConfig = null;
+
+        // Load status on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshStatus();
+        });
+
+        async function refreshStatus() {
+            log('Checking RadSec proxy status...');
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/status');
+                const data = await response.json();
+
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                const statusDetails = document.getElementById('statusDetails');
+                const deploymentSection = document.getElementById('deploymentSection');
+                const managementSection = document.getElementById('managementSection');
+
+                if (response.ok && data.status === 'success') {
+                    if (data.deployed) {
+                        // Proxy is deployed
+                        statusDot.textContent = data.running ? '🟢' : '🟡';
+                        statusText.textContent = `RadSec Proxy: ${data.running ? 'Running' : 'Deployed but Stopped'}`;
+                        statusDetails.textContent = `Server: ${data.server} | Proxy ID: ${data.proxy_id} | Site ID: ${data.site_id}`;
+
+                        deploymentSection.style.display = 'none';
+                        managementSection.style.display = 'block';
+
+                        log(`Status: ${data.running ? 'Running' : 'Stopped'} - Server: ${data.server}`);
+                    } else {
+                        // Proxy not deployed
+                        statusDot.textContent = '⚪';
+                        statusText.textContent = 'RadSec Proxy: Not Deployed';
+                        statusDetails.textContent = 'Ready for deployment';
+
+                        deploymentSection.style.display = 'block';
+                        managementSection.style.display = 'none';
+
+                        log('Status: Not deployed');
+                    }
+                } else {
+                    statusDot.textContent = '❌';
+                    statusText.textContent = 'RadSec Proxy: Error';
+                    statusDetails.textContent = data.error || 'Unable to check status';
+
+                    log('Status check failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error checking RadSec status:', error);
+                document.getElementById('statusDot').textContent = '❌';
+                document.getElementById('statusText').textContent = 'RadSec Proxy: Connection Error';
+                document.getElementById('statusDetails').textContent = 'Unable to connect to service';
+
+                log('Status check error: ' + error.message);
+            }
+        }
+
+        function parseCommand() {
+            const command = document.getElementById('deploymentCommand').value.trim();
+            const parsedInfo = document.getElementById('parsedInfo');
+            const deployBtn = document.getElementById('deployBtn');
+
+            if (!command) {
+                alert('Please enter a deployment command');
+                return;
+            }
+
+            try {
+                // Parse the curl command to extract token and server
+                const tokenMatch = command.match(/-t\s+([^\s]+)/);
+                const serverMatch = command.match(/https:\/\/([^\/]+)/);
+
+                if (!tokenMatch || !serverMatch) {
+                    alert('Invalid deployment command format. Please check the command from Extreme Networks dashboard.');
+                    return;
+                }
+
+                const token = tokenMatch[1];
+                const serverUrl = serverMatch[1];
+
+                // Extract additional parameters from token (if available)
+                // This is a simplified parsing - actual token structure may vary
+                parsedConfig = {
+                    token: token,
+                    server_url: serverUrl,
+                    proxy_id: 'auto-generated',
+                    site_id: 'from-token',
+                    workspace_id: 'from-token'
+                };
+
+                // Update UI
+                document.getElementById('parsedServer').textContent = serverUrl;
+                document.getElementById('parsedProxyId').textContent = parsedConfig.proxy_id;
+                document.getElementById('parsedSiteId').textContent = parsedConfig.site_id;
+                document.getElementById('parsedWorkspaceId').textContent = parsedConfig.workspace_id;
+
+                parsedInfo.style.display = 'block';
+                deployBtn.disabled = false;
+
+                log('Command parsed successfully. Ready to deploy.');
+
+            } catch (error) {
+                alert('Error parsing command: ' + error.message);
+                log('Parse error: ' + error.message);
+            }
+        }
+
+        async function deployProxy() {
+            if (!parsedConfig) {
+                alert('Please parse the deployment command first');
+                return;
+            }
+
+            const deployBtn = document.getElementById('deployBtn');
+            deployBtn.disabled = true;
+            deployBtn.innerHTML = '🚀 Deploying...';
+
+            log('Starting RadSec proxy deployment...');
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parsedConfig)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    log('SUCCESS: ' + data.message);
+                    if (data.output) {
+                        log('Deployment output:');
+                        log(data.output);
+                    }
+
+                    // Refresh status
+                    setTimeout(() => refreshStatus(), 2000);
+                } else {
+                    log('ERROR: ' + data.message);
+                    if (data.output) {
+                        log('Deployment output:');
+                        log(data.output);
+                    }
+                }
+            } catch (error) {
+                log('Deployment error: ' + error.message);
+            } finally {
+                deployBtn.disabled = false;
+                deployBtn.innerHTML = '🚀 Deploy RadSec Proxy';
+            }
+        }
+
+        async function viewLogs() {
+            document.getElementById('proxyLogs').textContent = 'Loading logs...';
+            document.getElementById('logsModal').style.display = 'flex';
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/logs');
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    document.getElementById('proxyLogs').textContent = data.logs.join('\n');
+                } else {
+                    document.getElementById('proxyLogs').textContent = 'Error loading logs: ' + (data.error || 'Unknown error');
+                }
+            } catch (error) {
+                document.getElementById('proxyLogs').textContent = 'Error loading logs: ' + error.message;
+            }
+        }
+
+        async function refreshLogs() {
+            await viewLogs();
+        }
+
+        function closeLogsModal() {
+            document.getElementById('logsModal').style.display = 'none';
+        }
+
+        async function updateCertificates() {
+            log('Updating RadSec certificates...');
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/update-certs', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    log('SUCCESS: ' + data.message);
+                } else {
+                    log('ERROR: ' + data.message);
+                }
+            } catch (error) {
+                log('Certificate update error: ' + error.message);
+            }
+        }
+
+        async function restartProxy() {
+            log('Restarting RadSec proxy...');
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/restart', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    log('SUCCESS: ' + data.message);
+                    setTimeout(() => refreshStatus(), 3000);
+                } else {
+                    log('ERROR: ' + data.message);
+                }
+            } catch (error) {
+                log('Restart error: ' + error.message);
+            }
+        }
+
+        async function removeProxy() {
+            if (!confirm('Are you sure you want to remove the RadSec proxy?\n\nThis will disconnect your RADIUS server from Extreme Networks Cloud Platform.')) {
+                return;
+            }
+
+            log('Removing RadSec proxy...');
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/remove', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    log('SUCCESS: ' + data.message);
+
+                    // Clear form and refresh status
+                    document.getElementById('deploymentCommand').value = '';
+                    document.getElementById('parsedInfo').style.display = 'none';
+                    document.getElementById('deployBtn').disabled = true;
+                    parsedConfig = null;
+
+                    setTimeout(() => refreshStatus(), 2000);
+                } else {
+                    log('ERROR: ' + data.message);
+                }
+            } catch (error) {
+                log('Removal error: ' + error.message);
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('operationLogs').textContent = 'RadSec Proxy Management - Ready';
+        }
+
+        function log(message) {
+            const terminal = document.getElementById('operationLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            terminal.textContent += `\n[${timestamp}] ${message}`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+    </script>
+</body>
+</html>

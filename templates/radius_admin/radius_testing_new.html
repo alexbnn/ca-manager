@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <button class="btn btn-primary btn-sm" onclick="clearLogs()">
+                        🗑️ Clear Logs
+                    </button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item active">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>Tests Run</h3>
+                    <div class="value" id="testsRun">0</div>
+                    <div class="label">This session</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="testSuccessRate">0%</div>
+                    <div class="label">Test results</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Avg Response</h3>
+                    <div class="value" id="avgResponse">0ms</div>
+                    <div class="label">Response time</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Server Status</h3>
+                    <div class="value" id="serverStatus">🟢</div>
+                    <div class="label">RADIUS Server</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Authentication Tests -->
+            <div class="section">
+                <h2><span class="section-icon">🧪</span>RADIUS Authentication Testing</h2>
+
+                <div class="grid grid-2">
+                    <!-- PAP Testing -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">PAP Authentication</h3>
+                            <span class="status-indicator info">Password Authentication Protocol</span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="papUsername">Username:</label>
+                                <input type="text" id="papUsername" placeholder="test@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="papPassword">Password:</label>
+                                <input type="password" id="papPassword" placeholder="password">
+                            </div>
+                            <div class="form-group">
+                                <label for="papNasIP">NAS IP Address:</label>
+                                <input type="text" id="papNasIP" placeholder="192.168.1.1" value="127.0.0.1">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="testPAP()">🧪 Test PAP</button>
+                        </div>
+                    </div>
+
+                    <!-- CHAP Testing -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">CHAP Authentication</h3>
+                            <span class="status-indicator info">Challenge Handshake Authentication Protocol</span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="chapUsername">Username:</label>
+                                <input type="text" id="chapUsername" placeholder="test@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="chapPassword">Password:</label>
+                                <input type="password" id="chapPassword" placeholder="password">
+                            </div>
+                            <div class="form-group">
+                                <label for="chapNasIP">NAS IP Address:</label>
+                                <input type="text" id="chapNasIP" placeholder="192.168.1.1" value="127.0.0.1">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="testCHAP()">🧪 Test CHAP</button>
+                        </div>
+                    </div>
+
+                    <!-- MSCHAP Testing -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">MS-CHAP Authentication</h3>
+                            <span class="status-indicator info">Microsoft Challenge Handshake</span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="mschapUsername">Username:</label>
+                                <input type="text" id="mschapUsername" placeholder="test@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="mschapPassword">Password:</label>
+                                <input type="password" id="mschapPassword" placeholder="password">
+                            </div>
+                            <div class="form-group">
+                                <label for="mschapNasIP">NAS IP Address:</label>
+                                <input type="text" id="mschapNasIP" placeholder="192.168.1.1" value="127.0.0.1">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="testMSCHAP()">🧪 Test MS-CHAP</button>
+                        </div>
+                    </div>
+
+                    <!-- EAP-TLS Testing -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">EAP-TLS Authentication</h3>
+                            <span class="status-indicator success">Certificate-based</span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="eapUsername">Username:</label>
+                                <input type="text" id="eapUsername" placeholder="client-cert">
+                            </div>
+                            <div class="form-group">
+                                <label for="eapCertificate">Client Certificate:</label>
+                                <select id="eapCertificate">
+                                    <option value="">Select certificate...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="eapNasIP">NAS IP Address:</label>
+                                <input type="text" id="eapNasIP" placeholder="192.168.1.1" value="127.0.0.1">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-success" onclick="testEAPTLS()">🔒 Test EAP-TLS</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Tests -->
+            <div class="section">
+                <h2><span class="section-icon">⚙️</span>System Tests</h2>
+
+                <div class="button-grid">
+                    <button class="btn btn-info" onclick="testServerConnectivity()">
+                        🌐 Test Server Connectivity
+                    </button>
+                    <button class="btn btn-warning" onclick="testCertificateChain()">
+                        🔗 Test Certificate Chain
+                    </button>
+                    <button class="btn btn-secondary" onclick="testDatabaseConnection()">
+                        🗄️ Test Database Connection
+                    </button>
+                    <button class="btn btn-info" onclick="testVLANAssignment()">
+                        🌐 Test VLAN Assignment
+                    </button>
+                </div>
+            </div>
+
+            <!-- Live Monitoring -->
+            <div class="section">
+                <h2><span class="section-icon">📊</span>Live Test Results</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Test Output</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="clearLogs()">🗑️ Clear</button>
+                    </div>
+                    <div class="card-content">
+                        <div class="terminal" id="testOutput">
+                            RADIUS Testing Console - Ready
+                            Type commands above to test authentication methods...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testCount = 0;
+        let successCount = 0;
+        let totalResponseTime = 0;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeScrollEffects();
+            loadCertificates();
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadCertificates() {
+            try {
+                const response = await fetch('/radius-admin/api/certificates');
+                const data = await response.json();
+
+                const select = document.getElementById('eapCertificate');
+                select.innerHTML = '<option value="">Select certificate...</option>';
+
+                if (data.certificates) {
+                    data.certificates.forEach(cert => {
+                        if (cert.type === 'client') {
+                            const option = document.createElement('option');
+                            option.value = cert.name;
+                            option.textContent = cert.name;
+                            select.appendChild(option);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading certificates:', error);
+            }
+        }
+
+        function log(message, type = 'info') {
+            const terminal = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            terminal.textContent += `\n[${timestamp}] ${icon} ${message}`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function updateMetrics() {
+            document.getElementById('testsRun').textContent = testCount;
+            document.getElementById('testSuccessRate').textContent = testCount > 0 ?
+                Math.round((successCount / testCount) * 100) + '%' : '0%';
+            document.getElementById('avgResponse').textContent = testCount > 0 ?
+                Math.round(totalResponseTime / testCount) + 'ms' : '0ms';
+        }
+
+        async function testPAP() {
+            const username = document.getElementById('papUsername').value;
+            const password = document.getElementById('papPassword').value;
+            const nasIP = document.getElementById('papNasIP').value;
+
+            if (!username || !password) {
+                log('Username and password are required for PAP test', 'error');
+                return;
+            }
+
+            log(`Starting PAP test for user: ${username}`);
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        method: 'pap',
+                        username: username,
+                        password: password,
+                        nas_ip: nasIP
+                    })
+                });
+
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successCount++;
+                    log(`PAP test successful (${responseTime}ms) - VLAN: ${data.vlan_id || 'Default'}`, 'success');
+                } else {
+                    log(`PAP test failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`PAP test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testCHAP() {
+            const username = document.getElementById('chapUsername').value;
+            const password = document.getElementById('chapPassword').value;
+            const nasIP = document.getElementById('chapNasIP').value;
+
+            if (!username || !password) {
+                log('Username and password are required for CHAP test', 'error');
+                return;
+            }
+
+            log(`Starting CHAP test for user: ${username}`);
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        method: 'chap',
+                        username: username,
+                        password: password,
+                        nas_ip: nasIP
+                    })
+                });
+
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successCount++;
+                    log(`CHAP test successful (${responseTime}ms) - VLAN: ${data.vlan_id || 'Default'}`, 'success');
+                } else {
+                    log(`CHAP test failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`CHAP test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testMSCHAP() {
+            const username = document.getElementById('mschapUsername').value;
+            const password = document.getElementById('mschapPassword').value;
+            const nasIP = document.getElementById('mschapNasIP').value;
+
+            if (!username || !password) {
+                log('Username and password are required for MS-CHAP test', 'error');
+                return;
+            }
+
+            log(`Starting MS-CHAP test for user: ${username}`);
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        method: 'mschap',
+                        username: username,
+                        password: password,
+                        nas_ip: nasIP
+                    })
+                });
+
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successCount++;
+                    log(`MS-CHAP test successful (${responseTime}ms) - VLAN: ${data.vlan_id || 'Default'}`, 'success');
+                } else {
+                    log(`MS-CHAP test failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`MS-CHAP test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testEAPTLS() {
+            const username = document.getElementById('eapUsername').value;
+            const certificate = document.getElementById('eapCertificate').value;
+            const nasIP = document.getElementById('eapNasIP').value;
+
+            if (!username || !certificate) {
+                log('Username and certificate are required for EAP-TLS test', 'error');
+                return;
+            }
+
+            log(`Starting EAP-TLS test for user: ${username} with certificate: ${certificate}`);
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        method: 'eap-tls',
+                        username: username,
+                        certificate: certificate,
+                        nas_ip: nasIP
+                    })
+                });
+
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successCount++;
+                    log(`EAP-TLS test successful (${responseTime}ms) - VLAN: ${data.vlan_id || 'Default'}`, 'success');
+                } else {
+                    log(`EAP-TLS test failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`EAP-TLS test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testServerConnectivity() {
+            log('Testing RADIUS server connectivity...');
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ method: 'connectivity' })
+                });
+
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successCount++;
+                    log(`Server connectivity test successful (${responseTime}ms)`, 'success');
+                } else {
+                    log(`Server connectivity test failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`Server connectivity test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testCertificateChain() {
+            log('Testing certificate chain validation...');
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/certificates/status');
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.ca_cert_valid && data.server_cert_valid) {
+                    successCount++;
+                    log(`Certificate chain validation successful (${responseTime}ms)`, 'success');
+                } else {
+                    log('Certificate chain validation failed: Invalid certificates', 'error');
+                }
+            } catch (error) {
+                log(`Certificate chain test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testDatabaseConnection() {
+            log('Testing database connection...');
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/vlans');
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                if (response.ok) {
+                    successCount++;
+                    log(`Database connection test successful (${responseTime}ms)`, 'success');
+                } else {
+                    log('Database connection test failed', 'error');
+                }
+            } catch (error) {
+                log(`Database connection test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        async function testVLANAssignment() {
+            log('Testing VLAN assignment policies...');
+            testCount++;
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/radius-admin/api/policies');
+                const responseTime = Date.now() - startTime;
+                totalResponseTime += responseTime;
+
+                const data = await response.json();
+
+                if (data.policies && data.policies.length > 0) {
+                    successCount++;
+                    log(`VLAN assignment test successful (${responseTime}ms) - ${data.policies.length} policies active`, 'success');
+                } else {
+                    log('VLAN assignment test warning: No active policies found', 'warning');
+                }
+            } catch (error) {
+                log(`VLAN assignment test error: ${error.message}`, 'error');
+            }
+
+            updateMetrics();
+        }
+
+        function clearLogs() {
+            document.getElementById('testOutput').textContent = 'RADIUS Testing Console - Ready\nType commands above to test authentication methods...';
+            testCount = 0;
+            successCount = 0;
+            totalResponseTime = 0;
+            updateMetrics();
+        }
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

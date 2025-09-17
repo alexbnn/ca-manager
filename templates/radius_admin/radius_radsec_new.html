@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <button class="btn btn-primary btn-sm" onclick="showAddProxyModal()">
+                        ➕ Add Proxy
+                    </button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>RadSec Status</h3>
+                    <div class="value" id="radsecStatus">🟢</div>
+                    <div class="label" id="radsecStatusLabel">Active</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Active Proxies</h3>
+                    <div class="value" id="activeProxies">0</div>
+                    <div class="label">Connected proxies</div>
+                </div>
+                <div class="metric-card">
+                    <h3>TLS Connections</h3>
+                    <div class="value" id="tlsConnections">0</div>
+                    <div class="label">Current connections</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Throughput</h3>
+                    <div class="value" id="throughput">0</div>
+                    <div class="label">Requests/min</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- RadSec Proxies -->
+            <div class="section">
+                <h2><span class="section-icon">🌐</span>RadSec Proxy Servers</h2>
+
+                <div class="grid" id="proxiesGrid">
+                    <div class="loading">Loading RadSec proxies...</div>
+                </div>
+            </div>
+
+            <!-- RadSec Configuration -->
+            <div class="section">
+                <h2><span class="section-icon">⚙️</span>RadSec Configuration</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Server Settings</h3>
+                            <span class="status-indicator success">
+                                <span>●</span> Configured
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="radsecPort">RadSec Port:</label>
+                                <input type="number" id="radsecPort" value="2083" min="1" max="65535">
+                            </div>
+                            <div class="form-group">
+                                <label for="tlsVersion">Minimum TLS Version:</label>
+                                <select id="tlsVersion">
+                                    <option value="1.2">TLS 1.2</option>
+                                    <option value="1.3" selected>TLS 1.3</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="maxConnections">Max Connections:</label>
+                                <input type="number" id="maxConnections" value="100" min="1" max="1000">
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableRadsec" checked>
+                                    Enable RadSec server
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="requireClientCert" checked>
+                                    Require client certificates
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateServerSettings()">💾 Save Settings</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Security Settings</h3>
+                            <span class="status-indicator info">
+                                <span>🔒</span> Secure
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="cipherSuites">Allowed Cipher Suites:</label>
+                                <textarea id="cipherSuites" rows="3" placeholder="TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256"></textarea>
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enablePfs" checked>
+                                    Perfect Forward Secrecy
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableOcsp">
+                                    OCSP stapling
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableHsts">
+                                    HTTP Strict Transport Security
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateSecuritySettings()">🔒 Update Security</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="section">
+                <h2><span class="section-icon">📊</span>Connection Status</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Active RadSec Connections</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshConnections()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="connectionsTable">
+                            <div class="loading">Loading active connections...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-warning btn-sm" onclick="closeAllConnections()">🔌 Close All</button>
+                        <button class="btn btn-info btn-sm" onclick="exportConnectionLog()">📄 Export Log</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RadSec Statistics -->
+            <div class="section">
+                <h2><span class="section-icon">📈</span>RadSec Statistics</h2>
+
+                <div class="grid grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Traffic Statistics</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="trafficStats">
+                                <div class="loading">Loading traffic statistics...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Error Statistics</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="errorStats">
+                                <div class="loading">Loading error statistics...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Performance Metrics</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="performanceStats">
+                                <div class="loading">Loading performance metrics...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Proxy Modal -->
+    <div id="addProxyModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add RadSec Proxy</h3>
+                <button class="modal-close" onclick="hideAddProxyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addProxyForm">
+                    <div class="form-group">
+                        <label for="proxyName">Proxy Name:</label>
+                        <input type="text" id="proxyName" name="name" required placeholder="e.g., Regional Proxy 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="proxyHost">Hostname/IP:</label>
+                        <input type="text" id="proxyHost" name="host" required placeholder="e.g., proxy.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="proxyPort">Port:</label>
+                        <input type="number" id="proxyPort" name="port" value="2083" min="1" max="65535">
+                    </div>
+                    <div class="form-group">
+                        <label for="proxySecret">Shared Secret:</label>
+                        <input type="password" id="proxySecret" name="secret" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="proxyType">Proxy Type:</label>
+                        <select id="proxyType" name="type">
+                            <option value="home_server">Home Server</option>
+                            <option value="realm_proxy">Realm Proxy</option>
+                            <option value="eduroam_proxy">eduroam Proxy</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="proxyDescription">Description:</label>
+                        <textarea id="proxyDescription" name="description" placeholder="Optional description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAddProxyModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addProxy()">Add Proxy</button>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProxies();
+            loadRadsecMetrics();
+            loadActiveConnections();
+            initializeScrollEffects();
+
+            // Auto-refresh every 30 seconds
+            setInterval(loadRadsecMetrics, 30000);
+            setInterval(loadActiveConnections, 30000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadProxies() {
+            try {
+                const response = await fetch('/radius-admin/api/radsec/proxies');
+                const data = await response.json();
+                displayProxies(data.proxies);
+            } catch (error) {
+                console.error('Error loading RadSec proxies:', error);
+                document.getElementById('proxiesGrid').innerHTML = '<div class="loading">Error loading RadSec proxies</div>';
+            }
+        }
+
+        function displayProxies(proxies) {
+            const grid = document.getElementById('proxiesGrid');
+
+            if (!proxies || proxies.length === 0) {
+                grid.innerHTML = '<div class="loading">No RadSec proxies configured</div>';
+                return;
+            }
+
+            grid.innerHTML = proxies.map(proxy => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">${proxy.name}</h3>
+                        <span class="status-indicator ${proxy.connected ? 'success' : 'error'}">
+                            ${proxy.connected ? '🟢 Connected' : '🔴 Disconnected'}
+                        </span>
+                    </div>
+                    <div class="card-content">
+                        <p><strong>Host:</strong> <code>${proxy.host}:${proxy.port}</code></p>
+                        <p><strong>Type:</strong> ${proxy.type}</p>
+                        <p><strong>TLS Version:</strong> ${proxy.tls_version || 'N/A'}</p>
+                        <p><strong>Last Seen:</strong> ${proxy.last_seen || 'Never'}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-info btn-sm" onclick="editProxy('${proxy.id}')">✏️ Edit</button>
+                        <button class="btn btn-success btn-sm" onclick="testProxy('${proxy.id}')">🧪 Test</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProxy('${proxy.id}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update metrics
+            document.getElementById('activeProxies').textContent = proxies.filter(p => p.connected).length;
+        }
+
+        async function loadRadsecMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/radsec/metrics');
+                const data = await response.json();
+
+                // Update status indicators
+                const statusElement = document.getElementById('radsecStatus');
+                const statusLabel = document.getElementById('radsecStatusLabel');
+
+                if (data.radsec_enabled) {
+                    statusElement.textContent = '🟢';
+                    statusLabel.textContent = 'Active';
+                } else {
+                    statusElement.textContent = '🔴';
+                    statusLabel.textContent = 'Disabled';
+                }
+
+                // Update metrics
+                document.getElementById('activeProxies').textContent = data.active_proxies || 0;
+                document.getElementById('tlsConnections').textContent = data.tls_connections || 0;
+                document.getElementById('throughput').textContent = data.requests_per_minute || 0;
+
+            } catch (error) {
+                console.error('Error loading RadSec metrics:', error);
+            }
+        }
+
+        async function loadActiveConnections() {
+            try {
+                const response = await fetch('/radius-admin/api/radsec/connections');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('connectionsTable');
+
+                if (data.connections && data.connections.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Client</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">TLS Version</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Connected Since</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Requests</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.connections.map(conn => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-family: monospace;">${conn.client_ip}:${conn.client_port}</td>
+                                        <td style="padding: 0.5rem;">${conn.tls_version}</td>
+                                        <td style="padding: 0.5rem; font-size: 0.8rem;">${conn.connected_since}</td>
+                                        <td style="padding: 0.5rem;">${conn.request_count}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <button class="btn btn-warning btn-sm" onclick="closeConnection('${conn.id}')">🔌 Close</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No active RadSec connections</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading active connections:', error);
+                document.getElementById('connectionsTable').innerHTML = '<div class="loading">Error loading connections</div>';
+            }
+        }
+
+        function showAddProxyModal() {
+            document.getElementById('addProxyModal').style.display = 'flex';
+        }
+
+        function hideAddProxyModal() {
+            document.getElementById('addProxyModal').style.display = 'none';
+            document.getElementById('addProxyForm').reset();
+        }
+
+        async function addProxy() {
+            const form = document.getElementById('addProxyForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/radius-admin/api/radsec/proxies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    hideAddProxyModal();
+                    loadProxies();
+                } else {
+                    alert('Failed to add RadSec proxy');
+                }
+            } catch (error) {
+                console.error('Error adding RadSec proxy:', error);
+                alert('Error adding RadSec proxy');
+            }
+        }
+
+        function editProxy(id) {
+            console.log('Edit proxy:', id);
+            // TODO: Implement edit functionality
+        }
+
+        function testProxy(id) {
+            console.log('Test proxy:', id);
+            // TODO: Implement proxy testing
+        }
+
+        function deleteProxy(id) {
+            if (confirm('Are you sure you want to delete this RadSec proxy?')) {
+                console.log('Delete proxy:', id);
+                // TODO: Implement delete functionality
+            }
+        }
+
+        function updateServerSettings() {
+            const settings = {
+                port: document.getElementById('radsecPort').value,
+                tlsVersion: document.getElementById('tlsVersion').value,
+                maxConnections: document.getElementById('maxConnections').value,
+                enableRadsec: document.getElementById('enableRadsec').checked,
+                requireClientCert: document.getElementById('requireClientCert').checked
+            };
+
+            console.log('Update server settings:', settings);
+            // TODO: Implement server settings update
+        }
+
+        function updateSecuritySettings() {
+            const settings = {
+                cipherSuites: document.getElementById('cipherSuites').value,
+                enablePfs: document.getElementById('enablePfs').checked,
+                enableOcsp: document.getElementById('enableOcsp').checked,
+                enableHsts: document.getElementById('enableHsts').checked
+            };
+
+            console.log('Update security settings:', settings);
+            // TODO: Implement security settings update
+        }
+
+        function refreshConnections() {
+            loadActiveConnections();
+        }
+
+        function closeConnection(id) {
+            if (confirm('Are you sure you want to close this connection?')) {
+                console.log('Close connection:', id);
+                // TODO: Implement connection closing
+            }
+        }
+
+        function closeAllConnections() {
+            if (confirm('Are you sure you want to close all RadSec connections?')) {
+                console.log('Close all connections');
+                // TODO: Implement close all connections
+            }
+        }
+
+        function exportConnectionLog() {
+            console.log('Export connection log');
+            // TODO: Implement connection log export
+        }
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

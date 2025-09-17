@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="stylesheet" href="/radius-admin/static/style.css">
+</head>
+<body>
+    <!-- Navigation (same as dashboard) -->
+    <nav class="nav-container">
+        <div class="nav-content">
+            <a href="/radius-admin" class="nav-brand">
+                <span class="icon">📡</span>
+                RADIUS Admin
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/radius-admin/dashboard">Dashboard</a></li>
+                <li><a href="/radius-admin/clients">Clients</a></li>
+                <li><a href="/radius-admin/vlans">VLANs</a></li>
+                <li><a href="/radius-admin/policies">Policies</a></li>
+                <li><a href="/radius-admin/testing">Testing</a></li>
+                <li><a href="/radius-admin/certificates" class="active">Certificates</a></li>
+                <li><a href="/radius-admin/monitoring">Monitoring</a></li>
+                <li><a href="/radius-admin/reports">Reports</a></li>
+                <li><a href="/ca-manager">CA Manager</a></li>
+            </ul>
+
+            <div class="nav-user">
+                <div class="user-info">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="role">{{ user.roles|join(', ') }}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Certificate Status Overview -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">🔒 Certificate Status Overview</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" onclick="syncCertificates()">
+                        🔄 Sync Certificates
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadCertificateStatus()">
+                        📊 Check Status
+                    </button>
+                </div>
+            </div>
+
+            <div class="cert-status-grid">
+                <div class="status-card ca-cert">
+                    <h4>CA Certificate</h4>
+                    <div class="status-indicator" id="caStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Checking...</span>
+                    </div>
+                    <div class="cert-dates" id="caDates">Loading...</div>
+                </div>
+                <div class="status-card server-cert">
+                    <h4>Server Certificate</h4>
+                    <div class="status-indicator" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Checking...</span>
+                    </div>
+                    <div class="cert-dates" id="serverDates">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Certificate Management -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Certificate Management</h2>
+                <div class="section-actions">
+                    <button class="btn btn-info" onclick="loadCertificates()">
+                        📋 Refresh List
+                    </button>
+                </div>
+            </div>
+
+            <div class="cert-grid" id="certificatesGrid">
+                <div class="loading">Loading certificates...</div>
+            </div>
+        </div>
+
+        <!-- Certificate Sync Logs -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Sync Logs</h2>
+            </div>
+            <div class="terminal-container">
+                <div class="terminal" id="syncLogs">
+                    Ready to sync certificates...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Certificate Details Modal -->
+    <div id="certDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Certificate Details</h3>
+                <button class="modal-close" onclick="closeCertModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="cert-detail-content" id="certDetailContent">
+                    Loading certificate details...
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCertModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Certificate Status Grid */
+        .cert-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .status-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .status-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .status-card h4 {
+            margin: 0 0 1rem 0;
+            color: var(--dark);
+            font-size: 1.125rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .status-dot.valid {
+            background: var(--success);
+        }
+
+        .status-dot.invalid {
+            background: var(--danger);
+        }
+
+        .cert-dates {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            font-family: monospace;
+        }
+
+        /* Certificate Grid */
+        .cert-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .cert-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .cert-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .cert-name {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .cert-type {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .cert-type.ca {
+            background: #f0f9ff;
+            color: #0369a1;
+        }
+
+        .cert-type.server {
+            background: #f6fef9;
+            color: #027a48;
+        }
+
+        .cert-type.client {
+            background: #fffcf5;
+            color: #b54708;
+        }
+
+        .cert-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .cert-info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .cert-info-label {
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .cert-info-value {
+            color: var(--text);
+            font-family: monospace;
+            text-align: right;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cert-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Terminal for sync logs */
+        .terminal-container {
+            margin-top: 1.5rem;
+        }
+
+        .terminal {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 1rem;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-content.large {
+            max-width: 800px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .cert-detail-content {
+            font-family: monospace;
+            font-size: 0.875rem;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        /* Base styles */
+        :root {
+            --primary: #1a73e8;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --dark: #202124;
+            --light: #f8f9fa;
+            --border: #dadce0;
+            --text: #3c4043;
+            --text-light: #5f6368;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .nav-container {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .nav-menu a:hover {
+            background: var(--light);
+        }
+
+        .nav-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1557b0;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-info {
+            background: #e8f4fd;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+    </style>
+
+    <script>
+        // Load certificate status on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCertificateStatus();
+            loadCertificates();
+        });
+
+        async function loadCertificateStatus() {
+            try {
+                const response = await fetch('/radius-admin/api/certificates/status');
+                const data = await response.json();
+
+                // Update CA certificate status
+                const caStatus = document.getElementById('caStatus');
+                const caStatusDot = caStatus.querySelector('.status-dot');
+                const caStatusText = caStatus.querySelector('.status-text');
+                const caDates = document.getElementById('caDates');
+
+                if (data.ca_cert_valid) {
+                    caStatusDot.classList.add('valid');
+                    caStatusText.textContent = 'Valid';
+                    caDates.textContent = data.ca_dates;
+                } else {
+                    caStatusDot.classList.add('invalid');
+                    caStatusText.textContent = 'Invalid/Missing';
+                    caDates.textContent = 'Not found';
+                }
+
+                // Update server certificate status
+                const serverStatus = document.getElementById('serverStatus');
+                const serverStatusDot = serverStatus.querySelector('.status-dot');
+                const serverStatusText = serverStatus.querySelector('.status-text');
+                const serverDates = document.getElementById('serverDates');
+
+                if (data.server_cert_valid) {
+                    serverStatusDot.classList.add('valid');
+                    serverStatusText.textContent = 'Valid';
+                    serverDates.textContent = data.server_dates;
+                } else {
+                    serverStatusDot.classList.add('invalid');
+                    serverStatusText.textContent = 'Invalid/Missing';
+                    serverDates.textContent = 'Not found';
+                }
+
+            } catch (error) {
+                console.error('Error loading certificate status:', error);
+            }
+        }
+
+        async function loadCertificates() {
+            try {
+                const response = await fetch('/radius-admin/api/certificates');
+                const data = await response.json();
+                displayCertificates(data.certificates);
+            } catch (error) {
+                console.error('Error loading certificates:', error);
+            }
+        }
+
+        function displayCertificates(certificates) {
+            const grid = document.getElementById('certificatesGrid');
+
+            if (!certificates || certificates.length === 0) {
+                grid.innerHTML = '<div class="loading">No certificates found</div>';
+                return;
+            }
+
+            grid.innerHTML = certificates.map(cert => `
+                <div class="cert-card">
+                    <div class="cert-name">${cert.name}</div>
+                    <div class="cert-type ${cert.type}">${cert.type}</div>
+                    <div class="cert-info">
+                        <div class="cert-info-row">
+                            <span class="cert-info-label">Subject:</span>
+                            <span class="cert-info-value" title="${cert.subject}">${cert.subject}</span>
+                        </div>
+                        <div class="cert-info-row">
+                            <span class="cert-info-label">Valid From:</span>
+                            <span class="cert-info-value">${cert.not_before}</span>
+                        </div>
+                        <div class="cert-info-row">
+                            <span class="cert-info-label">Valid Until:</span>
+                            <span class="cert-info-value">${cert.not_after}</span>
+                        </div>
+                        <div class="cert-info-row">
+                            <span class="cert-info-label">Path:</span>
+                            <span class="cert-info-value" title="${cert.path}">${cert.path}</span>
+                        </div>
+                    </div>
+                    <div class="cert-actions">
+                        <button class="btn btn-sm btn-info" onclick="viewCertificate('${cert.path}')">View Details</button>
+                        <button class="btn btn-sm btn-secondary" onclick="validateCertificate('${cert.path}')">Validate</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function syncCertificates() {
+            const logsTerminal = document.getElementById('syncLogs');
+            logsTerminal.textContent = 'Starting certificate synchronization...\n';
+
+            try {
+                const response = await fetch('/radius-admin/api/certificates/sync', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    logsTerminal.textContent += 'SUCCESS: ' + data.message + '\n';
+                    logsTerminal.textContent += data.output + '\n';
+
+                    // Reload certificates and status
+                    loadCertificateStatus();
+                    loadCertificates();
+                } else {
+                    logsTerminal.textContent += 'ERROR: ' + data.message + '\n';
+                    logsTerminal.textContent += data.error + '\n';
+                }
+            } catch (error) {
+                logsTerminal.textContent += 'ERROR: ' + error.message + '\n';
+            }
+
+            // Scroll to bottom
+            logsTerminal.scrollTop = logsTerminal.scrollHeight;
+        }
+
+        async function viewCertificate(certPath) {
+            try {
+                const response = await fetch('/radius-admin/api/certificates/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cert_path: certPath })
+                });
+                const data = await response.json();
+
+                document.getElementById('certDetailContent').textContent = data.valid ? data.details : data.error;
+                document.getElementById('certDetailsModal').style.display = 'flex';
+            } catch (error) {
+                alert('Error viewing certificate: ' + error.message);
+            }
+        }
+
+        async function validateCertificate(certPath) {
+            try {
+                const response = await fetch('/radius-admin/api/certificates/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cert_path: certPath })
+                });
+                const data = await response.json();
+
+                if (data.valid) {
+                    alert('Certificate is valid');
+                } else {
+                    alert('Certificate validation failed: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error validating certificate: ' + error.message);
+            }
+        }
+
+        function closeCertModal() {
+            document.getElementById('certDetailsModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

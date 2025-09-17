@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="stylesheet" href="/radius-admin/static/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav-container">
+        <div class="nav-content">
+            <a href="/radius-admin" class="nav-brand">
+                <span class="icon">📡</span>
+                RADIUS Admin
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/radius-admin/dashboard">Dashboard</a></li>
+                <li><a href="/radius-admin/clients">Clients</a></li>
+                <li><a href="/radius-admin/vlans">VLANs</a></li>
+                <li><a href="/radius-admin/policies">Policies</a></li>
+                <li><a href="/radius-admin/testing">Testing</a></li>
+                <li><a href="/radius-admin/certificates">Certificates</a></li>
+                <li><a href="/radius-admin/monitoring">Monitoring</a></li>
+                <li><a href="/radius-admin/reports">Reports</a></li>
+                <li><a href="/ca-manager">CA Manager</a></li>
+            </ul>
+
+            <div class="nav-user">
+                <div class="user-info">
+                    <div class="username">{{ user.username }}</div>
+                    <div class="role">{{ user.roles|join(', ') }}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Configuration Section -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">🔐 IDP-RADIUS Bridge Configuration</h2>
+                <div class="section-actions">
+                    <button class="btn btn-info" onclick="testConfiguration()">🧪 Test Configuration</button>
+                    <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save Configuration</button>
+                </div>
+            </div>
+
+            <div class="config-form">
+                <p class="description">
+                    Configure automatic RADIUS account provisioning for Identity Provider users.
+                    This allows Google/Microsoft SSO users to authenticate to WiFi networks using generated RADIUS credentials.
+                </p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="autoProvisioning">Auto-Provisioning:</label>
+                        <select id="autoProvisioning">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="defaultVlan">Default VLAN:</label>
+                        <select id="defaultVlan">
+                            <option value="">Select VLAN...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="usernameFormat">Username Format:</label>
+                        <select id="usernameFormat">
+                            <option value="email">Full Email</option>
+                            <option value="prefix">Email Prefix Only</option>
+                            <option value="custom">Custom Pattern</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="passwordComplexity">Password Complexity:</label>
+                        <select id="passwordComplexity">
+                            <option value="standard">Standard (12 chars)</option>
+                            <option value="strong">Strong (16 chars)</option>
+                            <option value="maximum">Maximum (24 chars)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Mappings Section -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">👥 IDP-RADIUS User Mappings</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" onclick="showAddMappingModal()">➕ Add Mapping</button>
+                    <button class="btn btn-secondary" onclick="loadMappings()">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <div class="mappings-container">
+                <div class="mappings-grid" id="mappingsGrid">
+                    <div class="loading">Loading user mappings...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Section -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">📊 Statistics</h2>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalMappings">0</div>
+                    <div class="stat-label">Total Mappings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="activeMappings">0</div>
+                    <div class="stat-label">Active Mappings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="recentAuth">0</div>
+                    <div class="stat-label">Recent Auth (24h)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalAuth">0</div>
+                    <div class="stat-label">Total Authentications</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Mapping Modal -->
+    <div id="addMappingModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add IDP-RADIUS Mapping</h3>
+                <button class="modal-close" onclick="hideAddMappingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addMappingForm">
+                    <div class="form-group">
+                        <label for="userEmail">Email Address:</label>
+                        <input type="email" id="userEmail" required placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="userProvider">Provider:</label>
+                        <select id="userProvider">
+                            <option value="manual">Manual</option>
+                            <option value="google">Google</option>
+                            <option value="microsoft">Microsoft</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="radiusUsername">RADIUS Username:</label>
+                        <input type="text" id="radiusUsername" required placeholder="radius_user">
+                    </div>
+                    <div class="form-group">
+                        <label for="userVlan">Default VLAN:</label>
+                        <select id="userVlan">
+                            <option value="">Default VLAN</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAddMappingModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createMapping()">Create Mapping</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Generated RADIUS Password</h3>
+                <button class="modal-close" onclick="hidePasswordModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>The following RADIUS password has been generated. Please save it securely as it will not be shown again.</p>
+                <div class="password-display">
+                    <input type="text" id="generatedPassword" readonly>
+                    <button class="btn btn-secondary" onclick="copyPassword()">📋 Copy</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="hidePasswordModal()">I've Saved It</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Configuration Form */
+        .config-form {
+            margin-top: 1.5rem;
+        }
+
+        .description {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .form-group select,
+        .form-group input {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        /* Mappings Grid */
+        .mappings-container {
+            margin-top: 1.5rem;
+        }
+
+        .mappings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .mapping-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .mapping-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .mapping-card.inactive {
+            opacity: 0.6;
+        }
+
+        .mapping-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .mapping-email {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .mapping-provider {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .mapping-provider.google {
+            background: #e8f5e8;
+            color: #137333;
+        }
+
+        .mapping-provider.microsoft {
+            background: #e1f5fe;
+            color: #01579b;
+        }
+
+        .mapping-provider.manual {
+            background: #f5f5f5;
+            color: #424242;
+        }
+
+        .mapping-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .mapping-info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .mapping-info-label {
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .mapping-info-value {
+            color: var(--text);
+            font-family: monospace;
+        }
+
+        .mapping-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Statistics Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+
+        /* Password Display */
+        .password-display {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .password-display input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: monospace;
+            background: #f8f9fa;
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        /* Base styles */
+        :root {
+            --primary: #1a73e8;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --dark: #202124;
+            --light: #f8f9fa;
+            --border: #dadce0;
+            --text: #3c4043;
+            --text-light: #5f6368;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .nav-container {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .nav-menu a:hover {
+            background: var(--light);
+        }
+
+        .nav-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1557b0;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-info {
+            background: #e8f4fd;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .btn-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        .btn-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+    </style>
+
+    <script>
+        let currentConfig = {};
+        let vlans = [];
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVlans();
+            loadConfiguration();
+            loadMappings();
+        });
+
+        async function loadVlans() {
+            try {
+                const response = await fetch('/radius-admin/api/vlans');
+                const data = await response.json();
+
+                if (data.vlans) {
+                    vlans = data.vlans;
+                    updateVlanSelects();
+                }
+            } catch (error) {
+                console.error('Error loading VLANs:', error);
+            }
+        }
+
+        function updateVlanSelects() {
+            const selects = ['defaultVlan', 'userVlan'];
+
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    // Clear existing options (except first)
+                    while (select.children.length > 1) {
+                        select.removeChild(select.lastChild);
+                    }
+
+                    vlans.forEach(vlan => {
+                        if (vlan.active) {
+                            const option = document.createElement('option');
+                            option.value = vlan.vlan_id;
+                            option.textContent = `VLAN ${vlan.vlan_id} - ${vlan.name}`;
+                            select.appendChild(option);
+                        }
+                    });
+                }
+            });
+        }
+
+        async function loadConfiguration() {
+            try {
+                const response = await fetch('/radius-admin/api/idp-bridge/config');
+                const data = await response.json();
+
+                if (data.config) {
+                    currentConfig = data.config;
+                    updateConfigForm();
+                }
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+            }
+        }
+
+        function updateConfigForm() {
+            document.getElementById('autoProvisioning').value = currentConfig.auto_provisioning_enabled ? 'true' : 'false';
+            document.getElementById('defaultVlan').value = currentConfig.default_vlan_id || '';
+            document.getElementById('usernameFormat').value = currentConfig.radius_username_format || 'email';
+            document.getElementById('passwordComplexity').value = currentConfig.password_complexity || 'standard';
+        }
+
+        async function saveConfiguration() {
+            try {
+                const config = {
+                    auto_provisioning_enabled: document.getElementById('autoProvisioning').value === 'true',
+                    default_vlan_id: document.getElementById('defaultVlan').value || null,
+                    radius_username_format: document.getElementById('usernameFormat').value,
+                    password_complexity: document.getElementById('passwordComplexity').value
+                };
+
+                const response = await fetch('/radius-admin/api/idp-bridge/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    alert('Configuration saved successfully!');
+                    currentConfig = config;
+                } else {
+                    alert('Failed to save configuration: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving configuration:', error);
+                alert('Error saving configuration');
+            }
+        }
+
+        async function testConfiguration() {
+            try {
+                const response = await fetch('/radius-admin/api/idp-bridge/test', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    alert('Configuration test completed:\n\n' + data.test_results.join('\n'));
+                } else {
+                    alert('Configuration test failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error testing configuration:', error);
+                alert('Error testing configuration');
+            }
+        }
+
+        async function loadMappings() {
+            try {
+                const response = await fetch('/radius-admin/api/idp-bridge/mappings');
+                const data = await response.json();
+
+                if (data.mappings) {
+                    displayMappings(data.mappings);
+                    updateStatistics(data.mappings);
+                } else {
+                    document.getElementById('mappingsGrid').innerHTML = '<div class="loading">Failed to load mappings</div>';
+                }
+            } catch (error) {
+                console.error('Error loading mappings:', error);
+                document.getElementById('mappingsGrid').innerHTML = '<div class="loading">Error loading mappings</div>';
+            }
+        }
+
+        function displayMappings(mappings) {
+            const grid = document.getElementById('mappingsGrid');
+
+            if (mappings.length === 0) {
+                grid.innerHTML = '<div class="loading">No IDP-RADIUS mappings configured</div>';
+                return;
+            }
+
+            grid.innerHTML = mappings.map(mapping => `
+                <div class="mapping-card ${mapping.active ? '' : 'inactive'}">
+                    <div class="mapping-header">
+                        <div class="mapping-email">${mapping.email}</div>
+                        <div class="mapping-provider ${mapping.provider}">${mapping.provider}</div>
+                    </div>
+                    <div class="mapping-info">
+                        <div class="mapping-info-row">
+                            <span class="mapping-info-label">RADIUS Username:</span>
+                            <span class="mapping-info-value">${mapping.radius_username}</span>
+                        </div>
+                        <div class="mapping-info-row">
+                            <span class="mapping-info-label">VLAN:</span>
+                            <span class="mapping-info-value">${mapping.vlan_name ? `${mapping.vlan_number} - ${mapping.vlan_name}` : 'Default'}</span>
+                        </div>
+                        <div class="mapping-info-row">
+                            <span class="mapping-info-label">Auth Count:</span>
+                            <span class="mapping-info-value">${mapping.auth_count}</span>
+                        </div>
+                        <div class="mapping-info-row">
+                            <span class="mapping-info-label">Last Auth:</span>
+                            <span class="mapping-info-value">${mapping.last_auth_at ? new Date(mapping.last_auth_at).toLocaleDateString() : 'Never'}</span>
+                        </div>
+                    </div>
+                    <div class="mapping-actions">
+                        <button class="btn btn-sm ${mapping.active ? 'btn-warning' : 'btn-success'}"
+                                onclick="toggleMapping(${mapping.id}, ${!mapping.active})">
+                            ${mapping.active ? '⏸️ Disable' : '▶️ Enable'}
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="regeneratePassword(${mapping.id})">
+                            🔄 New Password
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteMapping(${mapping.id})">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStatistics(mappings) {
+            const totalMappings = mappings.length;
+            const activeMappings = mappings.filter(m => m.active).length;
+            const recentAuth = mappings.filter(m => {
+                if (!m.last_auth_at) return false;
+                const lastAuth = new Date(m.last_auth_at);
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                return lastAuth > oneDayAgo;
+            }).length;
+            const totalAuth = mappings.reduce((sum, m) => sum + (m.auth_count || 0), 0);
+
+            document.getElementById('totalMappings').textContent = totalMappings;
+            document.getElementById('activeMappings').textContent = activeMappings;
+            document.getElementById('recentAuth').textContent = recentAuth;
+            document.getElementById('totalAuth').textContent = totalAuth;
+        }
+
+        function showAddMappingModal() {
+            document.getElementById('addMappingModal').style.display = 'flex';
+        }
+
+        function hideAddMappingModal() {
+            document.getElementById('addMappingModal').style.display = 'none';
+            document.getElementById('addMappingForm').reset();
+        }
+
+        async function createMapping() {
+            const email = document.getElementById('userEmail').value;
+            const provider = document.getElementById('userProvider').value;
+            const username = document.getElementById('radiusUsername').value;
+            const vlanId = document.getElementById('userVlan').value;
+
+            if (!email || !username) {
+                alert('Email and RADIUS username are required');
+                return;
+            }
+
+            try {
+                const response = await fetch('/radius-admin/api/idp-bridge/mappings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: email,
+                        provider: provider,
+                        username: username,
+                        vlan_id: vlanId || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    hideAddMappingModal();
+                    loadMappings();
+
+                    if (data.radius_password) {
+                        document.getElementById('generatedPassword').value = data.radius_password;
+                        document.getElementById('passwordModal').style.display = 'flex';
+                    }
+                } else {
+                    alert('Failed to create mapping: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating mapping:', error);
+                alert('Error creating mapping');
+            }
+        }
+
+        async function toggleMapping(mappingId, enable) {
+            try {
+                const response = await fetch(`/radius-admin/api/idp-bridge/mappings/${mappingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active: enable })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    loadMappings();
+                } else {
+                    alert('Failed to update mapping: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating mapping:', error);
+                alert('Error updating mapping');
+            }
+        }
+
+        async function regeneratePassword(mappingId) {
+            if (!confirm('Are you sure you want to regenerate the RADIUS password? The user will need to update their device configurations.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/radius-admin/api/idp-bridge/mappings/${mappingId}/regenerate-password`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    document.getElementById('generatedPassword').value = data.radius_password;
+                    document.getElementById('passwordModal').style.display = 'flex';
+                } else {
+                    alert('Failed to regenerate password: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error regenerating password:', error);
+                alert('Error regenerating password');
+            }
+        }
+
+        async function deleteMapping(mappingId) {
+            if (!confirm('Are you sure you want to delete this IDP-RADIUS mapping? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/radius-admin/api/idp-bridge/mappings/${mappingId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    loadMappings();
+                } else {
+                    alert('Failed to delete mapping: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error deleting mapping:', error);
+                alert('Error deleting mapping');
+            }
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+        }
+
+        function copyPassword() {
+            const passwordField = document.getElementById('generatedPassword');
+            passwordField.select();
+            document.execCommand('copy');
+            alert('Password copied to clipboard!');
+        }
+    </script>
+</body>
+</html>

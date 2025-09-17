@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <button class="btn btn-primary btn-sm" onclick="showAddMappingModal()">
+                        ➕ Add Mapping
+                    </button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item active">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>IDP Status</h3>
+                    <div class="value" id="idpStatus">🟢</div>
+                    <div class="label" id="idpStatusLabel">Connected</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Active Mappings</h3>
+                    <div class="value" id="activeMappings">0</div>
+                    <div class="label">User mappings</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Today's Auths</h3>
+                    <div class="value" id="todayAuths">0</div>
+                    <div class="label">IDP authentications</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="successRate">0%</div>
+                    <div class="label">Authentication success</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- IDP Configuration -->
+            <div class="section">
+                <h2><span class="section-icon">🔐</span>Identity Provider Configuration</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">LDAP Configuration</h3>
+                            <span class="status-indicator success" id="ldapStatus">
+                                <span>●</span> Connected
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="ldapServer">LDAP Server:</label>
+                                <input type="text" id="ldapServer" placeholder="ldap://ldap.example.com:389">
+                            </div>
+                            <div class="form-group">
+                                <label for="ldapBaseDn">Base DN:</label>
+                                <input type="text" id="ldapBaseDn" placeholder="dc=example,dc=com">
+                            </div>
+                            <div class="form-group">
+                                <label for="ldapBindDn">Bind DN:</label>
+                                <input type="text" id="ldapBindDn" placeholder="cn=admin,dc=example,dc=com">
+                            </div>
+                            <div class="form-group">
+                                <label for="ldapBindPassword">Bind Password:</label>
+                                <input type="password" id="ldapBindPassword">
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableLdapTls">
+                                    Enable LDAP over TLS
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="verifyLdapCert">
+                                    Verify LDAP certificate
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-success btn-sm" onclick="testLdapConnection()">🧪 Test Connection</button>
+                            <button class="btn btn-primary btn-sm" onclick="updateLdapConfig()">💾 Save Config</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Active Directory Configuration</h3>
+                            <span class="status-indicator warning" id="adStatus">
+                                <span>⚠</span> Not Configured
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="adDomain">AD Domain:</label>
+                                <input type="text" id="adDomain" placeholder="example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="adServer">Domain Controller:</label>
+                                <input type="text" id="adServer" placeholder="dc1.example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="adServiceAccount">Service Account:</label>
+                                <input type="text" id="adServiceAccount" placeholder="svc_radius@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="adServicePassword">Service Password:</label>
+                                <input type="password" id="adServicePassword">
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableAdLdaps">
+                                    Enable LDAPS (636)
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableAdGlobalCatalog">
+                                    Use Global Catalog (3268)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-success btn-sm" onclick="testAdConnection()">🧪 Test Connection</button>
+                            <button class="btn btn-primary btn-sm" onclick="updateAdConfig()">💾 Save Config</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Mappings -->
+            <div class="section">
+                <h2><span class="section-icon">👥</span>User Mappings</h2>
+
+                <div class="grid" id="mappingsGrid">
+                    <div class="loading">Loading user mappings...</div>
+                </div>
+            </div>
+
+            <!-- Group Mappings -->
+            <div class="section">
+                <h2><span class="section-icon">👥</span>Group Mappings</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">LDAP/AD Group to VLAN Mappings</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshGroupMappings()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="groupMappingsTable">
+                            <div class="loading">Loading group mappings...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-primary btn-sm" onclick="showAddGroupMappingModal()">➕ Add Group Mapping</button>
+                        <button class="btn btn-info btn-sm" onclick="importGroupMappings()">📥 Import Mappings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authentication Flow -->
+            <div class="section">
+                <h2><span class="section-icon">🔄</span>Authentication Flow</h2>
+
+                <div class="grid grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Step 1: RADIUS Request</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>🖥️ Network device sends RADIUS authentication request</p>
+                            <p>📋 Request contains username and credentials</p>
+                            <p>🔍 RADIUS server validates request format</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Step 2: IDP Lookup</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>🔐 Bridge forwards credentials to IDP</p>
+                            <p>🔍 LDAP/AD lookup for user authentication</p>
+                            <p>👥 Group membership retrieval</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Step 3: RADIUS Response</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>✅ Authentication result from IDP</p>
+                            <p>🌐 VLAN assignment based on group mapping</p>
+                            <p>📤 RADIUS response with attributes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="section">
+                <h2><span class="section-icon">📋</span>Recent IDP Authentication Activity</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Latest IDP Authentications</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshIdpActivity()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="idpActivityTable">
+                            <div class="loading">Loading IDP activity...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="/radius-admin/reports" class="btn btn-info btn-sm">📄 View Full Reports</a>
+                        <button class="btn btn-warning btn-sm" onclick="exportIdpLogs()">📥 Export Logs</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Mapping Modal -->
+    <div id="addMappingModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add User Mapping</h3>
+                <button class="modal-close" onclick="hideAddMappingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addMappingForm">
+                    <div class="form-group">
+                        <label for="mappingType">Mapping Type:</label>
+                        <select id="mappingType" name="type">
+                            <option value="user">Individual User</option>
+                            <option value="group">Group Membership</option>
+                            <option value="ou">Organizational Unit</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldapAttribute">LDAP/AD Attribute:</label>
+                        <input type="text" id="ldapAttribute" name="attribute" required placeholder="e.g., cn, memberOf, ou">
+                    </div>
+                    <div class="form-group">
+                        <label for="attributeValue">Attribute Value:</label>
+                        <input type="text" id="attributeValue" name="value" required placeholder="e.g., john.doe, CN=Employees,DC=example,DC=com">
+                    </div>
+                    <div class="form-group">
+                        <label for="assignedVlan">Assigned VLAN:</label>
+                        <input type="number" id="assignedVlan" name="vlan_id" required min="1" max="4094" placeholder="e.g., 100">
+                    </div>
+                    <div class="form-group">
+                        <label for="mappingPriority">Priority:</label>
+                        <input type="number" id="mappingPriority" name="priority" value="10" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="mappingDescription">Description:</label>
+                        <textarea id="mappingDescription" name="description" placeholder="Optional description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAddMappingModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addMapping()">Add Mapping</button>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMappings();
+            loadGroupMappings();
+            loadIdpMetrics();
+            loadIdpActivity();
+            initializeScrollEffects();
+
+            // Auto-refresh every 60 seconds
+            setInterval(loadIdpMetrics, 60000);
+            setInterval(loadIdpActivity, 60000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadMappings() {
+            try {
+                const response = await fetch('/radius-admin/api/idp/mappings');
+                const data = await response.json();
+                displayMappings(data.mappings);
+            } catch (error) {
+                console.error('Error loading mappings:', error);
+                document.getElementById('mappingsGrid').innerHTML = '<div class="loading">Error loading user mappings</div>';
+            }
+        }
+
+        function displayMappings(mappings) {
+            const grid = document.getElementById('mappingsGrid');
+
+            if (!mappings || mappings.length === 0) {
+                grid.innerHTML = '<div class="loading">No user mappings configured</div>';
+                return;
+            }
+
+            grid.innerHTML = mappings.map(mapping => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">${mapping.type}: ${mapping.attribute}</h3>
+                        <span class="status-indicator ${mapping.enabled ? 'success' : 'warning'}">
+                            ${mapping.enabled ? '✓ Active' : '⏸ Disabled'}
+                        </span>
+                    </div>
+                    <div class="card-content">
+                        <p><strong>Value:</strong> <code>${mapping.value}</code></p>
+                        <p><strong>VLAN:</strong> ${mapping.vlan_id}</p>
+                        <p><strong>Priority:</strong> ${mapping.priority}</p>
+                        <p><strong>Description:</strong> ${mapping.description || 'N/A'}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-info btn-sm" onclick="editMapping('${mapping.id}')">✏️ Edit</button>
+                        <button class="btn ${mapping.enabled ? 'btn-warning' : 'btn-success'} btn-sm"
+                                onclick="toggleMapping('${mapping.id}', ${!mapping.enabled})">
+                            ${mapping.enabled ? '⏸ Disable' : '▶️ Enable'}
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteMapping('${mapping.id}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update metrics
+            document.getElementById('activeMappings').textContent = mappings.filter(m => m.enabled).length;
+        }
+
+        async function loadGroupMappings() {
+            try {
+                const response = await fetch('/radius-admin/api/idp/group-mappings');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('groupMappingsTable');
+
+                if (data.mappings && data.mappings.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Group DN</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">VLAN ID</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Priority</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.mappings.map(mapping => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-family: monospace; font-size: 0.8rem;">${mapping.group_dn}</td>
+                                        <td style="padding: 0.5rem; text-align: center;">${mapping.vlan_id}</td>
+                                        <td style="padding: 0.5rem; text-align: center;">${mapping.priority}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${mapping.enabled ? 'success' : 'warning'}">
+                                                ${mapping.enabled ? '✓ Active' : '⏸ Disabled'}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 0.5rem;">
+                                            <button class="btn btn-info btn-sm" onclick="editGroupMapping('${mapping.id}')">✏️ Edit</button>
+                                            <button class="btn btn-danger btn-sm" onclick="deleteGroupMapping('${mapping.id}')">🗑️ Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No group mappings configured</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading group mappings:', error);
+                document.getElementById('groupMappingsTable').innerHTML = '<div class="loading">Error loading group mappings</div>';
+            }
+        }
+
+        async function loadIdpMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/idp/metrics');
+                const data = await response.json();
+
+                // Update status indicators
+                const statusElement = document.getElementById('idpStatus');
+                const statusLabel = document.getElementById('idpStatusLabel');
+
+                if (data.idp_connected) {
+                    statusElement.textContent = '🟢';
+                    statusLabel.textContent = 'Connected';
+                } else {
+                    statusElement.textContent = '🔴';
+                    statusLabel.textContent = 'Disconnected';
+                }
+
+                // Update metrics
+                document.getElementById('activeMappings').textContent = data.active_mappings || 0;
+                document.getElementById('todayAuths').textContent = data.today_auths || 0;
+                document.getElementById('successRate').textContent = (data.success_rate || 0) + '%';
+
+            } catch (error) {
+                console.error('Error loading IDP metrics:', error);
+            }
+        }
+
+        async function loadIdpActivity() {
+            try {
+                const response = await fetch('/radius-admin/api/idp/activity?limit=10');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('idpActivityTable');
+
+                if (data.activity && data.activity.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">User</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">IDP Source</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">VLAN</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.activity.map(act => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-family: monospace;">${act.username}</td>
+                                        <td style="padding: 0.5rem;">${act.idp_source}</td>
+                                        <td style="padding: 0.5rem; text-align: center;">${act.assigned_vlan || 'Default'}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${act.success ? 'success' : 'error'}">
+                                                ${act.success ? '✓ Success' : '✗ Failed'}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 0.5rem; font-size: 0.8rem; color: var(--medium-gray);">
+                                            ${act.timestamp ? new Date(act.timestamp).toLocaleString() : 'Unknown'}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No recent IDP authentication activity</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading IDP activity:', error);
+                document.getElementById('idpActivityTable').innerHTML = '<div class="loading">Error loading IDP activity</div>';
+            }
+        }
+
+        function showAddMappingModal() {
+            document.getElementById('addMappingModal').style.display = 'flex';
+        }
+
+        function hideAddMappingModal() {
+            document.getElementById('addMappingModal').style.display = 'none';
+            document.getElementById('addMappingForm').reset();
+        }
+
+        async function addMapping() {
+            const form = document.getElementById('addMappingForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/radius-admin/api/idp/mappings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    hideAddMappingModal();
+                    loadMappings();
+                } else {
+                    alert('Failed to add mapping');
+                }
+            } catch (error) {
+                console.error('Error adding mapping:', error);
+                alert('Error adding mapping');
+            }
+        }
+
+        function testLdapConnection() {
+            console.log('Test LDAP connection');
+            // TODO: Implement LDAP connection test
+        }
+
+        function testAdConnection() {
+            console.log('Test AD connection');
+            // TODO: Implement AD connection test
+        }
+
+        function updateLdapConfig() {
+            const config = {
+                server: document.getElementById('ldapServer').value,
+                baseDn: document.getElementById('ldapBaseDn').value,
+                bindDn: document.getElementById('ldapBindDn').value,
+                bindPassword: document.getElementById('ldapBindPassword').value,
+                enableTls: document.getElementById('enableLdapTls').checked,
+                verifyCert: document.getElementById('verifyLdapCert').checked
+            };
+
+            console.log('Update LDAP config:', config);
+            // TODO: Implement LDAP config update
+        }
+
+        function updateAdConfig() {
+            const config = {
+                domain: document.getElementById('adDomain').value,
+                server: document.getElementById('adServer').value,
+                serviceAccount: document.getElementById('adServiceAccount').value,
+                servicePassword: document.getElementById('adServicePassword').value,
+                enableLdaps: document.getElementById('enableAdLdaps').checked,
+                enableGlobalCatalog: document.getElementById('enableAdGlobalCatalog').checked
+            };
+
+            console.log('Update AD config:', config);
+            // TODO: Implement AD config update
+        }
+
+        function editMapping(id) {
+            console.log('Edit mapping:', id);
+            // TODO: Implement edit functionality
+        }
+
+        function toggleMapping(id, enabled) {
+            console.log('Toggle mapping:', id, enabled);
+            // TODO: Implement toggle functionality
+        }
+
+        function deleteMapping(id) {
+            if (confirm('Are you sure you want to delete this mapping?')) {
+                console.log('Delete mapping:', id);
+                // TODO: Implement delete functionality
+            }
+        }
+
+        function refreshGroupMappings() {
+            loadGroupMappings();
+        }
+
+        function refreshIdpActivity() {
+            loadIdpActivity();
+        }
+
+        function showAddGroupMappingModal() {
+            console.log('Show add group mapping modal');
+            // TODO: Implement group mapping modal
+        }
+
+        function editGroupMapping(id) {
+            console.log('Edit group mapping:', id);
+            // TODO: Implement edit functionality
+        }
+
+        function deleteGroupMapping(id) {
+            if (confirm('Are you sure you want to delete this group mapping?')) {
+                console.log('Delete group mapping:', id);
+                // TODO: Implement delete functionality
+            }
+        }
+
+        function importGroupMappings() {
+            console.log('Import group mappings');
+            // TODO: Implement group mappings import
+        }
+
+        function exportIdpLogs() {
+            console.log('Export IDP logs');
+            // TODO: Implement IDP logs export
+        }
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

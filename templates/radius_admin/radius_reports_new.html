@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <button class="btn btn-primary btn-sm" onclick="generateCustomReport()">
+                        📊 Generate Report
+                    </button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item active">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>Today's Reports</h3>
+                    <div class="value" id="todayReports">0</div>
+                    <div class="label">Generated today</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Total Auths</h3>
+                    <div class="value" id="totalAuths">0</div>
+                    <div class="label">This month</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="monthlySuccessRate">0%</div>
+                    <div class="label">Monthly average</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Top User</h3>
+                    <div class="value" id="topUser">-</div>
+                    <div class="label">Most active user</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Pre-built Reports -->
+            <div class="section">
+                <h2><span class="section-icon">📊</span>Pre-built Reports</h2>
+
+                <div class="grid grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Authentication Summary</h3>
+                            <span class="status-indicator info">
+                                <span>📈</span> Daily
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> Authentication statistics</p>
+                            <p><strong>Period:</strong> Last 24 hours</p>
+                            <p><strong>Includes:</strong> Success/failure rates, user activity, method breakdown</p>
+                            <p><strong>Format:</strong> PDF, CSV, Excel</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="generateReport('auth_summary')">📊 Generate</button>
+                            <button class="btn btn-secondary btn-sm" onclick="scheduleReport('auth_summary')">⏰ Schedule</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">VLAN Usage Report</h3>
+                            <span class="status-indicator success">
+                                <span>🌐</span> Weekly
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> VLAN assignment analysis</p>
+                            <p><strong>Period:</strong> Last 7 days</p>
+                            <p><strong>Includes:</strong> VLAN utilization, policy effectiveness, user distribution</p>
+                            <p><strong>Format:</strong> PDF, CSV</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="generateReport('vlan_usage')">📊 Generate</button>
+                            <button class="btn btn-secondary btn-sm" onclick="scheduleReport('vlan_usage')">⏰ Schedule</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Security Audit</h3>
+                            <span class="status-indicator warning">
+                                <span>🔒</span> Monthly
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> Security compliance report</p>
+                            <p><strong>Period:</strong> Last 30 days</p>
+                            <p><strong>Includes:</strong> Failed logins, certificate status, policy violations</p>
+                            <p><strong>Format:</strong> PDF</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="generateReport('security_audit')">📊 Generate</button>
+                            <button class="btn btn-secondary btn-sm" onclick="scheduleReport('security_audit')">⏰ Schedule</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Client Performance</h3>
+                            <span class="status-indicator info">
+                                <span>🖥️</span> Real-time
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> RADIUS client analysis</p>
+                            <p><strong>Period:</strong> Current status</p>
+                            <p><strong>Includes:</strong> Response times, request rates, error rates</p>
+                            <p><strong>Format:</strong> PDF, CSV</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="generateReport('client_performance')">📊 Generate</button>
+                            <button class="btn btn-secondary btn-sm" onclick="scheduleReport('client_performance')">⏰ Schedule</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">User Activity Report</h3>
+                            <span class="status-indicator success">
+                                <span>👥</span> Weekly
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> User authentication patterns</p>
+                            <p><strong>Period:</strong> Last 7 days</p>
+                            <p><strong>Includes:</strong> Login frequency, time patterns, device usage</p>
+                            <p><strong>Format:</strong> PDF, CSV, Excel</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="generateReport('user_activity')">📊 Generate</button>
+                            <button class="btn btn-secondary btn-sm" onclick="scheduleReport('user_activity')">⏰ Schedule</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">System Health Report</h3>
+                            <span class="status-indicator info">
+                                <span>🏥</span> Daily
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> System performance metrics</p>
+                            <p><strong>Period:</strong> Last 24 hours</p>
+                            <p><strong>Includes:</strong> CPU, memory, disk usage, uptime statistics</p>
+                            <p><strong>Format:</strong> PDF</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="generateReport('system_health')">📊 Generate</button>
+                            <button class="btn btn-secondary btn-sm" onclick="scheduleReport('system_health')">⏰ Schedule</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Report Builder -->
+            <div class="section">
+                <h2><span class="section-icon">🛠️</span>Custom Report Builder</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Build Custom Report</h3>
+                        <span class="status-indicator info">
+                            <span>🎯</span> Customizable
+                        </span>
+                    </div>
+                    <div class="card-content">
+                        <div class="grid grid-2">
+                            <div>
+                                <div class="form-group">
+                                    <label for="reportName">Report Name:</label>
+                                    <input type="text" id="reportName" placeholder="e.g., Weekly Authentication Report">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reportType">Report Type:</label>
+                                    <select id="reportType">
+                                        <option value="authentication">Authentication Logs</option>
+                                        <option value="vlan_assignments">VLAN Assignments</option>
+                                        <option value="client_statistics">Client Statistics</option>
+                                        <option value="user_sessions">User Sessions</option>
+                                        <option value="system_events">System Events</option>
+                                        <option value="security_events">Security Events</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="dateRange">Date Range:</label>
+                                    <select id="dateRange">
+                                        <option value="today">Today</option>
+                                        <option value="yesterday">Yesterday</option>
+                                        <option value="last_7_days">Last 7 days</option>
+                                        <option value="last_30_days">Last 30 days</option>
+                                        <option value="custom">Custom Range</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="customDateRange" style="display: none;">
+                                    <label for="startDate">Start Date:</label>
+                                    <input type="date" id="startDate">
+                                    <label for="endDate">End Date:</label>
+                                    <input type="date" id="endDate">
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-group">
+                                    <label for="outputFormat">Output Format:</label>
+                                    <select id="outputFormat">
+                                        <option value="pdf">PDF Report</option>
+                                        <option value="csv">CSV Data</option>
+                                        <option value="excel">Excel Spreadsheet</option>
+                                        <option value="json">JSON Data</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Include Sections:</label>
+                                    <div class="checkbox-group">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="includeSummary" checked>
+                                            Executive Summary
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="includeCharts" checked>
+                                            Charts and Graphs
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="includeDetails" checked>
+                                            Detailed Data
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="includeRecommendations">
+                                            Recommendations
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="filterCriteria">Filter Criteria:</label>
+                                    <textarea id="filterCriteria" placeholder="e.g., username=admin, success=true, vlan_id=100" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-primary" onclick="buildCustomReport()">📊 Generate Custom Report</button>
+                        <button class="btn btn-secondary" onclick="saveReportTemplate()">💾 Save as Template</button>
+                        <button class="btn btn-info" onclick="previewReport()">👁️ Preview</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Reports -->
+            <div class="section">
+                <h2><span class="section-icon">📋</span>Recent Reports</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Generated Reports</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshRecentReports()">🔄 Refresh</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="recentReportsTable">
+                            <div class="loading">Loading recent reports...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-warning btn-sm" onclick="cleanupOldReports()">🗑️ Cleanup Old</button>
+                        <button class="btn btn-info btn-sm" onclick="bulkDownloadReports()">📥 Bulk Download</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scheduled Reports -->
+            <div class="section">
+                <h2><span class="section-icon">⏰</span>Scheduled Reports</h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Report Schedules</h3>
+                        <button class="btn btn-primary btn-sm" onclick="showAddScheduleModal()">➕ Add Schedule</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="scheduledReportsTable">
+                            <div class="loading">Loading scheduled reports...</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-info btn-sm" onclick="testEmailDelivery()">📧 Test Email</button>
+                        <button class="btn btn-warning btn-sm" onclick="pauseAllSchedules()">⏸️ Pause All</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadReportMetrics();
+            loadRecentReports();
+            loadScheduledReports();
+            initializeScrollEffects();
+
+            // Setup event listeners
+            document.getElementById('dateRange').addEventListener('change', toggleCustomDateRange);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        function toggleCustomDateRange() {
+            const dateRange = document.getElementById('dateRange').value;
+            const customDateRange = document.getElementById('customDateRange');
+
+            if (dateRange === 'custom') {
+                customDateRange.style.display = 'block';
+            } else {
+                customDateRange.style.display = 'none';
+            }
+        }
+
+        async function loadReportMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/report-metrics');
+                const data = await response.json();
+
+                document.getElementById('todayReports').textContent = data.today_reports || 0;
+                document.getElementById('totalAuths').textContent = data.monthly_auths || 0;
+                document.getElementById('monthlySuccessRate').textContent = (data.monthly_success_rate || 0) + '%';
+                document.getElementById('topUser').textContent = data.top_user || '-';
+
+            } catch (error) {
+                console.error('Error loading report metrics:', error);
+            }
+        }
+
+        async function loadRecentReports() {
+            try {
+                const response = await fetch('/radius-admin/api/recent-reports');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('recentReportsTable');
+
+                if (data.reports && data.reports.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Report Name</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Type</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Generated</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Size</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.reports.map(report => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-weight: 500;">${report.name}</td>
+                                        <td style="padding: 0.5rem;">${report.type}</td>
+                                        <td style="padding: 0.5rem; font-size: 0.8rem;">${report.generated_at}</td>
+                                        <td style="padding: 0.5rem; font-family: monospace;">${report.file_size}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <button class="btn btn-info btn-sm" onclick="downloadReport('${report.id}')">📥 Download</button>
+                                            <button class="btn btn-secondary btn-sm" onclick="viewReport('${report.id}')">👁️ View</button>
+                                            <button class="btn btn-danger btn-sm" onclick="deleteReport('${report.id}')">🗑️ Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No recent reports available</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading recent reports:', error);
+                document.getElementById('recentReportsTable').innerHTML = '<div class="loading">Error loading recent reports</div>';
+            }
+        }
+
+        async function loadScheduledReports() {
+            try {
+                const response = await fetch('/radius-admin/api/scheduled-reports');
+                const data = await response.json();
+
+                const tableContainer = document.getElementById('scheduledReportsTable');
+
+                if (data.schedules && data.schedules.length > 0) {
+                    const table = `
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--light-gray);">
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Report Name</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Schedule</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Next Run</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Email</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Status</th>
+                                    <th style="text-align: left; padding: 0.5rem; font-weight: 600;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.schedules.map(schedule => `
+                                    <tr style="border-bottom: 1px solid var(--light-gray);">
+                                        <td style="padding: 0.5rem; font-weight: 500;">${schedule.report_name}</td>
+                                        <td style="padding: 0.5rem;">${schedule.frequency}</td>
+                                        <td style="padding: 0.5rem; font-size: 0.8rem;">${schedule.next_run}</td>
+                                        <td style="padding: 0.5rem; font-family: monospace; font-size: 0.8rem;">${schedule.email}</td>
+                                        <td style="padding: 0.5rem;">
+                                            <span class="status-indicator ${schedule.enabled ? 'success' : 'warning'}">
+                                                ${schedule.enabled ? '✓ Active' : '⏸ Paused'}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 0.5rem;">
+                                            <button class="btn btn-info btn-sm" onclick="editSchedule('${schedule.id}')">✏️ Edit</button>
+                                            <button class="btn ${schedule.enabled ? 'btn-warning' : 'btn-success'} btn-sm"
+                                                    onclick="toggleSchedule('${schedule.id}', ${!schedule.enabled})">
+                                                ${schedule.enabled ? '⏸ Pause' : '▶️ Resume'}
+                                            </button>
+                                            <button class="btn btn-danger btn-sm" onclick="deleteSchedule('${schedule.id}')">🗑️ Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    tableContainer.innerHTML = table;
+                } else {
+                    tableContainer.innerHTML = '<div class="loading">No scheduled reports configured</div>';
+                }
+
+            } catch (error) {
+                console.error('Error loading scheduled reports:', error);
+                document.getElementById('scheduledReportsTable').innerHTML = '<div class="loading">Error loading scheduled reports</div>';
+            }
+        }
+
+        function generateReport(reportType) {
+            console.log('Generate pre-built report:', reportType);
+            // TODO: Implement pre-built report generation
+            alert(`Generating ${reportType} report...`);
+        }
+
+        function scheduleReport(reportType) {
+            console.log('Schedule report:', reportType);
+            // TODO: Implement report scheduling
+        }
+
+        function buildCustomReport() {
+            const reportConfig = {
+                name: document.getElementById('reportName').value,
+                type: document.getElementById('reportType').value,
+                dateRange: document.getElementById('dateRange').value,
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                format: document.getElementById('outputFormat').value,
+                includeSummary: document.getElementById('includeSummary').checked,
+                includeCharts: document.getElementById('includeCharts').checked,
+                includeDetails: document.getElementById('includeDetails').checked,
+                includeRecommendations: document.getElementById('includeRecommendations').checked,
+                filterCriteria: document.getElementById('filterCriteria').value
+            };
+
+            console.log('Build custom report:', reportConfig);
+            // TODO: Implement custom report generation
+            alert('Generating custom report...');
+        }
+
+        function saveReportTemplate() {
+            console.log('Save report template');
+            // TODO: Implement template saving
+        }
+
+        function previewReport() {
+            console.log('Preview report');
+            // TODO: Implement report preview
+        }
+
+        function generateCustomReport() {
+            buildCustomReport();
+        }
+
+        function refreshRecentReports() {
+            loadRecentReports();
+        }
+
+        function downloadReport(reportId) {
+            console.log('Download report:', reportId);
+            // TODO: Implement report download
+        }
+
+        function viewReport(reportId) {
+            console.log('View report:', reportId);
+            // TODO: Implement report viewing
+        }
+
+        function deleteReport(reportId) {
+            if (confirm('Are you sure you want to delete this report?')) {
+                console.log('Delete report:', reportId);
+                // TODO: Implement report deletion
+            }
+        }
+
+        function showAddScheduleModal() {
+            console.log('Show add schedule modal');
+            // TODO: Implement schedule modal
+        }
+
+        function editSchedule(scheduleId) {
+            console.log('Edit schedule:', scheduleId);
+            // TODO: Implement schedule editing
+        }
+
+        function toggleSchedule(scheduleId, enabled) {
+            console.log('Toggle schedule:', scheduleId, enabled);
+            // TODO: Implement schedule toggle
+        }
+
+        function deleteSchedule(scheduleId) {
+            if (confirm('Are you sure you want to delete this schedule?')) {
+                console.log('Delete schedule:', scheduleId);
+                // TODO: Implement schedule deletion
+            }
+        }
+
+        function cleanupOldReports() {
+            if (confirm('This will delete reports older than 30 days. Continue?')) {
+                console.log('Cleanup old reports');
+                // TODO: Implement old reports cleanup
+            }
+        }
+
+        function bulkDownloadReports() {
+            console.log('Bulk download reports');
+            // TODO: Implement bulk download
+        }
+
+        function testEmailDelivery() {
+            console.log('Test email delivery');
+            // TODO: Implement email test
+        }
+
+        function pauseAllSchedules() {
+            if (confirm('Are you sure you want to pause all scheduled reports?')) {
+                console.log('Pause all schedules');
+                // TODO: Implement pause all schedules
+            }
+        }
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>

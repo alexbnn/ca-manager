@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - RADIUS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/radius_admin/radius_admin_v3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="/static/images/extreme-networks-logo.png" alt="Extreme Networks" class="logo">
+                    <h1>RADIUS Admin</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="auth-status">
+                        <span>{{ user.username }}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openProfile()">Profile</button>
+                    <button class="btn btn-primary btn-sm" onclick="showAddPolicyModal()">
+                        ➕ Add Policy
+                    </button>
+                    <a href="/" class="btn btn-secondary btn-sm">🏠 Home</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul class="tab-list">
+<li><a href="/radius-admin/dashboard" class="tab-item">
+                    <span class="tab-icon">📊</span>Dashboard
+                </a></li>
+                <li><a href="/radius-admin/clients" class="tab-item">
+                    <span class="tab-icon">🖥️</span>Clients
+                </a></li>
+                <li><a href="/radius-admin/vlans" class="tab-item">
+                    <span class="tab-icon">🌐</span>VLANs
+                </a></li>
+                <li><a href="/radius-admin/policies" class="tab-item active">
+                    <span class="tab-icon">📋</span>Policies
+                </a></li>
+                <li><a href="/radius-admin/testing" class="tab-item">
+                    <span class="tab-icon">🧪</span>Testing
+                </a></li>
+                <li><a href="/radius-admin/certificates" class="tab-item">
+                    <span class="tab-icon">🔒</span>Certificates
+                </a></li>
+                <li><a href="/radius-admin/idp-bridge" class="tab-item">
+                    <span class="tab-icon">🔐</span>IDP Bridge
+                </a></li>
+                <li><a href="/radius-admin/monitoring" class="tab-item">
+                    <span class="tab-icon">📈</span>Monitoring
+                </a></li>
+                <li><a href="/radius-admin/reports" class="tab-item">
+                    <span class="tab-icon">📄</span>Reports
+                </a></li>
+</ul>
+        </nav>
+
+        <!-- Fixed Metrics Dashboard -->
+        <div class="fixed-metrics-dashboard">
+            <div class="metrics-dashboard">
+                <div class="metric-card">
+                    <h3>Total Policies</h3>
+                    <div class="value" id="totalPolicies">0</div>
+                    <div class="label">Configured policies</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Active Policies</h3>
+                    <div class="value" id="activePolicies">0</div>
+                    <div class="label">Currently enabled</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Policy Groups</h3>
+                    <div class="value" id="policyGroups">0</div>
+                    <div class="label">Policy categories</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Default Policy</h3>
+                    <div class="value" id="defaultPolicy">Allow</div>
+                    <div class="label">Fallback action</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Authentication Policies -->
+            <div class="section">
+                <h2><span class="section-icon">📋</span>Authentication Policies</h2>
+
+                <div class="grid" id="authPoliciesGrid">
+                    <div class="loading">Loading authentication policies...</div>
+                </div>
+            </div>
+
+            <!-- Authorization Policies -->
+            <div class="section">
+                <h2><span class="section-icon">🔐</span>Authorization Policies</h2>
+
+                <div class="grid" id="authzPoliciesGrid">
+                    <div class="loading">Loading authorization policies...</div>
+                </div>
+            </div>
+
+            <!-- Policy Templates -->
+            <div class="section">
+                <h2><span class="section-icon">📄</span>Policy Templates</h2>
+
+                <div class="grid grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Employee Access</h3>
+                            <span class="status-indicator info">
+                                <span>📋</span> Template
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> Authentication + Authorization</p>
+                            <p><strong>VLAN:</strong> Employee VLAN (100)</p>
+                            <p><strong>Auth Methods:</strong> EAP-TLS, PEAP</p>
+                            <p><strong>Features:</strong> Full network access</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="useTemplate('employee')">🚀 Use Template</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Guest Access</h3>
+                            <span class="status-indicator warning">
+                                <span>📋</span> Template
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> Limited Authorization</p>
+                            <p><strong>VLAN:</strong> Guest VLAN (200)</p>
+                            <p><strong>Auth Methods:</strong> Web portal</p>
+                            <p><strong>Features:</strong> Internet only</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="useTemplate('guest')">🚀 Use Template</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">IoT Devices</h3>
+                            <span class="status-indicator success">
+                                <span>📋</span> Template
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <p><strong>Type:</strong> MAC-based Authentication</p>
+                            <p><strong>VLAN:</strong> IoT VLAN (300)</p>
+                            <p><strong>Auth Methods:</strong> MAC authentication</p>
+                            <p><strong>Features:</strong> Restricted access</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="useTemplate('iot')">🚀 Use Template</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Policy Configuration -->
+            <div class="section">
+                <h2><span class="section-icon">⚙️</span>Global Policy Settings</h2>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Default Behavior</h3>
+                            <span class="status-indicator info">
+                                <span>ℹ</span> Global
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="defaultAction">Default Action:</label>
+                                <select id="defaultAction">
+                                    <option value="allow">Allow</option>
+                                    <option value="deny">Deny</option>
+                                    <option value="guest">Redirect to Guest</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="policyOrder">Policy Evaluation Order:</label>
+                                <select id="policyOrder">
+                                    <option value="priority">Priority-based</option>
+                                    <option value="specific">Most specific first</option>
+                                    <option value="sequential">Sequential</option>
+                                </select>
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableLogging" checked>
+                                    Enable policy decision logging
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="enableCaching" checked>
+                                    Enable policy result caching
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateGlobalSettings()">💾 Save Settings</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Rate Limiting</h3>
+                            <span class="status-indicator success">
+                                <span>●</span> Active
+                            </span>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="maxRequests">Max Requests per Minute:</label>
+                                <input type="number" id="maxRequests" value="100" min="1" max="1000">
+                            </div>
+                            <div class="form-group">
+                                <label for="rateLimitAction">Rate Limit Action:</label>
+                                <select id="rateLimitAction">
+                                    <option value="delay">Delay Response</option>
+                                    <option value="reject">Reject Request</option>
+                                    <option value="quarantine">Quarantine User</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="cooldownPeriod">Cooldown Period (minutes):</label>
+                                <input type="number" id="cooldownPeriod" value="5" min="1" max="60">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" onclick="updateRateLimiting()">💾 Update Limits</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Policy Modal -->
+    <div id="addPolicyModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Authentication Policy</h3>
+                <button class="modal-close" onclick="hideAddPolicyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addPolicyForm">
+                    <div class="form-group">
+                        <label for="policyName">Policy Name:</label>
+                        <input type="text" id="policyName" name="name" required placeholder="e.g., Employee WiFi Policy">
+                    </div>
+                    <div class="form-group">
+                        <label for="policyType">Policy Type:</label>
+                        <select id="policyType" name="type">
+                            <option value="authentication">Authentication</option>
+                            <option value="authorization">Authorization</option>
+                            <option value="combined">Combined</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="matchCondition">Match Condition:</label>
+                        <select id="matchCondition" name="condition">
+                            <option value="user_group">User Group</option>
+                            <option value="username">Username Pattern</option>
+                            <option value="client_ip">Client IP Range</option>
+                            <option value="time_of_day">Time of Day</option>
+                            <option value="device_type">Device Type</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="matchValue">Match Value:</label>
+                        <input type="text" id="matchValue" name="match_value" required placeholder="e.g., employees, 192.168.1.0/24">
+                    </div>
+                    <div class="form-group">
+                        <label for="action">Action:</label>
+                        <select id="action" name="action">
+                            <option value="allow">Allow</option>
+                            <option value="deny">Deny</option>
+                            <option value="vlan_assign">Assign VLAN</option>
+                            <option value="quarantine">Quarantine</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="priority">Priority:</label>
+                        <input type="number" id="priority" name="priority" value="10" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="policyDescription">Description:</label>
+                        <textarea id="policyDescription" name="description" placeholder="Optional description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAddPolicyModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addPolicy()">Add Policy</button>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+
+    <!-- Profile Modal -->
+    <div id="profileModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);">
+        <div class="profile-modal-content" style="background-color: white; margin: 5% auto; padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);">
+            <div class="profile-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0; color: #101828; font-size: 1.5rem; font-weight: 600;">User Profile</h2>
+                <button class="close-profile" onclick="closeProfile()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #98A2B3;">&times;</button>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Profile Information</h3>
+                <div class="profile-info" style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+                    <div style="font-weight: 600; color: #98A2B3;">Username:</div>
+                    <div id="profileUsername" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Email:</div>
+                    <div id="profileEmail" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Full Name:</div>
+                    <div id="profileFullName" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Role:</div>
+                    <div id="profileRole" style="color: #101828;">-</div>
+                    <div style="font-weight: 600; color: #98A2B3;">Last Login:</div>
+                    <div id="profileLastLogin" style="color: #101828;">-</div>
+                </div>
+            </div>
+
+            <div class="profile-section" style="margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #101828; font-size: 1.1rem; font-weight: 600; border-bottom: 2px solid #EAECF0; padding-bottom: 0.5rem;">Change Password</h3>
+                <form class="password-change-form" id="passwordChangeForm" style="display: grid; gap: 1rem;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="currentPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="newPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <label for="confirmPassword" style="font-weight: 600; color: #101828; font-size: 0.875rem;">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="padding: 0.75rem; border: 1px solid #EAECF0; border-radius: 8px; font-size: 0.875rem;">
+                    </div>
+                    <div class="password-change-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="resetPasswordForm()">Reset</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAuthPolicies();
+            loadAuthzPolicies();
+            loadPolicyMetrics();
+            initializeScrollEffects();
+
+            // Auto-refresh every 60 seconds
+            setInterval(loadPolicyMetrics, 60000);
+        });
+
+        function initializeScrollEffects() {
+            const header = document.querySelector('.header');
+            const tabNavigation = document.querySelector('.tab-navigation');
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > 10) {
+                    header.classList.add('scrolled');
+                    tabNavigation.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                    tabNavigation.classList.remove('scrolled');
+                }
+            });
+        }
+
+        async function loadAuthPolicies() {
+            try {
+                const response = await fetch('/radius-admin/api/policies/auth');
+                const data = await response.json();
+                displayPolicies(data.policies, 'authPoliciesGrid');
+            } catch (error) {
+                console.error('Error loading auth policies:', error);
+                document.getElementById('authPoliciesGrid').innerHTML = '<div class="loading">Error loading authentication policies</div>';
+            }
+        }
+
+        async function loadAuthzPolicies() {
+            try {
+                const response = await fetch('/radius-admin/api/policies/authz');
+                const data = await response.json();
+                displayPolicies(data.policies, 'authzPoliciesGrid');
+            } catch (error) {
+                console.error('Error loading authz policies:', error);
+                document.getElementById('authzPoliciesGrid').innerHTML = '<div class="loading">Error loading authorization policies</div>';
+            }
+        }
+
+        function displayPolicies(policies, gridId) {
+            const grid = document.getElementById(gridId);
+
+            if (!policies || policies.length === 0) {
+                grid.innerHTML = '<div class="loading">No policies configured</div>';
+                return;
+            }
+
+            grid.innerHTML = policies.map(policy => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">${policy.name}</h3>
+                        <span class="status-indicator ${policy.enabled ? 'success' : 'warning'}">
+                            ${policy.enabled ? '✓ Active' : '⏸ Disabled'}
+                        </span>
+                    </div>
+                    <div class="card-content">
+                        <p><strong>Type:</strong> ${policy.type}</p>
+                        <p><strong>Condition:</strong> ${policy.condition}</p>
+                        <p><strong>Match:</strong> <code>${policy.match_value}</code></p>
+                        <p><strong>Action:</strong> ${policy.action}</p>
+                        <p><strong>Priority:</strong> ${policy.priority}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-info btn-sm" onclick="editPolicy('${policy.id}')">✏️ Edit</button>
+                        <button class="btn ${policy.enabled ? 'btn-warning' : 'btn-success'} btn-sm"
+                                onclick="togglePolicy('${policy.id}', ${!policy.enabled})">
+                            ${policy.enabled ? '⏸ Disable' : '▶️ Enable'}
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deletePolicy('${policy.id}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadPolicyMetrics() {
+            try {
+                const response = await fetch('/radius-admin/api/policy-metrics');
+                const data = await response.json();
+
+                document.getElementById('totalPolicies').textContent = data.total_policies || 0;
+                document.getElementById('activePolicies').textContent = data.active_policies || 0;
+                document.getElementById('policyGroups').textContent = data.policy_groups || 0;
+                document.getElementById('defaultPolicy').textContent = data.default_policy || 'Allow';
+
+            } catch (error) {
+                console.error('Error loading policy metrics:', error);
+            }
+        }
+
+        function showAddPolicyModal() {
+            document.getElementById('addPolicyModal').style.display = 'flex';
+        }
+
+        function hideAddPolicyModal() {
+            document.getElementById('addPolicyModal').style.display = 'none';
+            document.getElementById('addPolicyForm').reset();
+        }
+
+        async function addPolicy() {
+            const form = document.getElementById('addPolicyForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/radius-admin/api/policies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    hideAddPolicyModal();
+                    loadAuthPolicies();
+                    loadAuthzPolicies();
+                } else {
+                    alert('Failed to add policy');
+                }
+            } catch (error) {
+                console.error('Error adding policy:', error);
+                alert('Error adding policy');
+            }
+        }
+
+        function editPolicy(id) {
+            console.log('Edit policy:', id);
+            // TODO: Implement edit functionality
+        }
+
+        function togglePolicy(id, enabled) {
+            console.log('Toggle policy:', id, enabled);
+            // TODO: Implement toggle functionality
+        }
+
+        function deletePolicy(id) {
+            if (confirm('Are you sure you want to delete this policy?')) {
+                console.log('Delete policy:', id);
+                // TODO: Implement delete functionality
+            }
+        }
+
+        function useTemplate(template) {
+            console.log('Use template:', template);
+            // TODO: Implement template usage
+        }
+
+        function updateGlobalSettings() {
+            const settings = {
+                defaultAction: document.getElementById('defaultAction').value,
+                policyOrder: document.getElementById('policyOrder').value,
+                enableLogging: document.getElementById('enableLogging').checked,
+                enableCaching: document.getElementById('enableCaching').checked
+            };
+
+            console.log('Update global settings:', settings);
+            // TODO: Implement settings update
+        }
+
+        function updateRateLimiting() {
+            const rateLimits = {
+                maxRequests: document.getElementById('maxRequests').value,
+                action: document.getElementById('rateLimitAction').value,
+                cooldownPeriod: document.getElementById('cooldownPeriod').value
+            };
+
+            console.log('Update rate limiting:', rateLimits);
+            // TODO: Implement rate limiting update
+        }
+        async function openProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    const user = result.user;
+
+                    // Populate profile information
+                    document.getElementById('profileUsername').textContent = user.username || '-';
+                    document.getElementById('profileEmail').textContent = user.email || '-';
+                    document.getElementById('profileFullName').textContent = user.full_name || '-';
+                    document.getElementById('profileRole').textContent =
+                        user.roles?.map(role => role.name || role).join(', ') || '-';
+                    document.getElementById('profileLastLogin').textContent =
+                        user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+
+                    // Show profile modal
+                    document.getElementById('profileModal').style.display = 'block';
+                } else {
+                    console.error('Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+            resetPasswordForm();
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('passwordChangeForm').reset();
+        }
+
+        // Handle password change form submission
+        document.getElementById('passwordChangeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.status === 'success') {
+                    alert('Password changed successfully');
+                    resetPasswordForm();
+                } else {
+                    alert(result?.message || 'Failed to change password');
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Error changing password');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const profileModal = document.getElementById('profileModal');
+            if (event.target === profileModal) {
+                closeProfile();
+            }
+        });
+    </script>
+</body>
+</html>
