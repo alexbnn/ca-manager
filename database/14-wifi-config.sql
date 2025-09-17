@@ -8,6 +8,7 @@ VALUES
     ('wifi_security_type', 'WPA2', 'WiFi security type (WPA2/WPA3)', CURRENT_TIMESTAMP),
     ('wifi_hidden_network', 'false', 'Whether the WiFi network is hidden', CURRENT_TIMESTAMP),
     ('wifi_auto_join', 'true', 'Whether devices should auto-join this network', CURRENT_TIMESTAMP),
+    ('wifi_disable_mac_randomization', 'true', 'Disable MAC address randomization for better device tracking', CURRENT_TIMESTAMP),
     ('wifi_proxy_type', 'None', 'Proxy configuration (None/Manual/Auto)', CURRENT_TIMESTAMP),
     ('organization_name', 'Your Organization', 'Organization name for mobile profiles', CURRENT_TIMESTAMP),
     ('profile_description', 'WiFi configuration for secure network access', 'Description shown in mobile profile', CURRENT_TIMESTAMP)

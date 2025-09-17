@@ -2527,7 +2527,95 @@
                     <!-- Users will be populated here -->
                 </div>
                 </div>
-                
+
+                <!-- WiFi Configuration Section -->
+                <div class="section" id="wifiConfigurationSection" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
+                <h2><span class="section-icon">📶</span>WiFi Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure WiFi network settings for mobile configuration profiles. These settings will be used when generating WiFi profiles for iOS and Android devices.
+                </p>
+
+                <div class="wifi-config" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Network Settings</h3>
+                    <div id="wifi-config-content" class="config-form" style="display: block;">
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                            <div class="form-group">
+                                <label for="wifiSSID">WiFi Network Name (SSID) *:</label>
+                                <input type="text" id="wifiSSID" placeholder="CorporateWiFi" required
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: var(--medium-gray);">The name of your secure WiFi network</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="wifiSecurityType">Security Type:</label>
+                                <select id="wifiSecurityType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="WPA2">WPA2 Enterprise</option>
+                                    <option value="WPA3">WPA3 Enterprise</option>
+                                </select>
+                                <small style="color: var(--medium-gray);">WiFi security protocol</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="organizationName">Organization Name *:</label>
+                                <input type="text" id="organizationName" placeholder="Your Organization" required
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: var(--medium-gray);">Organization name shown in mobile profiles</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="profileDescription">Profile Description:</label>
+                                <input type="text" id="profileDescription" placeholder="WiFi configuration for secure network access"
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: var(--medium-gray);">Description shown to users when installing</small>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="wifiHiddenNetwork">
+                                    Hidden Network
+                                </label>
+                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Check if your WiFi network is hidden</small>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="wifiAutoJoin" checked>
+                                    Auto-Join Network
+                                </label>
+                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Automatically connect to this network</small>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="wifiDisableMacRandomization" checked>
+                                    Disable MAC Randomization
+                                </label>
+                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Disable MAC address randomization for device tracking and network policies</small>
+                            </div>
+                        </div>
+
+                        <div class="button-grid" style="margin-top: 1.5rem;">
+                            <button class="btn btn-primary" onclick="saveWiFiConfig()">💾 Save WiFi Configuration</button>
+                            <button class="btn btn-info" onclick="loadWiFiConfig()">🔄 Refresh Configuration</button>
+                            <button class="btn btn-secondary" onclick="previewMobileConfig()">👁️ Preview Mobile Config</button>
+                        </div>
+                    </div>
+
+                    <div id="wifi-status" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div class="config-instructions" style="margin-top: 1.5rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
+                    <h3 style="margin-bottom: 1rem; color: #0c5460;">📱 Mobile Configuration Help</h3>
+                    <p style="color: #0c5460; margin-bottom: 0.5rem;"><strong>Mobile Profile Features:</strong></p>
+                    <ul style="color: #0c5460; margin-left: 1.5rem;">
+                        <li><strong>EAP-TLS:</strong> Uses client certificates for the strongest security</li>
+                        <li><strong>EAP-TTLS:</strong> Uses username/password credentials with CA certificate validation</li>
+                        <li><strong>Auto-Configuration:</strong> Users simply install the profile - no manual setup required</li>
+                        <li><strong>Enterprise Security:</strong> Supports WPA2/WPA3 Enterprise with 802.1X authentication</li>
+                    </ul>
+                    <p style="color: #0c5460; margin-top: 1rem; margin-bottom: 0;">
+                        <strong>Note:</strong> After configuring WiFi settings, users can download mobile configuration profiles from the IDP portal at <code>/idp</code>
+                    </p>
+                </div>
+                </div>
+
                 <!-- SMTP Configuration Section -->
                 <div class="section" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
                 <h2><span class="section-icon">📧</span>SMTP Email Configuration</h2>
@@ -3662,6 +3750,7 @@ RADIUS Authentication Log Monitor v1.0
                 setTimeout(() => {
                     // Version management removed
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
+                    loadWiFiConfig().catch(e => console.error('loadWiFiConfig error:', e));
                     loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
                     loadCurrentColorTheme().catch(e => console.error('loadCurrentColorTheme error:', e));
                 }, 100);
@@ -7878,6 +7967,153 @@ Dependencies:
             }
         }
 
+        // WiFi Configuration Functions
+        async function loadWiFiConfig() {
+            try {
+                console.log('loadWiFiConfig: Starting...');
+                showLoading('wifi-status');
+
+                const response = await fetch('/api/wifi-config', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('loadWiFiConfig: Response data:', data);
+
+                if (data.status === 'success' && data.config) {
+                    // Populate form fields
+                    document.getElementById('wifiSSID').value = data.config.wifi_ssid || '';
+                    document.getElementById('wifiSecurityType').value = data.config.wifi_security_type || 'WPA2';
+                    document.getElementById('organizationName').value = data.config.organization_name || '';
+                    document.getElementById('profileDescription').value = data.config.profile_description || '';
+                    document.getElementById('wifiHiddenNetwork').checked = data.config.wifi_hidden_network === 'true';
+                    document.getElementById('wifiAutoJoin').checked = data.config.wifi_auto_join !== 'false';
+                    document.getElementById('wifiDisableMacRandomization').checked = data.config.wifi_disable_mac_randomization !== 'false';
+
+                    document.getElementById('wifi-status').innerHTML = '<div class="status-success">✅ WiFi configuration loaded successfully</div>';
+                } else {
+                    document.getElementById('wifi-status').innerHTML = '<div class="status-info">ℹ️ No WiFi configuration found. Please configure your WiFi settings.</div>';
+                }
+
+            } catch (error) {
+                console.error('loadWiFiConfig: Error occurred:', error);
+                document.getElementById('wifi-status').innerHTML = '<div class="status-error">❌ Failed to load WiFi configuration</div>';
+                showError('Failed to load WiFi configuration');
+            }
+        }
+
+        async function saveWiFiConfig() {
+            const config = {
+                wifi_ssid: document.getElementById('wifiSSID').value.trim(),
+                wifi_security_type: document.getElementById('wifiSecurityType').value,
+                organization_name: document.getElementById('organizationName').value.trim(),
+                profile_description: document.getElementById('profileDescription').value.trim(),
+                wifi_hidden_network: document.getElementById('wifiHiddenNetwork').checked ? 'true' : 'false',
+                wifi_auto_join: document.getElementById('wifiAutoJoin').checked ? 'true' : 'false',
+                wifi_disable_mac_randomization: document.getElementById('wifiDisableMacRandomization').checked ? 'true' : 'false'
+            };
+
+            // Validate required fields
+            if (!config.wifi_ssid) {
+                showError('WiFi SSID is required');
+                return;
+            }
+            if (!config.organization_name) {
+                showError('Organization name is required');
+                return;
+            }
+
+            try {
+                showLoading('wifi-status');
+
+                const response = await fetch('/api/wifi-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    document.getElementById('wifi-status').innerHTML = '<div class="status-success">✅ WiFi configuration saved successfully</div>';
+                    showMessage('WiFi configuration saved successfully');
+                } else {
+                    document.getElementById('wifi-status').innerHTML = '<div class="status-error">❌ Failed to save WiFi configuration</div>';
+                    showError(data.message || 'Failed to save WiFi configuration');
+                }
+            } catch (error) {
+                document.getElementById('wifi-status').innerHTML = '<div class="status-error">❌ Network error saving WiFi configuration</div>';
+                showError('Network error saving WiFi configuration');
+            }
+        }
+
+        async function previewMobileConfig() {
+            const config = {
+                wifi_ssid: document.getElementById('wifiSSID').value.trim(),
+                wifi_security_type: document.getElementById('wifiSecurityType').value,
+                organization_name: document.getElementById('organizationName').value.trim(),
+                profile_description: document.getElementById('profileDescription').value.trim(),
+                wifi_hidden_network: document.getElementById('wifiHiddenNetwork').checked ? 'true' : 'false',
+                wifi_auto_join: document.getElementById('wifiAutoJoin').checked ? 'true' : 'false',
+                wifi_disable_mac_randomization: document.getElementById('wifiDisableMacRandomization').checked ? 'true' : 'false'
+            };
+
+            // Validate required fields
+            if (!config.wifi_ssid) {
+                showError('WiFi SSID is required for preview');
+                return;
+            }
+            if (!config.organization_name) {
+                showError('Organization name is required for preview');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/mobileconfig/preview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    const preview = data.profile_info;
+                    const previewHtml = `
+                        <div class="status-info" style="background: #e7f3ff; border: 1px solid #b6d7ff; padding: 1rem; border-radius: 8px;">
+                            <h4 style="margin-bottom: 0.5rem; color: #0066cc;">📱 Mobile Configuration Preview</h4>
+                            <ul style="margin: 0; padding-left: 1.5rem; color: #0066cc;">
+                                <li><strong>WiFi Network:</strong> ${preview.wifi_ssid}</li>
+                                <li><strong>Security:</strong> ${preview.security_type} Enterprise</li>
+                                <li><strong>Organization:</strong> ${preview.organization_name}</li>
+                                <li><strong>Profile Description:</strong> ${preview.profile_description}</li>
+                                <li><strong>Auto-Join:</strong> ${config.wifi_auto_join === 'true' ? 'Yes' : 'No'}</li>
+                                <li><strong>Hidden Network:</strong> ${config.wifi_hidden_network === 'true' ? 'Yes' : 'No'}</li>
+                            </ul>
+                            <p style="margin-top: 0.5rem; margin-bottom: 0; font-size: 0.875rem;">
+                                <strong>Note:</strong> Users can download personalized profiles from the IDP portal at <code>/idp</code>
+                            </p>
+                        </div>
+                    `;
+                    document.getElementById('wifi-status').innerHTML = previewHtml;
+                } else {
+                    showError(data.message || 'Failed to generate preview');
+                }
+            } catch (error) {
+                showError('Network error generating preview');
+            }
+        }
+
         // Helper function for loading states
         function showLoading(elementId) {
             document.getElementById(elementId).innerHTML = '<div class="loading">Loading...</div>';
@@ -9480,6 +9716,10 @@ Dependencies:
         window.loadSMTPConfig = loadSMTPConfig;
         window.saveSMTPConfig = saveSMTPConfig;
         window.testSMTPConnection = testSMTPConnection;
+        // WiFi configuration functions
+        window.loadWiFiConfig = loadWiFiConfig;
+        window.saveWiFiConfig = saveWiFiConfig;
+        window.previewMobileConfig = previewMobileConfig;
         window.showAddDomainForm = showAddDomainForm;
         window.hideAddDomainForm = hideAddDomainForm;
         window.showError = showError;

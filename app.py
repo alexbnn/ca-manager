@@ -9904,8 +9904,8 @@ def wifi_config():
             cursor.execute("""
                 SELECT config_key, config_value 
                 FROM system_config 
-                WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'wifi_hidden_network', 
-                                     'wifi_auto_join', 'organization_name', 'profile_description')
+                WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'wifi_hidden_network',
+                                     'wifi_auto_join', 'wifi_disable_mac_randomization', 'organization_name', 'profile_description')
             """)
             
             config_rows = cursor.fetchall()
@@ -9933,6 +9933,7 @@ def wifi_config():
                 ('wifi_security_type', data.get('wifi_security_type', 'WPA2')),
                 ('wifi_hidden_network', data.get('wifi_hidden_network', 'false')),
                 ('wifi_auto_join', data.get('wifi_auto_join', 'true')),
+                ('wifi_disable_mac_randomization', data.get('wifi_disable_mac_randomization', 'true')),
                 ('organization_name', data.get('organization_name', '')),
                 ('profile_description', data.get('profile_description', ''))
             ]
@@ -10031,8 +10032,8 @@ def generate_idp_mobileconfig():
         cursor.execute("""
             SELECT config_key, config_value 
             FROM system_config 
-            WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'wifi_hidden_network', 
-                                 'wifi_auto_join', 'organization_name', 'profile_description')
+            WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'wifi_hidden_network',
+                                 'wifi_auto_join', 'wifi_disable_mac_randomization', 'organization_name', 'profile_description')
         """)
         
         config_rows = cursor.fetchall()
@@ -10239,7 +10240,7 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
             <key>EncryptionType</key>
             <string>WPA2</string>
             <key>DisableAssociationMACRandomization</key>
-            <true/>
+            <{'true' if wifi_config.get('wifi_disable_mac_randomization', 'true') == 'true' else 'false'}/>
             <key>EAPClientConfiguration</key>
             <dict>
                 <key>AcceptEAPTypes</key>
@@ -10341,7 +10342,7 @@ def generate_eap_ttls_mobileconfig(wifi_config, ca_cert_pem, username):
             <key>EncryptionType</key>
             <string>WPA2</string>
             <key>DisableAssociationMACRandomization</key>
-            <true/>
+            <{'true' if wifi_config.get('wifi_disable_mac_randomization', 'true') == 'true' else 'false'}/>
             <key>EAPClientConfiguration</key>
             <dict>
                 <key>AcceptEAPTypes</key>
