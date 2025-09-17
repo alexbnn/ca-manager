@@ -595,7 +595,9 @@ def build_client_full(params):
         # Remove CN for signing step to avoid conflicts
         sign_env.pop('EASYRSA_REQ_CN', None)
         
-        sign_result = run_easyrsa_command(['sign-req', 'client', name], 
+        # Try signing with server type for more flexible key usage
+        # Server certificates typically have more flexible key usage than client certificates
+        sign_result = run_easyrsa_command(['sign-req', 'server', name],
                                         input_text="yes\n", custom_env=sign_env)
         
         # Clean up the certificate request file after successful certificate creation
@@ -613,13 +615,13 @@ def build_client_full(params):
             "return_code": sign_result.returncode,
             "stdout": sign_result.stdout,
             "stderr": sign_result.stderr,
-            "message": f"Client certificate for {name} created successfully with CN={name}" if sign_result.returncode == 0 else f"Failed to create client certificate for {name}"
+            "message": f"Certificate for {name} created successfully with CN={name} (server-type for flexible usage)" if sign_result.returncode == 0 else f"Failed to create certificate for {name}"
         })
         
     except Exception as e:
         return jsonify({
             "status": "error",
-            "message": f"Failed to create client certificate for {name}: {str(e)}"
+            "message": f"Failed to create certificate for {name}: {str(e)}"
         }), 500
 
 def build_server_full(params):
@@ -876,40 +878,76 @@ def validate_cert(params):
             "message": f"Failed to validate certificate {name}: {str(e)}"
         }), 500
 
+def extract_pem_certificate(file_content):
+    """Extract only the PEM certificate data, excluding human-readable text"""
+    import re
+
+    # Find PEM certificate block
+    pem_pattern = r'(-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----)'
+    match = re.search(pem_pattern, file_content, re.DOTALL)
+
+    if match:
+        return match.group(1)
+    else:
+        # If no PEM block found, return original content (might already be clean)
+        return file_content
+
+def extract_pem_private_key(file_content):
+    """Extract only the PEM private key data, excluding any extra text"""
+    import re
+
+    # Find PEM private key block (covers various formats)
+    key_patterns = [
+        r'(-----BEGIN PRIVATE KEY-----.*?-----END PRIVATE KEY-----)',
+        r'(-----BEGIN RSA PRIVATE KEY-----.*?-----END RSA PRIVATE KEY-----)',
+        r'(-----BEGIN EC PRIVATE KEY-----.*?-----END EC PRIVATE KEY-----)'
+    ]
+
+    for pattern in key_patterns:
+        match = re.search(pattern, file_content, re.DOTALL)
+        if match:
+            return match.group(1)
+
+    # If no PEM block found, return original content
+    return file_content
+
 def get_cert_files(params):
     """Get certificate files for download"""
     name = params.get('name')
     include_key = params.get('include_key', True)
-    
+
     if not name:
         return jsonify({"status": "error", "message": "Name parameter required"}), 400
-    
+
     try:
         files = {}
-        
+
         # Get certificate
         cert_file = os.path.join(PKI_PATH, "issued", f"{name}.crt")
         if os.path.exists(cert_file):
             with open(cert_file, 'r') as f:
-                files['certificate'] = f.read()
+                raw_content = f.read()
+                files['certificate'] = extract_pem_certificate(raw_content)
         else:
             return jsonify({
                 "status": "error",
                 "message": f"Certificate file not found for {name}"
             }), 404
-        
+
         # Get private key if requested
         if include_key:
             key_file = os.path.join(PKI_PATH, "private", f"{name}.key")
             if os.path.exists(key_file):
                 with open(key_file, 'r') as f:
-                    files['private_key'] = f.read()
-        
+                    raw_content = f.read()
+                    files['private_key'] = extract_pem_private_key(raw_content)
+
         # Get CA certificate
         ca_file = os.path.join(PKI_PATH, "ca.crt")
         if os.path.exists(ca_file):
             with open(ca_file, 'r') as f:
-                files['ca_certificate'] = f.read()
+                raw_content = f.read()
+                files['ca_certificate'] = extract_pem_certificate(raw_content)
         
         return jsonify({
             "status": "success",
