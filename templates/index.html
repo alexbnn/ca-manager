@@ -2852,6 +2852,14 @@
                                        style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
                                 <small style="color: var(--medium-gray);">Description shown to users when installing</small>
                             </div>
+                            <div class="form-group">
+                                <label for="wifiMacRandomization">MAC Address Randomization:</label>
+                                <select id="wifiMacRandomization" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="disabled">Disabled (Better for device tracking)</option>
+                                    <option value="enabled">Enabled (Enhanced privacy)</option>
+                                </select>
+                                <small style="color: var(--medium-gray);">Control MAC address randomization for network policies and device tracking</small>
+                            </div>
                         </div>
 
                         <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
@@ -2868,14 +2876,6 @@
                                     Auto-Join Network
                                 </label>
                                 <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Automatically connect to this network</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="wifiMacRandomization">MAC Address Randomization:</label>
-                                <select id="wifiMacRandomization" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="disabled">Disabled (Better for device tracking)</option>
-                                    <option value="enabled">Enabled (Enhanced privacy)</option>
-                                </select>
-                                <small style="color: var(--medium-gray);">Control MAC address randomization for network policies and device tracking</small>
                             </div>
                         </div>
 
