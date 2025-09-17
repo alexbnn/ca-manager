@@ -1579,6 +1579,9 @@
                 </button></li>
                 {% endif %}
                 {% if user.is_admin %}
+                <li><button class="tab-item" onclick="switchTab('wifi-config')" id="tab-wifi-config">
+                    <span class="tab-icon">📶</span>WiFi Config
+                </button></li>
                 <li><button class="tab-item" onclick="switchTab('user-management')" id="tab-user-management">
                     <span class="tab-icon">⚙️</span>General Settings
                 </button></li>
@@ -2257,7 +2260,101 @@
                 </div>
                 </div>
             </div>
-            
+
+            <!-- Tab Content: WiFi Config -->
+            {% if user.is_admin %}
+            <div class="tab-content" id="wifi-config">
+                <!-- WiFi Configuration Section -->
+                <div class="section" id="wifiConfigurationSection" style="border-top: none; padding-top: 1rem;">
+                <h2><span class="section-icon">📶</span>WiFi Configuration</h2>
+                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
+                    Configure WiFi network settings for mobile configuration profiles. These settings will be used when generating WiFi profiles for iOS and Android devices.
+                </p>
+
+                <div class="wifi-config" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Network Settings</h3>
+                    <div id="wifi-config-content" class="config-form" style="display: block;">
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                            <div class="form-group">
+                                <label for="wifiSSID">WiFi Network Name (SSID) *:</label>
+                                <input type="text" id="wifiSSID" placeholder="CorporateWiFi" required
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: var(--medium-gray);">The name of your secure WiFi network</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="wifiSecurityType">Security Type:</label>
+                                <select id="wifiSecurityType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="WPA2">WPA2 Enterprise</option>
+                                    <option value="WPA3">WPA3 Enterprise</option>
+                                </select>
+                                <small style="color: var(--medium-gray);">WiFi security protocol</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="organizationName">Organization Name *:</label>
+                                <input type="text" id="organizationName" placeholder="Your Organization" required
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: var(--medium-gray);">Organization name shown in mobile profiles</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="profileDescription">Profile Description:</label>
+                                <input type="text" id="profileDescription" placeholder="WiFi configuration for secure network access"
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: var(--medium-gray);">Description shown to users when installing</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="wifiMacRandomization">MAC Address Randomization:</label>
+                                <select id="wifiMacRandomization" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="disabled">Disabled (Better for device tracking)</option>
+                                    <option value="enabled">Enabled (Enhanced privacy)</option>
+                                </select>
+                                <small style="color: var(--medium-gray);">Control MAC address randomization for network policies and device tracking</small>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="wifiHiddenNetwork">
+                                    Hidden Network
+                                </label>
+                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Check if your WiFi network is hidden</small>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="wifiAutoJoin" checked>
+                                    Auto-Join Network
+                                </label>
+                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Automatically connect to this network</small>
+                            </div>
+                        </div>
+
+                        <div class="button-grid" style="margin-top: 1.5rem;">
+                            <button class="btn btn-primary" onclick="saveWiFiConfig()">💾 Save WiFi Configuration</button>
+                            <button class="btn btn-info" onclick="loadWiFiConfig()">🔄 Refresh Configuration</button>
+                            <button class="btn btn-secondary" onclick="previewMobileConfig()">👁️ Preview Mobile Config</button>
+                        </div>
+                    </div>
+
+                    <div id="wifi-status" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div class="config-instructions" style="margin-top: 1.5rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
+                    <h3 style="margin-bottom: 1rem; color: #0c5460;">📱 Mobile Configuration Help</h3>
+                    <p style="color: #0c5460; margin-bottom: 0.5rem;"><strong>Mobile Profile Features:</strong></p>
+                    <ul style="color: #0c5460; margin-left: 1.5rem;">
+                        <li><strong>EAP-TLS:</strong> Uses client certificates for the strongest security</li>
+                        <li><strong>EAP-TTLS:</strong> Uses username/password credentials with CA certificate validation</li>
+                        <li><strong>Auto-Configuration:</strong> Users simply install the profile - no manual setup required</li>
+                        <li><strong>Enterprise Security:</strong> Supports WPA2/WPA3 Enterprise with 802.1X authentication</li>
+                    </ul>
+                    <p style="color: #0c5460; margin-top: 1rem; margin-bottom: 0;">
+                        <strong>Note:</strong> After configuring WiFi settings, users can download mobile configuration profiles from the IDP portal at <code>/idp</code>
+                    </p>
+                </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Tab Content: User Management -->
             {% if user.is_admin %}
             <div class="tab-content" id="user-management">
@@ -2815,94 +2912,6 @@
                 </div>
                 </div>
 
-                <!-- WiFi Configuration Section -->
-                <div class="section" id="wifiConfigurationSection" style="margin-top: 3rem; border-top: 2px solid var(--light-gray); padding-top: 2rem;">
-                <h2><span class="section-icon">📶</span>WiFi Configuration</h2>
-                <p style="color: var(--medium-gray); margin-bottom: 1.5rem; font-size: 0.875rem;">
-                    Configure WiFi network settings for mobile configuration profiles. These settings will be used when generating WiFi profiles for iOS and Android devices.
-                </p>
-
-                <div class="wifi-config" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem;">Network Settings</h3>
-                    <div id="wifi-config-content" class="config-form" style="display: block;">
-                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label for="wifiSSID">WiFi Network Name (SSID) *:</label>
-                                <input type="text" id="wifiSSID" placeholder="CorporateWiFi" required
-                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                <small style="color: var(--medium-gray);">The name of your secure WiFi network</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="wifiSecurityType">Security Type:</label>
-                                <select id="wifiSecurityType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="WPA2">WPA2 Enterprise</option>
-                                    <option value="WPA3">WPA3 Enterprise</option>
-                                </select>
-                                <small style="color: var(--medium-gray);">WiFi security protocol</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="organizationName">Organization Name *:</label>
-                                <input type="text" id="organizationName" placeholder="Your Organization" required
-                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                <small style="color: var(--medium-gray);">Organization name shown in mobile profiles</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="profileDescription">Profile Description:</label>
-                                <input type="text" id="profileDescription" placeholder="WiFi configuration for secure network access"
-                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                <small style="color: var(--medium-gray);">Description shown to users when installing</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="wifiMacRandomization">MAC Address Randomization:</label>
-                                <select id="wifiMacRandomization" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="disabled">Disabled (Better for device tracking)</option>
-                                    <option value="enabled">Enabled (Enhanced privacy)</option>
-                                </select>
-                                <small style="color: var(--medium-gray);">Control MAC address randomization for network policies and device tracking</small>
-                            </div>
-                        </div>
-
-                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="wifiHiddenNetwork">
-                                    Hidden Network
-                                </label>
-                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Check if your WiFi network is hidden</small>
-                            </div>
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="wifiAutoJoin" checked>
-                                    Auto-Join Network
-                                </label>
-                                <small style="color: var(--medium-gray); display: block; margin-top: 0.25rem;">Automatically connect to this network</small>
-                            </div>
-                        </div>
-
-                        <div class="button-grid" style="margin-top: 1.5rem;">
-                            <button class="btn btn-primary" onclick="saveWiFiConfig()">💾 Save WiFi Configuration</button>
-                            <button class="btn btn-info" onclick="loadWiFiConfig()">🔄 Refresh Configuration</button>
-                            <button class="btn btn-secondary" onclick="previewMobileConfig()">👁️ Preview Mobile Config</button>
-                        </div>
-                    </div>
-
-                    <div id="wifi-status" style="margin-top: 1rem;"></div>
-                </div>
-
-                <div class="config-instructions" style="margin-top: 1.5rem; background: #d1edff; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
-                    <h3 style="margin-bottom: 1rem; color: #0c5460;">📱 Mobile Configuration Help</h3>
-                    <p style="color: #0c5460; margin-bottom: 0.5rem;"><strong>Mobile Profile Features:</strong></p>
-                    <ul style="color: #0c5460; margin-left: 1.5rem;">
-                        <li><strong>EAP-TLS:</strong> Uses client certificates for the strongest security</li>
-                        <li><strong>EAP-TTLS:</strong> Uses username/password credentials with CA certificate validation</li>
-                        <li><strong>Auto-Configuration:</strong> Users simply install the profile - no manual setup required</li>
-                        <li><strong>Enterprise Security:</strong> Supports WPA2/WPA3 Enterprise with 802.1X authentication</li>
-                    </ul>
-                    <p style="color: #0c5460; margin-top: 1rem; margin-bottom: 0;">
-                        <strong>Note:</strong> After configuring WiFi settings, users can download mobile configuration profiles from the IDP portal at <code>/idp</code>
-                    </p>
-                </div>
-                </div>
 
             </div>
             {% endif %}
@@ -3747,12 +3756,18 @@ RADIUS Authentication Log Monitor v1.0
             localStorage.setItem('activeTab', tabId);
             
             // Load tab-specific data
+            if (tabId === 'wifi-config') {
+                // Load WiFi configuration for WiFi Config tab
+                setTimeout(() => {
+                    loadWiFiConfig().catch(e => console.error('loadWiFiConfig error:', e));
+                }, 100);
+            }
+
             if (tabId === 'user-management') {
                 // Load version information and available branches for General Settings
                 setTimeout(() => {
                     // Version management removed
                     loadSMTPConfig().catch(e => console.error('loadSMTPConfig error:', e));
-                    loadWiFiConfig().catch(e => console.error('loadWiFiConfig error:', e));
                     loadCurrentLogo().catch(e => console.error('loadCurrentLogo error:', e));
                     loadCurrentColorTheme().catch(e => console.error('loadCurrentColorTheme error:', e));
                 }, 100);
