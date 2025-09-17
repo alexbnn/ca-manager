@@ -1770,12 +1770,36 @@ def revoke_certificate():
     """Revoke a certificate"""
     data = request.get_json() or {}
     name = data.get('name')
-    
+
     if not name:
         return jsonify({"status": "error", "message": "Certificate name is required"}), 400
-    
+
     log_operation('revoke_certificate', {'name': name})
     result = make_easyrsa_request('revoke', {'name': name})
+
+    # If revocation was successful, also update idp_certificates table
+    if result.get('status') == 'success':
+        try:
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                # Update any certificates with this CN to revoked status
+                cursor.execute("""
+                    UPDATE idp_certificates
+                    SET status = 'revoked', updated_at = CURRENT_TIMESTAMP
+                    WHERE certificate_cn = %s AND status = 'active'
+                """, (name,))
+                updated_rows = cursor.rowcount
+                conn.commit()
+                cursor.close()
+                conn.close()
+
+                if updated_rows > 0:
+                    logger.info(f"Updated {updated_rows} IDP certificate(s) to revoked status for {name}")
+        except Exception as e:
+            logger.error(f"Error updating IDP certificates table after revocation: {e}")
+            # Don't fail the whole operation if database update fails
+
     return jsonify(result)
 
 @app.route('/api/certificates/list', methods=['GET'])
@@ -5271,11 +5295,140 @@ def get_idp_certificate_status():
         conn.close()
         
         if cert_row:
+            # Check actual PKI revocation status
+            serial_number = cert_row['certificate_serial']
+            try:
+                # Get index.txt from EasyRSA container to check certificate status
+                response = requests.post(
+                    f"{TERMINAL_CONTAINER_URL}{TERMINAL_ENDPOINT}",
+                    json={"operation": "get-index"},
+                    timeout=10
+                )
+
+                if response.status_code == 200:
+                    index_content = response.json().get('stdout', '')
+                    # Check if certificate is revoked in PKI
+                    cert_revoked = False
+                    for line in index_content.split('\n'):
+                        if serial_number.upper() in line.upper():
+                            parts = line.split('\t')
+                            if len(parts) > 0 and parts[0] == 'R':
+                                cert_revoked = True
+                                break
+
+                    # If certificate is revoked in PKI, update database status
+                    if cert_revoked:
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE idp_certificates
+                            SET status = 'revoked'
+                            WHERE certificate_serial = %s
+                        """, (serial_number,))
+                        conn.commit()
+                        cursor.close()
+                        conn.close()
+
+                        # After marking as revoked, check for admin-created certificates
+                        cert_row = None
+            except Exception as e:
+                logger.error(f"Error checking PKI revocation status: {e}")
+                # Continue with database status if PKI check fails
+
+        # If no active certificate in database, check for admin-created certificates
+        if not cert_row:
+            try:
+                user_email = session.get('username')
+                # Check PKI for certificates with this user's email as CN by calling the get-cert endpoint directly
+                cert_response = requests.get(
+                    f"{TERMINAL_CONTAINER_URL}/get-cert/{user_email}",
+                    timeout=10
+                )
+
+                if cert_response.status_code == 200:
+                    cert_pem = cert_response.text
+
+                    # Verify it's a valid certificate (starts with BEGIN CERTIFICATE)
+                    if cert_pem.startswith('-----BEGIN CERTIFICATE-----'):
+                        # Parse certificate to get details
+                        from cryptography import x509
+                        from cryptography.hazmat.backends import default_backend
+                        try:
+                            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+                            serial_number = format(cert_obj.serial_number, 'X')
+                            valid_from = cert_obj.not_valid_before
+                            valid_until = cert_obj.not_valid_after
+
+                            # Check if this certificate is active in PKI
+                            index_response = requests.post(
+                                f"{TERMINAL_CONTAINER_URL}{TERMINAL_ENDPOINT}",
+                                json={"operation": "get-index"},
+                                timeout=10
+                            )
+
+                            cert_active = True
+                            if index_response.status_code == 200:
+                                index_content = index_response.json().get('stdout', '')
+                                for line in index_content.split('\n'):
+                                    if serial_number.upper() in line.upper():
+                                        parts = line.split('\t')
+                                        if len(parts) > 0 and parts[0] == 'R':
+                                            cert_active = False
+                                            break
+
+                            if cert_active:
+                                # Add admin-created certificate to idp_certificates table
+                                conn = get_db_connection()
+                                cursor = conn.cursor()
+
+                                # Check if certificate already exists
+                                cursor.execute("""
+                                    SELECT id FROM idp_certificates
+                                    WHERE certificate_serial = %s
+                                """, (serial_number,))
+
+                                if not cursor.fetchone():
+                                    from datetime import datetime
+                                    cursor.execute("""
+                                        INSERT INTO idp_certificates (
+                                            idp_user_id, idp_email, idp_provider, certificate_serial,
+                                            certificate_cn, certificate_subject, certificate_issuer,
+                                            certificate_pem, private_key_encrypted, status,
+                                            issued_at, expires_at, created_at
+                                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    """, (
+                                        user_email, user_email, session.get('idp_provider', 'admin-created'),
+                                        serial_number, user_email, f'CN={user_email}',
+                                        'CN=Bear Networks PKI', cert_pem, 'ADMIN_CREATED',
+                                        'active', valid_from, valid_until, datetime.now()
+                                    ))
+                                    conn.commit()
+                                    logger.info(f"Imported admin-created certificate for {user_email} with serial {serial_number}")
+
+                                # Fetch the certificate data again
+                                cursor.execute("""
+                                    SELECT * FROM idp_certificates
+                                    WHERE idp_email = %s AND status = 'active'
+                                    ORDER BY created_at DESC
+                                    LIMIT 1
+                                """, (user_email,))
+                                cert_row = cursor.fetchone()
+
+                                cursor.close()
+                                conn.close()
+
+                        except Exception as parse_error:
+                            logger.error(f"Error parsing admin-created certificate: {parse_error}")
+
+            except Exception as e:
+                logger.error(f"Error checking for admin-created certificates: {e}")
+
+        if cert_row:
             # Check if certificate is expiring soon (within 30 days)
             from datetime import datetime, timedelta
             expiry_date = cert_row['expires_at']
             expiring_soon = (expiry_date - datetime.now()) < timedelta(days=30)
-            
+
             return jsonify({
                 'status': 'success',
                 'certificate': {
@@ -5687,9 +5840,24 @@ def download_idp_certificate():
         cert_pem = cert_row['certificate_pem']
         key_pem = cert_row['private_key_encrypted']
         common_name = cert_row['certificate_cn']
-        
-        if not cert_pem or not key_pem:
+
+        if not cert_pem:
             return jsonify({'error': 'Certificate data incomplete'}), 500
+
+        # Handle admin-created certificates that don't have private keys in database
+        if key_pem == 'ADMIN_CREATED':
+            logger.info(f"Admin-created certificate detected for {email}, fetching private key from EasyRSA")
+            # Get the private key from EasyRSA container
+            key_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": True})
+            if key_result.get("status") == "success" and key_result.get("private_key"):
+                key_pem = key_result.get("private_key")
+                logger.info(f"Successfully retrieved private key for admin-created certificate {email}")
+            else:
+                logger.error(f"Failed to retrieve private key for admin-created certificate {email}: {key_result}")
+                return jsonify({'error': 'Private key not available for admin-created certificate'}), 500
+
+        if not key_pem:
+            return jsonify({'error': 'Private key data incomplete'}), 500
         
         # Prepare certificate data based on format
         from flask import make_response
@@ -10238,7 +10406,7 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
             <key>AutoJoin</key>
             <{'true' if wifi_config.get('wifi_auto_join', 'true') == 'true' else 'false'}/>
             <key>EncryptionType</key>
-            <string>WPA2</string>
+            <string>{wifi_config.get('wifi_security_type', 'WPA2')}</string>
             <key>DisableAssociationMACRandomization</key>
             <{'true' if wifi_config.get('wifi_disable_mac_randomization', 'true') == 'true' else 'false'}/>
             <key>EAPClientConfiguration</key>
@@ -10340,7 +10508,7 @@ def generate_eap_ttls_mobileconfig(wifi_config, ca_cert_pem, username):
             <key>AutoJoin</key>
             <{'true' if wifi_config.get('wifi_auto_join', 'true') == 'true' else 'false'}/>
             <key>EncryptionType</key>
-            <string>WPA2</string>
+            <string>{wifi_config.get('wifi_security_type', 'WPA2')}</string>
             <key>DisableAssociationMACRandomization</key>
             <{'true' if wifi_config.get('wifi_disable_mac_randomization', 'true') == 'true' else 'false'}/>
             <key>EAPClientConfiguration</key>
