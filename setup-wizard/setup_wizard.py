@@ -325,6 +325,10 @@ FLASK_ENV=production
 # Rate Limiting
 RATELIMIT_STORAGE_URL=redis://redis:6379
 
+# RADIUS Server Configuration
+RADIUS_SECRET={secrets.token_urlsafe(24)}
+DEBUG_MODE=false
+
 """
     return env_content
 
@@ -382,7 +386,8 @@ def monitor_deployment():
     
     services = [
         'traefik', 'postgres', 'redis', 'web-interface', 'easyrsa-container',
-        'scep-server', 'ios-scep-simulator', 'ocsp-simulator', 'ocsp-responder'
+        'scep-server', 'ios-scep-simulator', 'ocsp-simulator', 'ocsp-responder',
+        'radius-server'
     ]
     
     # Initialize service status
