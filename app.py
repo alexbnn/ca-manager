@@ -5866,32 +5866,70 @@ def download_idp_certificate():
         from cryptography.hazmat.backends import default_backend
         
         if format_type == 'pkcs12':
-            # Get CA certificate using the actual email address as the certificate name
-            # Since we're using the existing certificate request system, the certificate
-            # is stored with the actual email address, not a sanitized version
-            logger.info(f"Attempting to get CA certificate using email: {email}")
-            
-            ca_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": False})
-            logger.info(f"CA cert result from get-cert-files with email: {ca_result}")
-            ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
-            
+            # Get CA certificate from the EasyRSA container
+            logger.info(f"Attempting to get CA certificate for P12 bundle")
+
+            # Try to get the CA certificate directly
+            ca_response = requests.get(
+                f"{TERMINAL_CONTAINER_URL}/ca-cert",
+                timeout=10
+            )
+
+            if ca_response.status_code == 200:
+                ca_cert_pem = ca_response.text
+                logger.info(f"Successfully retrieved CA certificate")
+            else:
+                # Fallback to get-cert-files method
+                ca_result = make_easyrsa_request("get-cert-files", {"name": email, "include_key": False})
+                ca_cert_pem = ca_result.get("ca_certificate", "") if ca_result.get("status") == "success" else ""
+
             if not ca_cert_pem:
-                logger.error(f"CA certificate not available - get-cert-files returned: {ca_result}")
-                return jsonify({'error': 'CA certificate not available for P12 creation'}), 500
+                logger.error(f"CA certificate not available for P12 creation")
+                # For iOS, we can still create P12 without CA cert
+                ca_cert_obj = None
+            else:
+                try:
+                    ca_cert_obj = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
+                except Exception as ca_error:
+                    logger.error(f"Error loading CA certificate: {ca_error}")
+                    ca_cert_obj = None
             
             # Create P12 bundle
-            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-            private_key_obj = serialization.load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
-            ca_cert_obj = x509.load_pem_x509_certificate(ca_cert_pem.encode(), default_backend())
-            
-            # Use 'certificate' as the password for P12 files
-            p12_data = serialization.pkcs12.serialize_key_and_certificates(
-                name=common_name.encode('utf-8'),
-                key=private_key_obj,
-                cert=cert_obj,
-                cas=[ca_cert_obj],
-                encryption_algorithm=serialization.BestAvailableEncryption(b'certificate')
-            )
+            try:
+                cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+                private_key_obj = serialization.load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
+
+                # Use 'certificate' as the password for P12 files
+                # Note: iOS requires the password to be non-empty for P12 files
+                p12_password = b'certificate'
+                logger.info(f"Creating P12 for {email} with password 'certificate'")
+
+                # Build CA chain list
+                ca_chain = []
+                if ca_cert_obj:
+                    ca_chain.append(ca_cert_obj)
+                    logger.info("Including CA certificate in P12 bundle")
+                else:
+                    logger.warning("No CA certificate available for P12 bundle")
+
+                # iOS-compatible P12 generation
+                # Use only the CN as the friendly name for iOS compatibility
+                friendly_name = common_name.split('@')[0] if '@' in common_name else common_name
+
+                p12_data = serialization.pkcs12.serialize_key_and_certificates(
+                    name=friendly_name.encode('utf-8')[:31],  # iOS has a 31-byte limit for friendly names
+                    key=private_key_obj,
+                    cert=cert_obj,
+                    cas=ca_chain if ca_chain else None,
+                    encryption_algorithm=serialization.BestAvailableEncryption(p12_password)
+                )
+                logger.info(f"Successfully created P12 bundle for {email}")
+
+            except Exception as p12_error:
+                logger.error(f"Error creating P12 bundle: {p12_error}")
+                import traceback
+                logger.error(f"P12 creation traceback: {traceback.format_exc()}")
+                return jsonify({'error': f'Failed to create P12 bundle: {str(p12_error)}'}), 500
             
             response = make_response(p12_data)
             response.headers['Content-Type'] = 'application/x-pkcs12'
