@@ -127,6 +127,15 @@ test-certificates/
 test-data/
 mock-data/
 
+# Debug and test files
+cookies.txt
+auto-debug-tabs.sh
+debug-from-container.sh
+debug-tabs.js
+*debug*.sh
+*debug*.js
+*test*.local.*
+
 # Production secrets
 secrets/
 private/
