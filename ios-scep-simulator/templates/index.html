@@ -169,8 +169,8 @@ async function testRealSCEPEndpoints(scepUrl) {
 // Load SCEP URL from CA Manager and auto-test connection
 window.addEventListener('load', async function() {
     try {
-        // Get the correct SCEP URL from CA Manager
-        const response = await fetch('{{ scep_server_url }}/api/scep/url/public');
+        // Get the correct SCEP URL from our proxy endpoint (avoids CORS issues)
+        const response = await fetch('/api/scep/config');
         if (response.ok) {
             const data = await response.json();
             if (data.status === 'success' && data.scep_url) {
@@ -181,7 +181,7 @@ window.addEventListener('load', async function() {
             }
         }
     } catch (error) {
-        console.warn('Failed to get SCEP URL from CA Manager:', error);
+        console.warn('Failed to get SCEP URL from simulator config:', error);
     }
     
     // Fallback to default URL pattern

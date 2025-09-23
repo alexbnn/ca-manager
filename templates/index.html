@@ -6145,8 +6145,10 @@ RADIUS Authentication Log Monitor v1.0
         // Load OCSP URL dynamically from configuration
         async function loadOCSPUrl() {
             try {
-                const domain = window.location.hostname.replace(/^[^.]*\./, ''); // Extract domain
-                const ocspUrl = `https://ca.${domain}/ocsp`;
+                // Use the current hostname/domain without forcing 'ca.' subdomain
+                const currentHost = window.location.hostname;
+                const protocol = window.location.protocol;
+                const ocspUrl = `${protocol}//${currentHost}/ocsp`;
                 if (document.getElementById('ocspUrl')) {
                 document.getElementById('ocspUrl').value = ocspUrl;
             }

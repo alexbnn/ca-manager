@@ -534,6 +534,39 @@ def health():
         'timestamp': datetime.now().isoformat()
     })
 
+@app.route('/api/scep/config', methods=['GET'])
+@app.route('/simulator/api/scep/config', methods=['GET'])
+def get_scep_config():
+    """Get SCEP configuration from CA Manager (proxy endpoint)"""
+    try:
+        # Get SCEP URL from CA Manager
+        response = requests.get(
+            f"{CA_MANAGER_BASE_URL}/api/scep/url/public",
+            verify=False,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            # Fallback configuration
+            return jsonify({
+                'status': 'success',
+                'scep_url': f"{SCEP_SERVER_BASE_URL}/scep/pki-ca",
+                'base_url': SCEP_SERVER_BASE_URL,
+                'scep_identifier': 'pki-ca'
+            })
+
+    except Exception as e:
+        print(f"Failed to get SCEP config: {e}")
+        # Fallback configuration
+        return jsonify({
+            'status': 'success',
+            'scep_url': f"{SCEP_SERVER_BASE_URL}/scep/pki-ca",
+            'base_url': SCEP_SERVER_BASE_URL,
+            'scep_identifier': 'pki-ca'
+        })
+
 if __name__ == '__main__':
     # Create templates directory if it doesn't exist
     os.makedirs('templates', exist_ok=True)

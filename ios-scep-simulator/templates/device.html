@@ -258,8 +258,8 @@ function downloadResults() {
 // Load SCEP URL from CA Manager and auto-test connection
 window.addEventListener('load', async function() {
     try {
-        // Get the correct SCEP URL from CA Manager
-        const response = await fetch('{{ scep_server_url }}/api/scep/url/public');
+        // Get the correct SCEP URL from our proxy endpoint (avoids CORS issues)
+        const response = await fetch('/api/scep/config');
         if (response.ok) {
             const data = await response.json();
             if (data.status === 'success' && data.scep_url) {

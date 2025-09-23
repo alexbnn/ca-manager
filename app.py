@@ -2179,46 +2179,9 @@ def get_scep_info():
         })
 
 def ensure_ca_subdomain(url):
-    """Ensure URL has ca subdomain for SCEP endpoints"""
-    from urllib.parse import urlparse, urlunparse
-    
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-    
-    if not hostname:
-        return url
-    
-    # Don't modify localhost or IP addresses
-    if 'localhost' in hostname or hostname.replace('.', '').replace(':', '').isdigit():
-        return url
-    
-    # Check if we need to add/modify subdomain
-    parts = hostname.split('.')
-    if len(parts) >= 2:
-        if parts[0] != 'ca':
-            # Either add ca. prefix or replace existing subdomain
-            if len(parts) == 2:
-                # Just domain.com, add ca. prefix
-                new_hostname = f'ca.{hostname}'
-            else:
-                # Has subdomain, replace with ca
-                base_domain = '.'.join(parts[-2:])
-                new_hostname = f'ca.{base_domain}'
-            
-            # Reconstruct URL with new hostname
-            new_netloc = new_hostname
-            if parsed.port:
-                new_netloc = f'{new_hostname}:{parsed.port}'
-            
-            return urlunparse((
-                parsed.scheme,
-                new_netloc,
-                parsed.path,
-                parsed.params,
-                parsed.query,
-                parsed.fragment
-            ))
-    
+    """Return URL unchanged - respecting user's chosen subdomain"""
+    # User reported issue: this function was forcing 'ca.' subdomain even when they chose different ones
+    # Fixed to respect the user's domain configuration without modification
     return url
 
 @app.route('/api/scep/url', methods=['GET'])
@@ -2629,7 +2592,12 @@ def get_ocsp_info():
     try:
         # Construct the external OCSP URL
         domain = os.getenv('DOMAIN', 'localhost')
-        ocsp_url = f"https://ca.{domain}/ocsp"
+        # Use the actual domain from request if available, otherwise fallback to environment
+        if hasattr(request, 'headers') and 'Host' in request.headers:
+            current_host = request.headers['Host']
+            if current_host and current_host != 'localhost' and ':' not in current_host:
+                domain = current_host
+        ocsp_url = f"https://{domain}/ocsp"
         
         return jsonify({
             'status': 'success',
@@ -4197,7 +4165,96 @@ PKI Certificate Authority
         attachment = MIMEApplication(p12_data, _subtype='x-pkcs12')
         attachment.add_header('Content-Disposition', 'attachment', filename=f'{common_name}.p12')
         msg.attach(attachment)
-        
+
+        # Generate and attach EAP-TLS mobileconfig if WiFi configuration exists
+        try:
+            conn_wifi = get_db_connection()
+            if conn_wifi:
+                cursor_wifi = conn_wifi.cursor()
+                cursor_wifi.execute("""
+                    SELECT config_key, config_value
+                    FROM system_config
+                    WHERE config_key LIKE 'wifi_%' OR config_key IN ('organization_name', 'profile_description')
+                """)
+                config_rows = cursor_wifi.fetchall()
+                cursor_wifi.close()
+                conn_wifi.close()
+
+                wifi_config = {row['config_key']: row['config_value'] for row in config_rows}
+
+                # Only generate mobileconfig if we have a WiFi SSID configured
+                if wifi_config.get('wifi_ssid'):
+                    logging.info(f"Generating EAP-TLS mobileconfig for {common_name} with SSID: {wifi_config.get('wifi_ssid')}")
+
+                    # Generate mobileconfig content
+                    mobileconfig_content = generate_eap_tls_mobileconfig(
+                        wifi_config, ca_cert_pem, cert_pem, key_pem
+                    )
+
+                    # Create mobileconfig attachment
+                    org_name = wifi_config.get('organization_name', 'Organization')
+                    mobileconfig_filename = f"{common_name}-wifi.mobileconfig"
+
+                    mobileconfig_attachment = MIMEApplication(
+                        mobileconfig_content.encode('utf-8'),
+                        _subtype='x-apple-aspen-config'
+                    )
+                    mobileconfig_attachment.add_header(
+                        'Content-Disposition',
+                        'attachment',
+                        filename=mobileconfig_filename
+                    )
+                    msg.attach(mobileconfig_attachment)
+
+                    # Update email body to mention the mobileconfig
+                    body = f"""
+Hello {recipient_name or 'User'},
+
+Your 802.1X certificate has been approved and is ready for use!
+
+Certificate Details:
+- Common Name: {common_name}
+- Request ID: {request_id}
+- Format: PKCS#12 (.p12)
+- Password: 123456
+
+ATTACHMENTS:
+1. {common_name}.p12 - Certificate file for manual installation
+2. {mobileconfig_filename} - iOS/macOS WiFi configuration profile
+
+Installation Instructions:
+
+FOR iOS/macOS (Recommended):
+1. Save the {mobileconfig_filename} file to your device
+2. Double-click or open the file to install the WiFi profile
+3. This will automatically configure WiFi and install the certificate
+
+FOR Manual Installation:
+1. Download the attached certificate file ({common_name}.p12)
+2. Double-click the file to install it on Windows/macOS
+3. When prompted for a password, enter: 123456
+4. Configure your WiFi manually using EAP-TLS authentication
+
+IMPORTANT: The P12 file is protected with the password "123456" (without quotes).
+
+If you need assistance with installation, please contact your IT administrator.
+
+Best regards,
+PKI Certificate Authority
+"""
+                    # Update the message body
+                    msg.set_payload([])  # Clear existing payload
+                    msg.attach(MIMEText(body, 'plain'))
+                    msg.attach(attachment)  # Re-attach P12
+                    msg.attach(mobileconfig_attachment)  # Attach mobileconfig
+
+                    logging.info(f"Added EAP-TLS mobileconfig attachment for {common_name}")
+                else:
+                    logging.info("No WiFi SSID configured, skipping mobileconfig generation")
+        except Exception as e:
+            logging.warning(f"Failed to generate mobileconfig attachment: {e}")
+            # Continue with just the P12 attachment if mobileconfig fails
+
         # Send email
         server = smtplib.SMTP(smtp_server, smtp_port)
         if use_tls:

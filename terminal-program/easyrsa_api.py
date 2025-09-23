@@ -31,7 +31,21 @@ EASYRSA_CMD = f"{EASYRSA_PATH}/easyrsa"
 
 # Ensure PKI directory exists and is writable
 os.makedirs(PKI_PATH, exist_ok=True)
+
+# Set up EasyRSA environment variables globally
 os.environ['EASYRSA_PKI'] = PKI_PATH
+os.environ['EASYRSA'] = EASYRSA_PATH
+os.environ['EASYRSA_BATCH'] = '1'
+os.environ['EASYRSA_OPENSSL'] = 'openssl'
+
+# Verify EasyRSA installation
+x509_types_path = os.path.join(EASYRSA_PATH, 'x509-types')
+if os.path.exists(x509_types_path):
+    print(f"✓ EasyRSA x509-types directory found at: {x509_types_path}")
+    print(f"✓ x509-types contains: {os.listdir(x509_types_path)}")
+else:
+    print(f"⚠ EasyRSA x509-types directory NOT found at: {x509_types_path}")
+    print(f"⚠ EasyRSA path contents: {os.listdir(EASYRSA_PATH) if os.path.exists(EASYRSA_PATH) else 'N/A'}")
 
 @app.route('/health')
 def health():
@@ -256,15 +270,22 @@ set_var EASYRSA_NO_PASS     1
 def run_easyrsa_command(args, input_text=None, custom_env=None):
     """Helper function to run EasyRSA commands"""
     cmd = [EASYRSA_CMD] + args
-    
+
     print(f"Running command: {' '.join(cmd)}")
     print(f"Working directory: {EASYRSA_PATH}")
     print(f"PKI directory: {PKI_PATH}")
     if input_text:
         print(f"Input text: {repr(input_text)}")
-    
-    # Set up environment
-    env = custom_env or {**os.environ, 'EASYRSA_PKI': PKI_PATH, 'EASYRSA_BATCH': '1'}
+
+    # Set up environment with all required EasyRSA variables
+    env = custom_env or {
+        **os.environ,
+        'EASYRSA_PKI': PKI_PATH,
+        'EASYRSA_BATCH': '1',
+        'EASYRSA': EASYRSA_PATH,  # Point to EasyRSA installation directory
+        'EASYRSA_OPENSSL': 'openssl',  # Ensure OpenSSL is available
+        'PATH': f"{EASYRSA_PATH}:{os.environ.get('PATH', '')}"  # Add EasyRSA to PATH
+    }
     
     result = subprocess.run(
         cmd,
@@ -284,8 +305,22 @@ def run_easyrsa_command(args, input_text=None, custom_env=None):
 
 def init_pki():
     """Initialize PKI"""
+    # Verify EasyRSA installation and x509-types directory
+    x509_types_path = os.path.join(EASYRSA_PATH, 'x509-types')
+    if not os.path.exists(x509_types_path):
+        return jsonify({
+            "status": "error",
+            "message": f"EasyRSA x509-types directory not found at {x509_types_path}",
+            "return_code": -1,
+            "stdout": "",
+            "stderr": f"Missing x509-types directory: {x509_types_path}"
+        })
+
+    print(f"EasyRSA x509-types directory verified at: {x509_types_path}")
+    print(f"x509-types contents: {os.listdir(x509_types_path) if os.path.exists(x509_types_path) else 'N/A'}")
+
     result = run_easyrsa_command(['init-pki'])
-    
+
     return jsonify({
         "status": "success" if result.returncode == 0 else "error",
         "return_code": result.returncode,
