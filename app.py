@@ -33,7 +33,7 @@ from threading import Thread
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Application version - build timestamp
-APP_VERSION = "6.0.0"
+APP_VERSION = "7.0.0b"
 BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 
 # Database connection for multi-user authentication
@@ -1705,26 +1705,58 @@ def download_certificate(name):
                     ca_pem = result['ca_certificate']
                     ca_cert = x509.load_pem_x509_certificate(ca_pem.encode(), default_backend())
 
-                # Use consistent password with user portal - "certificate"
-                p12_password = b"certificate"
+                # Use OpenSSL directly for macOS/iOS compatibility
+                import tempfile
+                import subprocess
+                import os
 
-                # Create PKCS#12 with or without CA cert
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False) as cert_file:
+                    cert_file.write(result['certificate'])
+                    cert_file_path = cert_file.name
+
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.key', delete=False) as key_file:
+                    key_file.write(result['private_key'])
+                    key_file_path = key_file.name
+
+                ca_file_path = None
                 if ca_cert:
-                    p12_data = pkcs12.serialize_key_and_certificates(
-                        name=name.encode('utf-8'),
-                        key=private_key,
-                        cert=cert,
-                        cas=[ca_cert],
-                        encryption_algorithm=serialization.BestAvailableEncryption(p12_password)
-                    )
-                else:
-                    p12_data = pkcs12.serialize_key_and_certificates(
-                        name=name.encode('utf-8'),
-                        key=private_key,
-                        cert=cert,
-                        cas=None,
-                        encryption_algorithm=serialization.BestAvailableEncryption(p12_password)
-                    )
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False) as ca_file:
+                        ca_file.write(result['ca_certificate'])
+                        ca_file_path = ca_file.name
+
+                with tempfile.NamedTemporaryFile(suffix='.p12', delete=False) as p12_file:
+                    p12_file_path = p12_file.name
+
+                try:
+                    # Create P12 using OpenSSL for better compatibility
+                    friendly_name = name.split('@')[0] if '@' in name else name
+
+                    cmd = [
+                        'openssl', 'pkcs12', '-export',
+                        '-out', p12_file_path,
+                        '-inkey', key_file_path,
+                        '-in', cert_file_path,
+                        '-passout', 'pass:123456',
+                        '-legacy',
+                        '-name', friendly_name[:31]
+                    ]
+
+                    if ca_file_path:
+                        cmd.extend(['-certfile', ca_file_path])
+
+                    openssl_result = subprocess.run(cmd, capture_output=True, text=True)
+
+                    if openssl_result.returncode == 0:
+                        with open(p12_file_path, 'rb') as f:
+                            p12_data = f.read()
+                    else:
+                        raise Exception(f"OpenSSL P12 generation failed: {openssl_result.stderr}")
+
+                finally:
+                    # Clean up temporary files
+                    for temp_path in [cert_file_path, key_file_path, ca_file_path, p12_file_path]:
+                        if temp_path and os.path.exists(temp_path):
+                            os.unlink(temp_path)
 
                 # Return P12 file
                 return send_file(
@@ -4088,7 +4120,7 @@ def send_certificate_email_with_data(request_id, recipient_email, recipient_name
         logging.info(f"P12 friendly name bytes: {friendly_name_bytes} (length: {len(friendly_name_bytes)})")
         
         # Use a simple default password for P12 protection
-        p12_password = "certificate"
+        p12_password = "123456"
         p12_data = serialization.pkcs12.serialize_key_and_certificates(
             name=friendly_name_bytes,
             key=private_key_obj,
@@ -4143,16 +4175,16 @@ Certificate Details:
 - Common Name: {common_name}
 - Request ID: {request_id}
 - Format: PKCS#12 (.p12)
-- Password: certificate
+- Password: 123456
 
 Installation Instructions:
 1. Download the attached certificate file ({common_name}.p12)
 2. Double-click the file to install it on Windows/macOS
-3. When prompted for a password, enter: certificate
+3. When prompted for a password, enter: 123456
 4. For mobile devices, email the file to yourself and open on the device
 5. The certificate will be used for 802.1X wireless network authentication
 
-IMPORTANT: The P12 file is protected with the password "certificate" (without quotes).
+IMPORTANT: The P12 file is protected with the password "123456" (without quotes).
 
 If you need assistance with installation, please contact your IT administrator.
 
@@ -5899,31 +5931,68 @@ def download_idp_certificate():
                 cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
                 private_key_obj = serialization.load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
 
-                # Use 'certificate' as the password for P12 files
-                # Note: iOS requires the password to be non-empty for P12 files
-                p12_password = b'certificate'
-                logger.info(f"Creating P12 for {email} with password 'certificate'")
+                # Use '123456' as the password for P12 files
+                # Note: macOS/iOS compatibility requires using OpenSSL directly for P12 generation
+                logger.info(f"Creating P12 for {email} with password '123456'")
 
-                # Build CA chain list
-                ca_chain = []
+                # Save certificate and key to temporary files for OpenSSL processing
+                import tempfile
+                import subprocess
+                import os
+
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False) as cert_file:
+                    cert_file.write(cert_pem)
+                    cert_file_path = cert_file.name
+
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.key', delete=False) as key_file:
+                    key_file.write(key_pem)
+                    key_file_path = key_file.name
+
+                ca_file_path = None
                 if ca_cert_obj:
-                    ca_chain.append(ca_cert_obj)
-                    logger.info("Including CA certificate in P12 bundle")
-                else:
-                    logger.warning("No CA certificate available for P12 bundle")
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False) as ca_file:
+                        # Get CA certificate PEM from the API response or reconstruct it
+                        ca_cert_pem = requests.get(f"{TERMINAL_CONTAINER_URL}/ca-cert", timeout=10).text
+                        ca_file.write(ca_cert_pem)
+                        ca_file_path = ca_file.name
 
-                # iOS-compatible P12 generation
-                # Use only the CN as the friendly name for iOS compatibility
-                friendly_name = common_name.split('@')[0] if '@' in common_name else common_name
+                with tempfile.NamedTemporaryFile(suffix='.p12', delete=False) as p12_file:
+                    p12_file_path = p12_file.name
 
-                p12_data = serialization.pkcs12.serialize_key_and_certificates(
-                    name=friendly_name.encode('utf-8')[:31],  # iOS has a 31-byte limit for friendly names
-                    key=private_key_obj,
-                    cert=cert_obj,
-                    cas=ca_chain if ca_chain else None,
-                    encryption_algorithm=serialization.BestAvailableEncryption(p12_password)
-                )
-                logger.info(f"Successfully created P12 bundle for {email}")
+                try:
+                    # Use OpenSSL to create P12 for better macOS/iOS compatibility
+                    friendly_name = common_name.split('@')[0] if '@' in common_name else common_name
+
+                    cmd = [
+                        'openssl', 'pkcs12', '-export',
+                        '-out', p12_file_path,
+                        '-inkey', key_file_path,
+                        '-in', cert_file_path,
+                        '-passout', 'pass:123456',
+                        '-legacy',
+                        '-name', friendly_name[:31]  # Limit friendly name for iOS
+                    ]
+
+                    if ca_file_path:
+                        cmd.extend(['-certfile', ca_file_path])
+                        logger.info("Including CA certificate in P12 bundle")
+
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+
+                    if result.returncode == 0:
+                        # Read the generated P12 file
+                        with open(p12_file_path, 'rb') as f:
+                            p12_data = f.read()
+                        logger.info(f"Successfully created P12 bundle for {email} using OpenSSL")
+                    else:
+                        logger.error(f"OpenSSL P12 generation failed: {result.stderr}")
+                        raise Exception(f"P12 generation failed: {result.stderr}")
+
+                finally:
+                    # Clean up temporary files
+                    for temp_path in [cert_file_path, key_file_path, ca_file_path, p12_file_path]:
+                        if temp_path and os.path.exists(temp_path):
+                            os.unlink(temp_path)
 
             except Exception as p12_error:
                 logger.error(f"Error creating P12 bundle: {p12_error}")
@@ -10348,7 +10417,7 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
     cert_id = str(uuid.uuid4()).upper()
     
     # Default P12 password
-    p12_password = "certificate"
+    p12_password = "123456"
     
     # Dynamic organization values
     org_name = wifi_config.get('organization_name', 'Organization')
@@ -10374,16 +10443,51 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
         logger.warning(f"Could not convert CA certificate to DER: {e}")
         ca_cert_b64 = base64.b64encode(ca_cert_pem.encode()).decode()
     
-    # Create P12 certificate data (simplified - concatenating PEM data)
-    # In production, you'd want to create a proper PKCS#12 file
+    # Create proper P12 certificate data using OpenSSL
     try:
-        p12_data = user_cert_pem + "\n" + encrypted_private_key
-        p12_b64 = base64.b64encode(p12_data.encode()).decode()
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False) as cert_file:
+            cert_file.write(user_cert_pem)
+            cert_file_path = cert_file.name
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.key', delete=False) as key_file:
+            key_file.write(encrypted_private_key)
+            key_file_path = key_file.name
+
+        with tempfile.NamedTemporaryFile(suffix='.p12', delete=False) as p12_file:
+            p12_file_path = p12_file.name
+
+        # Generate P12 using OpenSSL with legacy format
+        cmd = [
+            'openssl', 'pkcs12', '-export',
+            '-out', p12_file_path,
+            '-inkey', key_file_path,
+            '-in', cert_file_path,
+            '-passout', f'pass:{p12_password}',
+            '-legacy',
+            '-name', 'client'
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode == 0:
+            with open(p12_file_path, 'rb') as f:
+                p12_data = f.read()
+            p12_b64 = base64.b64encode(p12_data).decode()
+        else:
+            raise Exception(f"OpenSSL P12 generation failed: {result.stderr}")
+
     except Exception as e:
         logger.error(f"Error creating P12 data: {e}")
         p12_b64 = base64.b64encode(b"# Certificate data error").decode()
+    finally:
+        # Clean up temporary files
+        for temp_path in [cert_file_path, key_file_path, p12_file_path]:
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.unlink(temp_path)
     
-    # Create the mobile config XML
+    # Create the mobile config XML matching the provided format
+    cert_filename = f"{org_name.lower().replace(' ', '-')}-client.p12"
+
     mobileconfig_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -10391,89 +10495,75 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
     <key>PayloadContent</key>
     <array>
         <dict>
-            <key>PayloadDisplayName</key>
-            <string>{org_name} Root CA</string>
-            <key>PayloadDescription</key>
-            <string>Root Certificate Authority for {org_name}. After installation, manually enable full trust in Settings > General > About > Certificate Trust Settings.</string>
-            <key>PayloadIdentifier</key>
-            <string>{org_domain}.wifi.ca.{ca_id}</string>
-            <key>PayloadType</key>
-            <string>com.apple.security.root</string>
-            <key>PayloadUUID</key>
-            <string>{ca_id}</string>
-            <key>PayloadVersion</key>
-            <integer>1</integer>
-            <key>PayloadCertificateFileName</key>
-            <string>{org_name.replace(' ', '-').lower()}-ca.crt</string>
-            <key>PayloadContent</key>
-            <data>{ca_cert_b64}</data>
-        </dict>
-        <dict>
-            <key>PayloadDisplayName</key>
-            <string>User Certificate</string>
-            <key>PayloadIdentifier</key>
-            <string>{org_domain}.wifi.cert.{cert_id}</string>
-            <key>PayloadType</key>
-            <string>com.apple.security.pkcs12</string>
-            <key>PayloadUUID</key>
-            <string>{cert_id}</string>
-            <key>PayloadVersion</key>
-            <integer>1</integer>
-            <key>PayloadCertificateFileName</key>
-            <string>user-certificate.p12</string>
-            <key>PayloadContent</key>
-            <data>{p12_b64}</data>
-            <key>Password</key>
-            <string>{p12_password}</string>
-        </dict>
-        <dict>
-            <key>PayloadDisplayName</key>
-            <string>WiFi ({wifi_config.get('wifi_ssid', 'Corporate')})</string>
-            <key>PayloadIdentifier</key>
-            <string>{org_domain}.wifi.{wifi_id}</string>
-            <key>PayloadType</key>
-            <string>com.apple.wifi.managed</string>
-            <key>PayloadUUID</key>
-            <string>{wifi_id}</string>
-            <key>PayloadVersion</key>
-            <integer>1</integer>
-            <key>SSID_STR</key>
-            <string>{wifi_config.get('wifi_ssid', 'Corporate')}</string>
-            <key>HIDDEN_NETWORK</key>
-            <{'true' if wifi_config.get('wifi_hidden_network') == 'true' else 'false'}/>
             <key>AutoJoin</key>
             <{'true' if wifi_config.get('wifi_auto_join', 'true') == 'true' else 'false'}/>
-            <key>EncryptionType</key>
-            <string>{wifi_config.get('wifi_security_type', 'WPA2')}</string>
+            <key>CaptiveBypass</key>
+            <{'true' if wifi_config.get('wifi_captive_bypass', 'false') == 'true' else 'false'}/>
             <key>DisableAssociationMACRandomization</key>
-            <{'true' if wifi_config.get('wifi_disable_mac_randomization', 'true') == 'true' else 'false'}/>
+            <{'true' if wifi_config.get('wifi_disable_mac_randomization', 'false') == 'true' else 'false'}/>
             <key>EAPClientConfiguration</key>
             <dict>
                 <key>AcceptEAPTypes</key>
                 <array>
                     <integer>13</integer>
                 </array>
-                <key>EAPFASTUsePAC</key>
-                <false/>
-                <key>EAPFASTProvisionPAC</key>
-                <false/>
-                <key>PayloadCertificateAnchorUUID</key>
-                <array>
-                    <string>{ca_id}</string>
-                </array>
-                <key>TLSTrustedServerNames</key>
-                <array>
-                    <string>{radius_server}</string>
-                </array>
-                <key>PayloadCertificateUUID</key>
-                <string>{cert_id}</string>
+                <key>TLSMaximumVersion</key>
+                <string>{wifi_config.get('wifi_tls_max_version', '1.2')}</string>
+                <key>TLSMinimumVersion</key>
+                <string>{wifi_config.get('wifi_tls_min_version', '1.0')}</string>
             </dict>
+            <key>EncryptionType</key>
+            <string>{wifi_config.get('wifi_security_type', 'WPA2')}</string>
+            <key>HIDDEN_NETWORK</key>
+            <{'true' if wifi_config.get('wifi_hidden_network', 'false') == 'true' else 'false'}/>
+            <key>IsHotspot</key>
+            <{'true' if wifi_config.get('wifi_is_hotspot', 'false') == 'true' else 'false'}/>
+            <key>PayloadCertificateUUID</key>
+            <string>{cert_id}</string>
+            <key>PayloadDescription</key>
+            <string>Configures Wi-Fi settings</string>
+            <key>PayloadDisplayName</key>
+            <string>Wi-Fi</string>
+            <key>PayloadIdentifier</key>
+            <string>com.apple.wifi.managed.{wifi_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.wifi.managed</string>
+            <key>PayloadUUID</key>
+            <string>{wifi_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>ProxyType</key>
+            <string>{wifi_config.get('wifi_proxy_type', 'None')}</string>
+            <key>SSID_STR</key>
+            <string>{wifi_config.get('wifi_ssid', 'Corporate')}</string>
+        </dict>
+        <dict>
+            <key>Password</key>
+            <string>{p12_password}</string>
+            <key>PayloadCertificateFileName</key>
+            <string>{cert_filename}</string>
+            <key>PayloadContent</key>
+            <data>
+            {p12_b64}
+            </data>
+            <key>PayloadDescription</key>
+            <string>Adds a PKCS#12-formatted certificate</string>
+            <key>PayloadDisplayName</key>
+            <string>{cert_filename}</string>
+            <key>PayloadIdentifier</key>
+            <string>com.apple.security.pkcs12.{cert_id}</string>
+            <key>PayloadType</key>
+            <string>com.apple.security.pkcs12</string>
+            <key>PayloadUUID</key>
+            <string>{cert_id}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
         </dict>
     </array>
     <key>PayloadDisplayName</key>
-    <string>{wifi_config.get('organization_name', 'Organization')} - WiFi EAP-TLS</string>
+    <string>{wifi_config.get('organization_name', 'Organization')} WiFi Configuration</string>
     <key>PayloadIdentifier</key>
-    <string>{org_domain}.wifi.eap-tls</string>
+    <string>{org_domain}.wifi-config.{profile_id}</string>
     <key>PayloadRemovalDisallowed</key>
     <false/>
     <key>PayloadType</key>
@@ -10482,8 +10572,6 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
     <string>{profile_id}</string>
     <key>PayloadVersion</key>
     <integer>1</integer>
-    <key>PayloadDescription</key>
-    <string>WiFi configuration for {ssid} with EAP-TLS authentication. After installation, go to Settings > General > About > Certificate Trust Settings and enable full trust for the {org_name} Root CA.</string>
 </dict>
 </plist>"""
     

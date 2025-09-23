@@ -954,7 +954,7 @@
                     <li><strong>First:</strong> Download and install the CA certificate on your device before installing your personal certificate</li>
                     <li>Certificates are valid for <strong id="validityDays">365</strong> days from issuance</li>
                     <li>You can renew your certificate <strong id="renewalDays">30</strong> days before expiry</li>
-                    <li>Downloaded certificates are in PKCS#12 format with password: <strong>certificate</strong></li>
+                    <li>Downloaded certificates are in PKCS#12 format with password: <strong>123456</strong></li>
                     <li>For security, private keys are not stored on the server after download</li>
                     <li>Contact your administrator if you need special certificate requirements</li>
                 </ul>
@@ -994,7 +994,7 @@
                     <li>Download the .p12 certificate file</li>
                     <li>Double-click the file to open Certificate Import Wizard</li>
                     <li>Select "Current User" and click Next</li>
-                    <li>Enter password: <strong>certificate</strong> and click Next</li>
+                    <li>Enter password: <strong>123456</strong> and click Next</li>
                     <li>Select "Automatically select certificate store" and click Next</li>
                     <li>Click Finish to complete the import</li>
                 </ol>
@@ -1005,7 +1005,7 @@
                     <li>Download the .p12 certificate file</li>
                     <li>Double-click the file to open Keychain Access</li>
                     <li>Select "login" keychain</li>
-                    <li>Enter password: <strong>certificate</strong> and click OK</li>
+                    <li>Enter password: <strong>123456</strong> and click OK</li>
                     <li>The certificate will be added to your keychain</li>
                 </ol>
 
@@ -1014,7 +1014,7 @@
                     <li><strong>First:</strong> Download and install the CA certificate (ca-certificate.crt)</li>
                     <li>Download the .p12 certificate file</li>
                     <li>Open terminal and run: <code>pk12util -i certificate.p12 -d sql:$HOME/.pki/nssdb</code></li>
-                    <li>Enter password: <strong>certificate</strong> when prompted</li>
+                    <li>Enter password: <strong>123456</strong> when prompted</li>
                     <li>The certificate will be imported to your NSS database</li>
                 </ol>
             </div>

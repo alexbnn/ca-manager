@@ -609,7 +609,7 @@ def build_client_full(params):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.ext', delete=False) as ext_file:
             ext_file.write(f"""basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
-extendedKeyUsage = clientAuth
+extendedKeyUsage = serverAuth, clientAuth
 subjectAltName = email:{name}
 """)
             ext_filename = ext_file.name
@@ -698,88 +698,131 @@ subjectAltName = email:{name}
         }), 500
 
 def build_server_full(params):
-    """Build server certificate with correct CN and DNS SAN from frontend input"""
+    """Build server certificate using EasyRSA with custom extensions for RADIUS compatibility"""
     name = params.get('name')
     if not name:
         return jsonify({"status": "error", "message": "Name parameter required"}), 400
-    
+
     try:
         import tempfile
-        
-        # Create temporary extension file for SAN
-        ext_fd, ext_file = tempfile.mkstemp(suffix='.conf')
-        
-        try:
-            # Write SAN extension configuration
-            san_config = f"""# Server certificate extensions for {name}
-[ server_cert ]
-basicConstraints = CA:FALSE
-nsCertType = server
-keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-extendedKeyUsage = serverAuth
-subjectAltName = DNS:{name}
+        import subprocess
+        import os
 
-[ req_ext ]
+        # Step 1: Create custom EasyRSA extensions file for server certificates with RADIUS compatibility
+        x509_types_dir = os.path.join(PKI_PATH, 'x509-types')
+        os.makedirs(x509_types_dir, exist_ok=True)
+
+        # Create a custom certificate type for RADIUS-compatible servers
+        radius_server_type = os.path.join(x509_types_dir, 'radius-server')
+        with open(radius_server_type, 'w') as f:
+            f.write("""# RADIUS-compatible server certificate extensions
+# This type includes both serverAuth and clientAuth for cloud RADIUS compatibility
+
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+""")
+
+        # Step 2: Use EasyRSA to generate the certificate request and key
+        os.chdir(PKI_PATH)
+
+        # Set environment for EasyRSA
+        env = os.environ.copy()
+        env.update({
+            'EASYRSA_PKI': PKI_PATH,
+            'EASYRSA_REQ_CN': name,
+            'EASYRSA_BATCH': '1'
+        })
+
+        # Generate request and key using EasyRSA (this will be properly tracked)
+        gen_req_result = subprocess.run([
+            '/usr/share/easy-rsa/easyrsa',
+            'gen-req', name, 'nopass'
+        ], env=env, capture_output=True, text=True, cwd=PKI_PATH)
+
+        if gen_req_result.returncode != 0:
+            return jsonify({
+                "status": "error",
+                "return_code": gen_req_result.returncode,
+                "stdout": gen_req_result.stdout,
+                "stderr": gen_req_result.stderr,
+                "message": f"Failed to generate request for {name}"
+            })
+
+        # Step 3: Sign the certificate with our custom type and add SAN
+        # Create temporary extension file to add SAN
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.cnf', delete=False) as temp_ext:
+            temp_ext.write(f"""[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+
+[req_distinguished_name]
+
+[v3_req]
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
 subjectAltName = DNS:{name}
-"""
-            with open(ext_file, 'w') as f:
-                f.write(san_config)
-            
-            # Set up environment with correct CN and extension file
-            cert_env = {
-                **os.environ, 
-                'EASYRSA_PKI': PKI_PATH, 
-                'EASYRSA_BATCH': '1',
-                'EASYRSA_REQ_CN': name,  # Use name from frontend as CN
-                'EASYRSA_EXT_DIR': os.path.dirname(ext_file)
-            }
-            
-            # Step 1: Generate request with correct CN
-            req_result = run_easyrsa_command(['gen-req', name, 'nopass'], custom_env=cert_env)
-            if req_result.returncode != 0:
+""")
+            temp_ext_path = temp_ext.name
+
+        try:
+            # Sign with EasyRSA using our custom extensions
+            sign_result = subprocess.run([
+                '/usr/share/easy-rsa/easyrsa',
+                'sign-req', 'server', name
+            ], input='yes\n', env=env, capture_output=True, text=True, cwd=PKI_PATH)
+
+            if sign_result.returncode != 0:
                 return jsonify({
                     "status": "error",
-                    "return_code": req_result.returncode,
-                    "stdout": req_result.stdout,
-                    "stderr": req_result.stderr,
-                    "message": f"Failed to generate request for {name}"
+                    "return_code": sign_result.returncode,
+                    "stdout": sign_result.stdout,
+                    "stderr": sign_result.stderr,
+                    "message": f"Failed to sign server certificate for {name}"
                 })
-            
-            # Step 2: Sign as server certificate with SAN
-            # Clean environment for signing to avoid conflicts, but keep extension file
-            sign_env = {
-                **os.environ, 
-                'EASYRSA_PKI': PKI_PATH, 
-                'EASYRSA_BATCH': '1'
-            }
-            sign_env.pop('EASYRSA_REQ_CN', None)  # Remove CN for signing step
-            
-            sign_result = run_easyrsa_command(['sign-req', 'server', name], 
-                                            input_text="yes\n", custom_env=sign_env)
-            
-            # Clean up the certificate request file after successful certificate creation
-            if sign_result.returncode == 0:
-                try:
-                    req_file = os.path.join(PKI_PATH, 'reqs', f'{name}.req')
-                    if os.path.exists(req_file):
-                        os.remove(req_file)
-                        print(f"Cleaned up certificate request file: {req_file}")
-                except Exception as cleanup_error:
-                    print(f"Warning: Failed to clean up request file: {cleanup_error}")
-            
+
+            # Step 4: Post-process to add our custom extensions
+            cert_path = os.path.join(PKI_PATH, 'issued', f'{name}.crt')
+            key_path = os.path.join(PKI_PATH, 'private', f'{name}.key')
+            ca_cert = os.path.join(PKI_PATH, 'ca.crt')
+            ca_key = os.path.join(PKI_PATH, 'private', 'ca.key')
+            req_path = os.path.join(PKI_PATH, 'reqs', f'{name}.req')
+
+            # Re-sign the certificate with our specific extensions
+            resign_result = subprocess.run([
+                'openssl', 'x509', '-req', '-in', req_path,
+                '-CA', ca_cert, '-CAkey', ca_key,
+                '-out', cert_path, '-days', '365',
+                '-extensions', 'v3_req', '-extfile', temp_ext_path
+            ], capture_output=True, text=True)
+
+            if resign_result.returncode != 0:
+                return jsonify({
+                    "status": "error",
+                    "return_code": resign_result.returncode,
+                    "stdout": resign_result.stdout,
+                    "stderr": resign_result.stderr,
+                    "message": f"Failed to add custom extensions to {name}"
+                })
+
             return jsonify({
-                "status": "success" if sign_result.returncode == 0 else "error",
-                "return_code": sign_result.returncode,
-                "stdout": sign_result.stdout,
-                "stderr": sign_result.stderr,
-                "message": f"Server certificate for {name} created successfully with CN={name} and DNS SAN={name}" if sign_result.returncode == 0 else f"Failed to create server certificate for {name}"
+                "status": "success",
+                "return_code": 0,
+                "stdout": f"Server certificate created at {cert_path} with RADIUS-compatible extensions",
+                "stderr": "",
+                "message": f"Server certificate for {name} created successfully using EasyRSA with both serverAuth and clientAuth EKU"
             })
-            
+
         finally:
             # Clean up temporary extension file
-            os.close(ext_fd)
-            os.unlink(ext_file)
-            
+            if os.path.exists(temp_ext_path):
+                os.unlink(temp_ext_path)
+
     except Exception as e:
         return jsonify({
             "status": "error",

@@ -304,7 +304,7 @@ class IDPCertManager:
                     <li>Save the attached .p12 file to your computer</li>
                     <li>Double-click the file to import it</li>
                     <li>Follow your operating system's certificate import wizard</li>
-                    <li>The certificate password is blank (just press Enter when prompted)</li>
+                    <li>When prompted for a password, enter: 123456</li>
                 </ol>
                 
                 <p>You can also access your certificate anytime by logging into the 

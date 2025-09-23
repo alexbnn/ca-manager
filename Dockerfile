@@ -39,6 +39,7 @@ COPY app.py .
 COPY idp_config.py .
 COPY idp_auth.py .
 COPY idp_cert_manager.py .
+COPY radius_admin.py .
 COPY templates/ templates/
 COPY static/ static/
 COPY database/ database/

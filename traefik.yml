@@ -20,6 +20,11 @@ entryPoints:
           to: websecure
   websecure:
     address: :443
+  # RADIUS UDP entrypoints
+  radius-auth:
+    address: :1812/udp
+  radius-acct:
+    address: :1813/udp
 log:
   filePath: /var/log/traefik/traefik.log
   level: INFO
