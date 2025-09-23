@@ -305,46 +305,21 @@ def run_easyrsa_command(args, input_text=None, custom_env=None):
 
 def init_pki():
     """Initialize PKI"""
-    # Verify EasyRSA installation and x509-types directory with retry logic
-    x509_types_source = os.path.join(EASYRSA_PATH, 'x509-types')
+    # Verify EasyRSA installation and x509-types directory
+    x509_types_path = os.path.join(EASYRSA_PATH, 'x509-types')
+    if not os.path.exists(x509_types_path):
+        return jsonify({
+            "status": "error",
+            "message": f"EasyRSA x509-types directory not found at {x509_types_path}",
+            "return_code": -1,
+            "stdout": "",
+            "stderr": f"Missing x509-types directory: {x509_types_path}"
+        })
 
-    # Retry mechanism for x509-types directory (race condition fix)
-    max_retries = 3
-    retry_delay = 1  # seconds
+    print(f"EasyRSA x509-types directory verified at: {x509_types_path}")
+    print(f"x509-types contents: {os.listdir(x509_types_path) if os.path.exists(x509_types_path) else 'N/A'}")
 
-    for attempt in range(max_retries):
-        if os.path.exists(x509_types_source):
-            break
-        elif attempt < max_retries - 1:
-            print(f"⚠ x509-types not ready (attempt {attempt + 1}/{max_retries}), waiting {retry_delay}s...")
-            import time
-            time.sleep(retry_delay)
-        else:
-            return jsonify({
-                "status": "error",
-                "message": f"EasyRSA x509-types directory not found at {x509_types_source} after {max_retries} attempts",
-                "return_code": -1,
-                "stdout": "",
-                "stderr": f"Missing x509-types directory: {x509_types_source}"
-            })
-
-    print(f"EasyRSA x509-types directory verified at: {x509_types_source}")
-    print(f"x509-types contents: {os.listdir(x509_types_source) if os.path.exists(x509_types_source) else 'N/A'}")
-
-    # Initialize PKI first
-    result = run_easyrsa_command(['init-pki'])
-
-    if result.returncode == 0:
-        # After successful PKI init, ensure x509-types is available in PKI directory
-        pki_x509_types = os.path.join(PKI_PATH, 'x509-types')
-        if not os.path.exists(pki_x509_types):
-            try:
-                import shutil
-                shutil.copytree(x509_types_source, pki_x509_types)
-                print(f"✓ Copied x509-types to PKI directory: {pki_x509_types}")
-            except Exception as e:
-                print(f"⚠ Warning: Could not copy x509-types to PKI: {e}")
-                # Don't fail PKI init if copy fails, EasyRSA can usually find types in source location
+    result = run_easyrsa_command(['init-pki', 'soft'])
 
     return jsonify({
         "status": "success" if result.returncode == 0 else "error",

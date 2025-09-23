@@ -97,7 +97,7 @@ services:
       start_period: 20s
     environment:
       # EasyRSA environment variables
-      - EASYRSA_PKI=/app
+      - EASYRSA_PKI=/app/pki
       - EASYRSA_BATCH=1
       
       # Default certificate values (can be overridden via API)
