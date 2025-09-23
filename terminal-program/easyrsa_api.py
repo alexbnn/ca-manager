@@ -321,6 +321,20 @@ def init_pki():
 
     result = run_easyrsa_command(['init-pki', 'soft'])
 
+    # If successful, ensure x509-types are properly copied to PKI directory
+    if result.returncode == 0:
+        try:
+            import shutil
+            pki_x509_types = os.path.join(PKI_PATH, 'x509-types')
+
+            # Remove any existing x509-types in PKI and copy fresh from source
+            if os.path.exists(pki_x509_types):
+                shutil.rmtree(pki_x509_types)
+            shutil.copytree(x509_types_path, pki_x509_types)
+            print(f"✓ Copied x509-types to PKI directory: {pki_x509_types}")
+        except Exception as e:
+            print(f"⚠ Warning: Could not copy x509-types to PKI: {e}")
+
     return jsonify({
         "status": "success" if result.returncode == 0 else "error",
         "return_code": result.returncode,
