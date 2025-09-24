@@ -10514,12 +10514,14 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
             p12_file_path = p12_file.name
 
         # Generate P12 using OpenSSL with legacy format
+        # Need to include -passin for encrypted key and -passout for p12
         cmd = [
             'openssl', 'pkcs12', '-export',
             '-out', p12_file_path,
             '-inkey', key_file_path,
             '-in', cert_file_path,
-            '-passout', f'pass:{p12_password}',
+            '-passin', f'pass:{p12_password}',  # Password to decrypt the input private key
+            '-passout', f'pass:{p12_password}', # Password for the output P12 file
             '-legacy',
             '-name', 'client'
         ]
@@ -10531,6 +10533,8 @@ def generate_eap_tls_mobileconfig(wifi_config, ca_cert_pem, user_cert_pem, encry
                 p12_data = f.read()
             p12_b64 = base64.b64encode(p12_data).decode()
         else:
+            logger.error(f"OpenSSL P12 stderr: {result.stderr}")
+            logger.error(f"OpenSSL P12 stdout: {result.stdout}")
             raise Exception(f"OpenSSL P12 generation failed: {result.stderr}")
 
     except Exception as e:
@@ -10737,6 +10741,240 @@ def generate_eap_ttls_mobileconfig(wifi_config, ca_cert_pem, username):
 </plist>"""
     
     return mobileconfig_content
+
+# Mobile API Endpoints for React Native App
+@app.route('/api/mobile/info', methods=['GET', 'OPTIONS'])
+def mobile_info():
+    """Get server information and mobile configuration"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', '*')
+        return response
+
+    try:
+        # Get actual IDP configuration from database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get IDP configuration from system_config table
+        cursor.execute("SELECT config_key, config_value FROM system_config WHERE config_key LIKE '%oauth%' OR config_key LIKE '%client%' OR config_key LIKE '%tenant%'")
+        config_rows = cursor.fetchall()
+        config = {row['config_key']: row['config_value'] for row in config_rows} if config_rows else {}
+        logger.info(f"Found {len(config_rows) if config_rows else 0} IDP config rows: {list(config.keys())}")
+
+        # Check which OAuth providers are enabled
+        idp_types = []
+        oauth_config = {}
+
+        # Check for Google OAuth
+        if config.get('google_oauth_enabled', '').lower() == 'true' and config.get('google_client_id'):
+            idp_types.append('google')
+            oauth_config['google'] = {
+                'client_id': config.get('google_client_id', ''),
+                'discovery_url': 'https://accounts.google.com/.well-known/openid-configuration'
+            }
+
+        # Check for Microsoft OAuth
+        if config.get('microsoft_oauth_enabled', '').lower() == 'true' and config.get('microsoft_client_id'):
+            idp_types.append('microsoft')
+            tenant_id = config.get('microsoft_tenant_id', 'common')
+            oauth_config['microsoft'] = {
+                'client_id': config.get('microsoft_client_id', ''),
+                'discovery_url': f'https://login.microsoftonline.com/{tenant_id}/v2.0/.well-known/openid_configuration',
+                'tenant_id': tenant_id
+            }
+
+        # If no OAuth providers are configured, show error
+        if not idp_types:
+            response_data = {
+                'name': 'CA Manager',
+                'version': APP_VERSION,
+                'mobile_supported': False,
+                'error': 'No OAuth providers configured',
+                'message': 'Please configure Google Workspace or Microsoft Entra ID in the CA Manager admin panel'
+            }
+        else:
+            response_data = {
+                'name': 'CA Manager',
+                'version': APP_VERSION,
+                'mobile_supported': True,
+                'idp_types': idp_types,
+                'oauth_config': oauth_config,
+                'features': [
+                    'certificates',
+                    'qr_provisioning',
+                    'mobile_config'
+                ],
+                'branding': {
+                    'primary_color': '#4CAF50'
+                }
+            }
+
+        logger.info(f"Mobile info endpoint called successfully")
+        response = jsonify(response_data)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', '*')
+        return response
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Error in mobile info endpoint: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception args: {e.args}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        error_response = jsonify({
+            'status': 'error',
+            'message': 'Failed to get server information'
+        })
+        error_response.headers.add('Access-Control-Allow-Origin', '*')
+        error_response.headers.add('Access-Control-Allow-Headers', '*')
+        error_response.headers.add('Access-Control-Allow-Methods', '*')
+        return error_response, 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/mobile/auth/exchange', methods=['POST', 'OPTIONS'])
+def mobile_auth_exchange():
+    """Exchange OAuth token for CA Manager session"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', '*')
+        return response
+
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            error_response = jsonify({'status': 'error', 'message': 'Missing or invalid authorization header'})
+            error_response.headers.add('Access-Control-Allow-Origin', '*')
+            error_response.headers.add('Access-Control-Allow-Headers', '*')
+            error_response.headers.add('Access-Control-Allow-Methods', '*')
+            return error_response, 401
+
+        oauth_token = auth_header.split(' ')[1]
+        request_data = request.get_json() or {}
+        client_type = request_data.get('client_type', 'mobile')
+
+        # Import IDP auth module
+        from idp_auth import verify_oauth_token
+
+        # Verify the OAuth token and get user info
+        user_info = verify_oauth_token(oauth_token)
+        if not user_info:
+            return jsonify({'status': 'error', 'message': 'Invalid OAuth token'}), 401
+
+        # Generate CA Manager session token
+        payload = {
+            'user_id': user_info.get('email'),
+            'username': user_info.get('name'),
+            'email': user_info.get('email'),
+            'provider': user_info.get('provider'),
+            'client_type': client_type,
+            'exp': int(time.time()) + (24 * 60 * 60),  # 24 hours
+            'iat': int(time.time())
+        }
+
+        # Use app secret key to sign JWT
+        access_token = jwt.encode(payload, app.secret_key, algorithm='HS256')
+
+        # Create refresh token (longer expiry)
+        refresh_payload = payload.copy()
+        refresh_payload['exp'] = int(time.time()) + (30 * 24 * 60 * 60)  # 30 days
+        refresh_payload['type'] = 'refresh'
+        refresh_token = jwt.encode(refresh_payload, app.secret_key, algorithm='HS256')
+
+        # Create ID token (standard OIDC format)
+        id_payload = {
+            'sub': user_info.get('email'),
+            'name': user_info.get('name'),
+            'email': user_info.get('email'),
+            'provider': user_info.get('provider'),
+            'aud': 'ca-manager-mobile',
+            'iss': request.host_url.rstrip('/'),
+            'exp': int(time.time()) + (60 * 60),  # 1 hour
+            'iat': int(time.time())
+        }
+        id_token = jwt.encode(id_payload, app.secret_key, algorithm='HS256')
+
+        response = jsonify({
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'id_token': id_token,
+            'token_type': 'Bearer',
+            'expires_in': 24 * 60 * 60  # 24 hours in seconds
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', '*')
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in mobile auth exchange: {str(e)}")
+        error_response = jsonify({
+            'status': 'error',
+            'message': 'Authentication exchange failed'
+        })
+        error_response.headers.add('Access-Control-Allow-Origin', '*')
+        error_response.headers.add('Access-Control-Allow-Headers', '*')
+        error_response.headers.add('Access-Control-Allow-Methods', '*')
+        return error_response, 500
+
+def verify_mobile_token():
+    """Verify mobile JWT token from request headers"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None
+
+    try:
+        token = auth_header.split(' ')[1]
+        payload = jwt.decode(token, app.secret_key, algorithms=['HS256'])
+
+        # Check if token is expired
+        if payload.get('exp', 0) < time.time():
+            return None
+
+        return payload
+    except jwt.InvalidTokenError:
+        return None
+
+@app.route('/api/mobile/qr-config', methods=['GET', 'OPTIONS'])
+def mobile_qr_config():
+    """Generate QR configuration for mobile setup"""
+    # Verify mobile authentication
+    user_info = verify_mobile_token()
+    if not user_info:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        # Generate QR configuration
+        server_url = request.host_url.rstrip('/')
+
+        qr_data = {
+            'type': 'ca-manager-mobile',
+            'version': 1,
+            'server_url': server_url,
+            'timestamp': int(time.time()),
+            'user': {
+                'email': user_info.get('email'),
+                'name': user_info.get('username')
+            }
+        }
+
+        return jsonify(qr_data)
+
+    except Exception as e:
+        logger.error(f"Error generating QR config: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to generate QR configuration'
+        }), 500
 
 if __name__ == '__main__':
     # Ensure logs directory exists
