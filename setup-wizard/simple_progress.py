@@ -26,16 +26,14 @@ def check_main_application():
     """Background thread to check if main application is ready"""
     global deployment_status
 
-    # Get domain from environment or use localhost
+    # Get domain from environment or use localhost as fallback
     domain = os.getenv('DOMAIN', 'localhost')
     deployment_status['domain'] = domain
 
-    # Try both HTTP and HTTPS
+    # Only try the configured domain (both HTTP and HTTPS)
     urls_to_try = [
         f"https://{domain}/",
-        f"http://{domain}/",
-        f"https://localhost/",
-        f"http://localhost/"
+        f"http://{domain}/"
     ]
 
     while deployment_status['checking']:
@@ -253,7 +251,8 @@ def progress_page():
 
                                 if (redirectCounter < 0) {
                                     clearInterval(countdown);
-                                    window.location.href = data.ready_url || 'https://localhost/';
+                                    // Use the ready_url from the API response
+                                    window.location.href = data.ready_url;
                                 }
                             }, 1000);
 
