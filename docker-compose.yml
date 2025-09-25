@@ -372,11 +372,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
       # Database initialization handled by web application
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pkiuser} -d ${POSTGRES_DB:-pkiauth}"]
-      interval: 5s           # Check every 5 seconds for faster detection
-      timeout: 10s           # Allow 10s per check for slow systems
-      retries: 60            # 60 retries * 5s = 5 minutes maximum wait
-      start_period: 300s     # 5 minutes startup grace period for very slow systems
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pkiuser} -d ${POSTGRES_DB:-pkiauth} || (echo 'DB recovering, checking if accepting connections...' && psql -U ${POSTGRES_USER:-pkiuser} -d ${POSTGRES_DB:-pkiauth} -c 'SELECT 1;' >/dev/null 2>&1)"]
+      interval: 10s          # Check every 10 seconds to reduce load during recovery
+      timeout: 15s           # Allow more time for recovery operations
+      retries: 60            # 60 retries * 10s = 10 minutes maximum wait
+      start_period: 60s      # 1 minute startup grace period
     deploy:
       resources:
         limits:

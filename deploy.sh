@@ -150,7 +150,28 @@ echo "🔍 Monitoring for deployment signal..."
             # Start main application while keeping wizard running for monitoring
             echo "🚀 Starting main application deployment..."
             docker-compose up -d --build
-            
+
+            # Add fallback mechanism for PostgreSQL dependency issues
+            echo "🔍 Checking for dependency issues..."
+            sleep 10
+
+            # Check if web-interface failed due to postgres dependency and retry if needed
+            WEB_STATUS=$(docker-compose ps web-interface | grep -v NAME | awk '{print $4}' || echo "unknown")
+            if [ "$WEB_STATUS" != "Up" ]; then
+                echo "⚠️  Web interface not running, checking PostgreSQL and retrying..."
+
+                # Check if postgres is healthy now
+                POSTGRES_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' ca-manager-postgres-1 2>/dev/null || echo "unknown")
+                if [ "$POSTGRES_HEALTH" = "healthy" ]; then
+                    echo "✅ PostgreSQL is healthy, restarting web-interface..."
+                    docker-compose up -d web-interface
+                    sleep 5
+                    echo "🔄 Web interface restart attempted"
+                else
+                    echo "⏳ PostgreSQL still not healthy, may need more time..."
+                fi
+            fi
+
             echo ""
             echo "📊 Deployment started! Monitor progress at: http://localhost:8000/progress"
             echo "🔄 The setup wizard will show real-time deployment progress"
