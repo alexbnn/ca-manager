@@ -8,8 +8,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY setup_wizard.py .
+COPY simple_progress.py .
 COPY templates/ templates/
 COPY static/ static/
+COPY deployment_monitor.py .
 
 # Install required system packages
 RUN apt-get update && apt-get install -y \
@@ -25,4 +27,4 @@ RUN useradd -m -u 1000 setupuser && \
 
 EXPOSE 8000
 
-CMD ["python", "setup_wizard.py"]
+CMD ["python", "simple_progress.py"]

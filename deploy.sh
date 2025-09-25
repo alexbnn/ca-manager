@@ -152,8 +152,8 @@ echo "🔍 Monitoring for deployment signal..."
             docker-compose up -d --build
 
             echo ""
-            echo "📊 Deployment started! Monitor progress at: http://localhost:8000/progress"
-            echo "🔄 The setup wizard will show real-time deployment progress"
+            echo "📊 Deployment started! Monitor progress at: http://localhost:8000/"
+            echo "🔄 The progress monitor will show a spinner and redirect when ready"
             echo "⏳ This process may take 5-10 minutes for first-time setup"
             
             echo ""
@@ -172,7 +172,7 @@ echo "🔍 Monitoring for deployment signal..."
             fi
             echo "📈 Traefik Dashboard: http://localhost:8081/"
             echo ""
-            echo "💡 The setup wizard will transform into a service dashboard when deployment completes"
+            echo "💡 The progress monitor will automatically redirect when deployment completes"
             echo "🔄 Press Ctrl+C to stop monitoring (deployment will continue in background)"
             
             # Don't exit - keep monitoring active
