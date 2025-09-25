@@ -277,6 +277,36 @@ def run_easyrsa_command(args, input_text=None, custom_env=None):
     if input_text:
         print(f"Input text: {repr(input_text)}")
 
+    # Ensure only one vars file exists - remove any conflicting ones
+    pki_vars_path = os.path.join(PKI_PATH, "vars")
+    easyrsa_vars_path = os.path.join(EASYRSA_PATH, "vars")
+    config_vars_path = "/app/config/vars"
+
+    # Remove any vars file in EasyRSA directory to avoid conflicts
+    if os.path.exists(easyrsa_vars_path):
+        try:
+            os.remove(easyrsa_vars_path)
+            print(f"Removed conflicting vars file: {easyrsa_vars_path}")
+        except:
+            pass
+
+    # Check if config vars file exists and use it as template if PKI vars doesn't exist
+    if os.path.exists(config_vars_path) and not os.path.exists(pki_vars_path):
+        try:
+            import shutil
+            shutil.copy2(config_vars_path, pki_vars_path)
+            print(f"Copied template vars from config: {config_vars_path} -> {pki_vars_path}")
+        except Exception as e:
+            print(f"Warning: Could not copy config vars file: {e}")
+
+    # Ensure we have a vars file in PKI directory
+    if not os.path.exists(pki_vars_path):
+        # Create minimal vars file
+        with open(pki_vars_path, 'w') as f:
+            f.write('set_var EASYRSA_BATCH "1"\n')
+            f.write('set_var EASYRSA_NO_PASS "1"\n')
+        print(f"Created minimal vars file at: {pki_vars_path}")
+
     # Set up environment with all required EasyRSA variables
     env = custom_env or {
         **os.environ,
@@ -284,6 +314,7 @@ def run_easyrsa_command(args, input_text=None, custom_env=None):
         'EASYRSA_BATCH': '1',
         'EASYRSA': EASYRSA_PATH,  # Point to EasyRSA installation directory
         'EASYRSA_OPENSSL': 'openssl',  # Ensure OpenSSL is available
+        'EASYRSA_VARS_FILE': pki_vars_path,  # Explicitly point to our vars file
         'PATH': f"{EASYRSA_PATH}:{os.environ.get('PATH', '')}"  # Add EasyRSA to PATH
     }
     
@@ -777,12 +808,43 @@ extendedKeyUsage = serverAuth, clientAuth
         # Step 2: Use EasyRSA to generate the certificate request and key
         os.chdir(PKI_PATH)
 
+        # Ensure only one vars file exists - remove any conflicting ones
+        pki_vars_path = os.path.join(PKI_PATH, "vars")
+        easyrsa_vars_path = os.path.join(EASYRSA_PATH, "vars")
+        config_vars_path = "/app/config/vars"
+
+        # Remove any vars file in EasyRSA directory to avoid conflicts
+        if os.path.exists(easyrsa_vars_path):
+            try:
+                os.remove(easyrsa_vars_path)
+                print(f"Removed conflicting vars file: {easyrsa_vars_path}")
+            except:
+                pass
+
+        # Check if config vars file exists and use it as template if PKI vars doesn't exist
+        if os.path.exists(config_vars_path) and not os.path.exists(pki_vars_path):
+            try:
+                import shutil
+                shutil.copy2(config_vars_path, pki_vars_path)
+                print(f"Copied template vars from config: {config_vars_path} -> {pki_vars_path}")
+            except Exception as e:
+                print(f"Warning: Could not copy config vars file: {e}")
+
+        # Ensure we have a vars file in PKI directory
+        if not os.path.exists(pki_vars_path):
+            # Create minimal vars file
+            with open(pki_vars_path, 'w') as f:
+                f.write('set_var EASYRSA_BATCH "1"\n')
+                f.write('set_var EASYRSA_NO_PASS "1"\n')
+            print(f"Created minimal vars file at: {pki_vars_path}")
+
         # Set environment for EasyRSA
         env = os.environ.copy()
         env.update({
             'EASYRSA_PKI': PKI_PATH,
             'EASYRSA_REQ_CN': name,
-            'EASYRSA_BATCH': '1'
+            'EASYRSA_BATCH': '1',
+            'EASYRSA_VARS_FILE': pki_vars_path
         })
 
         # Generate request and key using EasyRSA (this will be properly tracked)
