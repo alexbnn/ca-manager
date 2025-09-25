@@ -4,7 +4,7 @@ CA Manager Setup Wizard
 Modern web-based first-time setup for CA Manager deployment
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, Response
+from flask import Flask, render_template, render_template_string, request, jsonify, redirect, url_for, Response
 import os
 import json
 import yaml
@@ -620,11 +620,6 @@ def check_certificates():
             deployment_status['logs'].append("🕐 Fallback timeout - assuming SSL ready")
             return True
         return False
-
-@app.route('/progress')
-def deployment_progress():
-    """Show deployment progress page"""
-    return render_template('deployment_progress.html')
 
 @app.route('/api/deployment/status')
 def get_deployment_status():
