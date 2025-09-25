@@ -47,7 +47,7 @@ echo "Docker Networks:"
 docker network ls 2>&1
 echo
 echo "CA Manager Network:"
-docker network inspect ca-manager-f_easyrsa-network 2>&1 || echo "Network not found"
+docker network inspect ca-manager_easyrsa-network 2>&1 || echo "Network not found"
 echo
 
 # Service Logs (Last 50 lines each)
