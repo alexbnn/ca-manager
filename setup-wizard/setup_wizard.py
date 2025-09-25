@@ -869,9 +869,313 @@ def deployment_progress_stream():
 @app.route('/')
 def index():
     """Main setup wizard page"""
+    # Check if deployment has been triggered
+    deploy_ready_path = '/app/output/deploy_ready.flag'
+    if os.path.exists(deploy_ready_path):
+        return redirect(url_for('progress_monitor'))
+
     if is_setup_complete():
         return redirect(url_for('complete'))
     return render_template('wizard.html')
+
+@app.route('/progress')
+def progress_monitor():
+    """Simple progress monitor that polls the main application"""
+    html_template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CA Manager - Deployment in Progress</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+            }
+
+            .container {
+                text-align: center;
+                background: rgba(255, 255, 255, 0.1);
+                padding: 60px 40px;
+                border-radius: 20px;
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                max-width: 500px;
+                width: 90%;
+            }
+
+            .logo {
+                font-size: 3em;
+                margin-bottom: 20px;
+                filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+            }
+
+            .title {
+                font-size: 2.5em;
+                font-weight: 300;
+                margin-bottom: 10px;
+                color: white;
+            }
+
+            .subtitle {
+                font-size: 1.2em;
+                margin-bottom: 40px;
+                opacity: 0.9;
+            }
+
+            .spinner {
+                width: 80px;
+                height: 80px;
+                border: 8px solid rgba(255, 255, 255, 0.3);
+                border-top: 8px solid white;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 30px auto;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            .status {
+                font-size: 1.1em;
+                margin-bottom: 20px;
+                opacity: 0.9;
+            }
+
+            .progress-text {
+                font-size: 1.4em;
+                font-weight: 600;
+                margin-bottom: 15px;
+                color: #fff;
+            }
+
+            .time-elapsed {
+                font-size: 0.9em;
+                opacity: 0.7;
+                margin-top: 20px;
+            }
+
+            .dots {
+                display: inline-block;
+                animation: dots 2s infinite;
+            }
+
+            @keyframes dots {
+                0% { content: ''; }
+                25% { content: '.'; }
+                50% { content: '..'; }
+                75% { content: '...'; }
+                100% { content: ''; }
+            }
+
+            .ready-message {
+                display: none;
+                background: rgba(40, 167, 69, 0.9);
+                padding: 20px;
+                border-radius: 10px;
+                margin-top: 20px;
+            }
+
+            .ready-message.show {
+                display: block;
+            }
+
+            .redirect-counter {
+                font-size: 1.2em;
+                font-weight: bold;
+                margin-top: 10px;
+            }
+
+            @media (max-width: 600px) {
+                .container {
+                    padding: 40px 30px;
+                }
+
+                .title {
+                    font-size: 2em;
+                }
+
+                .subtitle {
+                    font-size: 1em;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="logo">🚀</div>
+            <h1 class="title">CA Manager</h1>
+            <p class="subtitle">Setting up your PKI infrastructure</p>
+
+            <div id="loading-section">
+                <div class="spinner"></div>
+                <div class="progress-text">Deployment in Progress<span class="dots"></span></div>
+                <div class="status" id="status">Initializing services...</div>
+                <div class="time-elapsed" id="time-elapsed">Time elapsed: 0 seconds</div>
+            </div>
+
+            <div class="ready-message" id="ready-message">
+                <h3>🎉 CA Manager is Ready!</h3>
+                <p>Redirecting you to the application...</p>
+                <div class="redirect-counter" id="redirect-counter">3</div>
+            </div>
+        </div>
+
+        <script>
+            let startTime = Date.now();
+            let redirectCounter = 3;
+
+            function updateTimeElapsed() {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                const timeText = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                document.getElementById('time-elapsed').textContent = `Time elapsed: ${timeText}`;
+            }
+
+            function checkStatus() {
+                fetch('/api/progress/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.ready) {
+                            // Hide loading section
+                            document.getElementById('loading-section').style.display = 'none';
+
+                            // Show ready message
+                            document.getElementById('ready-message').classList.add('show');
+
+                            // Start countdown
+                            const countdown = setInterval(() => {
+                                document.getElementById('redirect-counter').textContent = redirectCounter;
+                                redirectCounter--;
+
+                                if (redirectCounter < 0) {
+                                    clearInterval(countdown);
+                                    // Use the ready_url from the API response
+                                    window.location.href = data.ready_url;
+                                }
+                            }, 1000);
+
+                        } else {
+                            // Update status
+                            document.getElementById('status').textContent = data.checking ?
+                                'Checking if services are ready...' :
+                                'Starting services...';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Status check failed:', error);
+                        document.getElementById('status').textContent = 'Checking deployment status...';
+                    });
+            }
+
+            // Update time every second
+            setInterval(updateTimeElapsed, 1000);
+
+            // Check status every 3 seconds
+            setInterval(checkStatus, 3000);
+
+            // Initial check
+            checkStatus();
+        </script>
+    </body>
+    </html>
+    """
+    return render_template_string(html_template)
+
+@app.route('/api/progress/status')
+def get_progress_status():
+    """API endpoint for the simple progress monitor"""
+    # Global status for the simple progress monitor
+    global deployment_status
+
+    # Get domain from environment or use localhost as fallback
+    domain = os.getenv('DOMAIN', 'localhost')
+
+    # Try to get domain from the generated .env file first
+    try:
+        env_path = '/app/output/.env'
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.startswith('DOMAIN='):
+                        domain = line.split('=', 1)[1].strip().strip('"')
+                        if domain:
+                            break
+    except:
+        pass
+
+    # Initialize simple progress status if not already set
+    if not hasattr(get_progress_status, '_progress_status'):
+        get_progress_status._progress_status = {
+            'ready': False,
+            'checking': True,
+            'domain': domain,
+            'start_time': time.time(),
+            'last_check': None,
+            'error': None
+        }
+
+    status = get_progress_status._progress_status
+
+    # Check if main application is ready
+    if not status['ready']:
+        status['last_check'] = time.time()
+        status['domain'] = domain
+
+        # Only try the configured domain (both HTTP and HTTPS)
+        urls_to_try = [
+            f"https://{domain}/",
+            f"http://{domain}/"
+        ]
+
+        for url in urls_to_try:
+            try:
+                import urllib.request
+                import ssl
+
+                # Create SSL context that accepts any certificate
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+
+                response = urllib.request.urlopen(url, timeout=5, context=ctx)
+
+                if response.status == 200:
+                    # Check if it's actually the CA Manager login page
+                    content = response.read().decode('utf-8', errors='ignore')
+                    if any(keyword in content.lower() for keyword in ['login', 'ca manager', 'username']):
+                        print(f"✅ CA Manager is ready at: {url}")
+                        status['ready'] = True
+                        status['ready_url'] = url
+                        break
+            except Exception as e:
+                print(f"Still waiting... {url} not ready: {e}")
+                continue
+
+    return jsonify({
+        'ready': status['ready'],
+        'checking': status['checking'],
+        'domain': status['domain'],
+        'ready_url': status.get('ready_url'),
+        'elapsed': int(time.time() - status['start_time']),
+        'last_check': status['last_check']
+    })
 
 @app.route('/api/setup', methods=['POST'])
 def setup_configuration():

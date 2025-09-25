@@ -27,4 +27,4 @@ RUN useradd -m -u 1000 setupuser && \
 
 EXPOSE 8000
 
-CMD ["python", "simple_progress.py"]
+CMD ["python", "setup_wizard.py"]
