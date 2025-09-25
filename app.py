@@ -78,7 +78,7 @@ def retry_database_operation(max_retries=DB_MAX_RETRIES, retry_interval=DB_RETRY
     return decorator
 
 # Application version - build timestamp
-APP_VERSION = "7.0.0b"
+APP_VERSION = "7.0.1"
 BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
 
 # Database connection for multi-user authentication
