@@ -92,16 +92,12 @@ class DeploymentMonitor:
         """Monitor Docker Compose deployment progress"""
         global deployment_status
         
+        # Core services required for basic functionality
         services = [
-            'traefik',
-            'postgres', 
+            'postgres',
             'redis',
             'web-interface',
-            'easyrsa-container',
-            'scep-server',
-            'ios-scep-simulator',
-            'ocsp-simulator',
-            'ocsp-responder'
+            'easyrsa-container'
         ]
         
         # Initialize service status
@@ -129,9 +125,9 @@ class DeploymentMonitor:
 
                 for container in containers:
                     # Extract service name from container name (format: ca-manager-f-SERVICE-1)
-                    name_parts = container.name.split('-')
-                    if len(name_parts) >= 3 and 'ca-manager' in container.name:
-                        service_name = name_parts[3] if len(name_parts) > 3 else name_parts[2]
+                    if 'ca-manager-f-' in container.name and container.name.endswith('-1'):
+                        # Remove prefix and suffix to get service name
+                        service_name = container.name.replace('ca-manager-f-', '').replace('-1', '')
 
                         if service_name in deployment_status['services']:
                             status = container.status
@@ -175,15 +171,10 @@ class DeploymentMonitor:
                     deployment_status['progress'] = int(progress)
                     
                     if completed_services == len(services):
-                        deployment_status['phase'] = 'configuring_ssl'
-                        deployment_status['current_task'] = 'Requesting Let\'s Encrypt certificates...'
-                        
-                        # Check for certificate acquisition
-                        if self.check_certificates():
-                            deployment_status['phase'] = 'completed'
-                            deployment_status['progress'] = 100
-                            deployment_status['current_task'] = 'Deployment successful!'
-                            break
+                        deployment_status['phase'] = 'completed'
+                        deployment_status['progress'] = 100
+                        deployment_status['current_task'] = 'Deployment successful!'
+                        break
                 
                 time.sleep(1)  # 1-second polling as requested
                 
