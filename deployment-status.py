@@ -21,12 +21,36 @@ def check_deployment_status():
         # Get all containers
         containers = client.containers.list(all=True)
 
-        # Filter CA Manager containers
+        # Filter CA Manager containers - dynamically detect project name
         ca_manager_containers = []
+        project_prefix = None
+
+        # First pass: detect the project prefix from any container
         for container in containers:
-            if 'ca-manager-f-' in container.name and container.name.endswith('-1'):
-                service_name = container.name.replace('ca-manager-f-', '').replace('-1', '')
-                ca_manager_containers.append((service_name, container))
+            if container.name.endswith('-1') and any(service in container.name for service in ['web-interface', 'postgres', 'redis', 'easyrsa-container', 'traefik']):
+                # Extract project prefix (everything before the service name)
+                parts = container.name.split('-')
+                if len(parts) >= 3:  # project-service-1 format
+                    # Find where the service name starts
+                    for i, part in enumerate(parts[:-1]):  # exclude the '-1' part
+                        test_service = '-'.join(parts[i:-1])
+                        if test_service in ['web-interface', 'postgres', 'redis', 'easyrsa-container', 'traefik', 'scep-server', 'ios-scep-simulator', 'ocsp-simulator', 'ocsp-responder', 'radius-server']:
+                            project_prefix = '-'.join(parts[:i]) + '-'
+                            break
+                    if project_prefix:
+                        break
+
+        # Second pass: collect containers with detected prefix
+        if project_prefix:
+            for container in containers:
+                if container.name.startswith(project_prefix) and container.name.endswith('-1'):
+                    # Extract service name (remove project prefix and -1 suffix)
+                    service_name = container.name[len(project_prefix):].replace('-1', '')
+                    ca_manager_containers.append((service_name, container))
+
+            print(f"Detected project prefix: '{project_prefix}' ({len(ca_manager_containers)} containers)")
+        else:
+            print("Could not detect project prefix from container names")
 
         if not ca_manager_containers:
             print("❌ No CA Manager containers found")
