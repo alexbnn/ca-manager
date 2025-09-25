@@ -32,6 +32,51 @@ from threading import Thread
 # Disable SSL warnings for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Database retry configuration
+DB_MAX_RETRIES = int(os.getenv('DB_MAX_RETRIES', '300'))  # 5 minutes with 1-second intervals
+DB_RETRY_INTERVAL = int(os.getenv('DB_RETRY_INTERVAL', '1'))  # 1 second
+DB_CONNECTION_TIMEOUT = int(os.getenv('DB_CONNECTION_TIMEOUT', '10'))  # 10 seconds per attempt
+
+def retry_database_operation(max_retries=DB_MAX_RETRIES, retry_interval=DB_RETRY_INTERVAL, operation_name="Database operation"):
+    """
+    Decorator for database operations with retry logic
+    Retries failed database operations up to max_retries times with retry_interval delays
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+
+            for attempt in range(max_retries + 1):
+                try:
+                    result = func(*args, **kwargs)
+                    if attempt > 0:
+                        logger.info(f"{operation_name} succeeded after {attempt} attempts")
+                    return result
+                except Exception as e:
+                    last_exception = e
+                    is_connection_error = any(keyword in str(e).lower() for keyword in [
+                        'connection', 'connect', 'refused', 'timeout', 'unreachable', 'network'
+                    ])
+
+                    if attempt < max_retries and is_connection_error:
+                        wait_time = retry_interval
+                        logger.warning(f"{operation_name} attempt {attempt + 1}/{max_retries + 1} failed: {str(e)[:200]}... Retrying in {wait_time}s")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        # Non-connection error or final attempt
+                        if attempt < max_retries:
+                            logger.error(f"{operation_name} failed with non-connection error: {str(e)[:200]}...")
+                        break
+
+            # Final failure
+            logger.error(f"{operation_name} failed after {max_retries + 1} attempts. Last error: {str(last_exception)[:200]}...")
+            raise last_exception
+
+        return wrapper
+    return decorator
+
 # Application version - build timestamp
 APP_VERSION = "7.0.0b"
 BUILD_TIMESTAMP = f"{APP_VERSION}-{int(datetime.now().timestamp())}"
@@ -121,27 +166,34 @@ SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'false').lower() == 'true'
 SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', 'noreply@localhost')
 EMAIL_VERIFICATION_REQUIRED = os.getenv('EMAIL_VERIFICATION_REQUIRED', 'true').lower() == 'true'
 
+@retry_database_operation(operation_name="Database connection")
 def get_db_connection():
-    """Get database connection"""
+    """Get database connection with retry logic"""
     try:
-        return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        conn = psycopg2.connect(
+            DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+            connect_timeout=DB_CONNECTION_TIMEOUT
+        )
+        # Test connection is working
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT 1;')
+            cursor.fetchone()
+        return conn
     except Exception as e:
         logging.error(f"Database connection failed: {e}")
-        return None
+        raise
 
+@retry_database_operation(operation_name="Database initialization")
 def initialize_database():
     """Initialize database with schema and default data if needed"""
-    try:
-        logging.info("Checking database initialization...")
-        conn = get_db_connection()
-        if not conn:
-            logging.error("Cannot initialize database: connection failed")
-            return False
-        
-        cursor = conn.cursor()
-        
-        # Check if users table exists
-        cursor.execute("""
+    logging.info("Checking database initialization...")
+    conn = get_db_connection()  # This will retry automatically
+
+    cursor = conn.cursor()
+
+    # Check if users table exists
+    cursor.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
                 WHERE table_schema = 'public' 
@@ -274,12 +326,9 @@ def authenticate_user(username, password):
     """Authenticate user with database"""
     # Ensure database is initialized before authentication
     ensure_database_initialized()
-    
+
     try:
-        conn = get_db_connection()
-        if not conn:
-            logging.error("Failed to get database connection")
-            return None
+        conn = get_db_connection()  # This will retry automatically with the decorator
         
         with conn.cursor() as cursor:
             cursor.execute("""

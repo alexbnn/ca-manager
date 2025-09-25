@@ -368,10 +368,10 @@ services:
       # Database initialization handled by web application
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pkiuser} -d ${POSTGRES_DB:-pkiauth}"]
-      interval: 20s          # Increased from 10s - less frequent checks to reduce load
-      timeout: 10s           # Increased from 5s - more time per check
-      retries: 15            # Increased from 10 - more chances before failing
-      start_period: 180s     # Increased from 90s - more startup time for slow systems
+      interval: 5s           # Check every 5 seconds for faster detection
+      timeout: 10s           # Allow 10s per check for slow systems
+      retries: 60            # 60 retries * 5s = 5 minutes maximum wait
+      start_period: 300s     # 5 minutes startup grace period for very slow systems
     deploy:
       resources:
         limits:

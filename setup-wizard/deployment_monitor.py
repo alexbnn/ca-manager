@@ -19,7 +19,10 @@ deployment_status = {
     'current_task': '',
     'logs': [],
     'services': {},
-    'errors': []
+    'errors': [],
+    'recovery_attempts': {},
+    'start_time': None,
+    'timeout_minutes': 5
 }
 
 class DeploymentMonitor:
@@ -27,6 +30,63 @@ class DeploymentMonitor:
         self.client = docker.from_env()
         self.log_queue = queue.Queue()
         self.is_running = False
+        self.max_recovery_attempts = 3
+
+    def attempt_service_recovery(self, service_name, container_name):
+        """Attempt to recover a failed service"""
+        global deployment_status
+
+        if service_name not in deployment_status['recovery_attempts']:
+            deployment_status['recovery_attempts'][service_name] = 0
+
+        attempts = deployment_status['recovery_attempts'][service_name]
+
+        if attempts >= self.max_recovery_attempts:
+            deployment_status['errors'].append(f"Service {service_name} failed after {self.max_recovery_attempts} recovery attempts")
+            return False
+
+        deployment_status['recovery_attempts'][service_name] += 1
+        deployment_status['current_task'] = f"Attempting recovery for {service_name} (attempt {attempts + 1}/{self.max_recovery_attempts})"
+        deployment_status['logs'].append(f"RECOVERY: Attempting to restart {service_name}")
+
+        try:
+            # Try to restart the container
+            subprocess.run(['docker-compose', 'restart', service_name],
+                          cwd='/app', check=True, capture_output=True, text=True)
+            deployment_status['logs'].append(f"RECOVERY: Successfully restarted {service_name}")
+            return True
+        except subprocess.CalledProcessError as e:
+            deployment_status['logs'].append(f"RECOVERY: Failed to restart {service_name}: {e}")
+            # Try to rebuild and restart
+            try:
+                subprocess.run(['docker-compose', 'up', '-d', '--build', service_name],
+                              cwd='/app', check=True, capture_output=True, text=True)
+                deployment_status['logs'].append(f"RECOVERY: Successfully rebuilt and restarted {service_name}")
+                return True
+            except subprocess.CalledProcessError as e2:
+                deployment_status['logs'].append(f"RECOVERY: Failed to rebuild {service_name}: {e2}")
+                return False
+        except Exception as e:
+            deployment_status['logs'].append(f"RECOVERY: Unexpected error recovering {service_name}: {e}")
+            return False
+
+    def check_timeout(self):
+        """Check if deployment has exceeded timeout"""
+        global deployment_status
+
+        if deployment_status['start_time'] is None:
+            deployment_status['start_time'] = time.time()
+            return False
+
+        elapsed_minutes = (time.time() - deployment_status['start_time']) / 60
+
+        if elapsed_minutes > deployment_status['timeout_minutes']:
+            deployment_status['phase'] = 'timeout'
+            deployment_status['current_task'] = f'Deployment timed out after {deployment_status["timeout_minutes"]} minutes'
+            deployment_status['errors'].append(f'Deployment exceeded {deployment_status["timeout_minutes"]} minute timeout')
+            return True
+
+        return False
         
     def monitor_deployment(self):
         """Monitor Docker Compose deployment progress"""
@@ -58,28 +118,56 @@ class DeploymentMonitor:
         try:
             # Monitor container status
             while self.is_running:
+                # Check for timeout first
+                if self.check_timeout():
+                    break
+
                 containers = self.client.containers.list(all=True)
-                
+
                 completed_services = 0
+                failed_services = []
+
                 for container in containers:
                     # Extract service name from container name (format: ca-manager-f-SERVICE-1)
                     name_parts = container.name.split('-')
                     if len(name_parts) >= 3 and 'ca-manager' in container.name:
                         service_name = name_parts[3] if len(name_parts) > 3 else name_parts[2]
-                        
+
                         if service_name in deployment_status['services']:
                             status = container.status
+                            previous_status = deployment_status['services'][service_name].get('status', '')
                             deployment_status['services'][service_name]['status'] = status
-                            
+
+                            # Log status changes
+                            if previous_status and previous_status != status:
+                                deployment_status['logs'].append(f"{service_name}: {previous_status} -> {status}")
+
                             if status == 'running':
                                 completed_services += 1
                                 # Check health if available
                                 try:
                                     health = container.attrs.get('State', {}).get('Health', {})
                                     if health:
-                                        deployment_status['services'][service_name]['health'] = health.get('Status', 'unknown')
-                                except:
-                                    pass
+                                        health_status = health.get('Status', 'unknown')
+                                        deployment_status['services'][service_name]['health'] = health_status
+
+                                        # If health check is failing, consider it a failure
+                                        if health_status == 'unhealthy':
+                                            failed_services.append((service_name, container.name))
+                                            deployment_status['logs'].append(f"{service_name}: Health check failing")
+                                except Exception as e:
+                                    deployment_status['logs'].append(f"Error checking health for {service_name}: {e}")
+
+                            elif status in ['exited', 'dead', 'restarting']:
+                                failed_services.append((service_name, container.name))
+                                deployment_status['logs'].append(f"{service_name}: Container in failed state: {status}")
+
+                # Attempt recovery for failed services
+                for service_name, container_name in failed_services:
+                    if service_name not in deployment_status['recovery_attempts'] or \
+                       deployment_status['recovery_attempts'][service_name] < self.max_recovery_attempts:
+                        deployment_status['logs'].append(f"Initiating recovery for failed service: {service_name}")
+                        self.attempt_service_recovery(service_name, container_name)
                 
                 # Calculate progress
                 if len(services) > 0:
@@ -97,7 +185,7 @@ class DeploymentMonitor:
                             deployment_status['current_task'] = 'Deployment successful!'
                             break
                 
-                time.sleep(2)
+                time.sleep(1)  # 1-second polling as requested
                 
         except Exception as e:
             deployment_status['errors'].append(str(e))
