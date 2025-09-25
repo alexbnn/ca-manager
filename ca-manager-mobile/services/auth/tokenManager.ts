@@ -62,12 +62,17 @@ export class TokenManager {
     const refreshToken = await storageHelper.getItem(`${prefix}_${TokenManager.REFRESH_TOKEN_KEY}`)
 
     if (!refreshToken) {
+      console.warn('No refresh token available for:', serverUrl)
       return null
     }
 
     try {
-      // TODO: Implement token refresh with server
-      // For now, return null to force re-authentication
+      console.log('Attempting token refresh for:', serverUrl)
+
+      // For now, we don't have a refresh endpoint implemented on the server
+      // So we'll return null to force re-authentication
+      console.warn('Token refresh not implemented on server - clearing tokens')
+      await this.clearTokens(serverUrl)
       return null
     } catch (error) {
       console.warn('Token refresh failed:', error)

@@ -5354,6 +5354,60 @@ def ensure_idp_certificates_table():
             conn.close()
         return False
 
+def ensure_mobile_devices_table():
+    """Ensure the mobile_devices table exists"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+        cursor = conn.cursor()
+
+        # Create the mobile_devices table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS mobile_devices (
+                id SERIAL PRIMARY KEY,
+                idp_user_id VARCHAR(255) NOT NULL,
+                idp_email VARCHAR(255) NOT NULL,
+                idp_provider VARCHAR(50) NOT NULL,
+                device_os VARCHAR(50) NOT NULL,
+                device_model VARCHAR(255),
+                os_version VARCHAR(100),
+                hostname VARCHAR(255),
+                mac_address VARCHAR(17),
+                certificate_id INTEGER,
+                certificate_serial VARCHAR(100),
+                certificate_cn VARCHAR(255),
+                wifi_ssid VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'active',
+                registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP,
+                user_agent TEXT,
+                registration_ip VARCHAR(50),
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (certificate_id) REFERENCES idp_certificates(id) ON DELETE SET NULL
+            )
+        """)
+
+        # Create indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mobile_devices_user ON mobile_devices (idp_user_id, idp_provider)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mobile_devices_email ON mobile_devices (idp_email)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mobile_devices_cert_serial ON mobile_devices (certificate_serial)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mobile_devices_status ON mobile_devices (status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mobile_devices_registered ON mobile_devices (registered_at)")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info("Mobile devices table ensured successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Error ensuring mobile_devices table: {str(e)}")
+        if 'conn' in locals() and conn:
+            conn.close()
+        return False
+
 @app.route('/api/idp/certificate-status')
 def get_idp_certificate_status():
     """Get current certificate status for IDP user"""
@@ -10975,6 +11029,349 @@ def mobile_qr_config():
             'status': 'error',
             'message': 'Failed to generate QR configuration'
         }), 500
+
+def handle_cors_preflight():
+    """Handle CORS preflight requests for mobile API endpoints"""
+    response = jsonify({})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', '*')
+    response.headers.add('Access-Control-Allow-Methods', '*')
+    return response
+
+@app.route('/api/mobile/register-device', methods=['POST', 'OPTIONS'])
+def mobile_register_device():
+    """Register a mobile device for network access"""
+    if request.method == 'OPTIONS':
+        return handle_cors_preflight()
+
+    # Verify mobile authentication
+    user_info = verify_mobile_token()
+    if not user_info:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Invalid request data'}), 400
+
+        # Extract device information
+        username = data.get('username')
+        device_os = data.get('deviceOS')
+        hostname = data.get('hostname')
+        mac_address = data.get('macAddress')
+        device_model = data.get('deviceModel', 'Unknown')
+        os_version = data.get('osVersion', 'Unknown')
+
+        if not all([username, device_os, hostname]):
+            return jsonify({'status': 'error', 'message': 'Missing required device information'}), 400
+
+        logger.info(f"Registering device for user {username}: {device_os} {hostname}")
+
+        # Ensure database tables exist
+        ensure_idp_certificates_table()
+        ensure_mobile_devices_table()
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        try:
+            # Check if device is already registered
+            cursor.execute("""
+                SELECT id, certificate_cn FROM mobile_devices
+                WHERE idp_email = %s AND hostname = %s AND device_os = %s AND status = 'active'
+            """, (username, hostname, device_os))
+
+            existing_device = cursor.fetchone()
+
+            if existing_device:
+                # Device already registered, return existing configuration
+                device_id = existing_device['id']
+                certificate_cn = existing_device['certificate_cn']
+                logger.info(f"Device already registered with ID: {device_id}")
+            else:
+                # Generate unique certificate CN
+                timestamp = int(time.time())
+                certificate_cn = f"{username.split('@')[0]}-{device_os}-{timestamp}"
+
+                # Register new device
+                cursor.execute("""
+                    INSERT INTO mobile_devices
+                    (idp_email, device_os, hostname, mac_address, device_model, os_version, certificate_cn, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'active', NOW())
+                    RETURNING id
+                """, (username, device_os, hostname, mac_address, device_model, os_version, certificate_cn))
+
+                device_result = cursor.fetchone()
+                device_id = device_result['id']
+                logger.info(f"New device registered with ID: {device_id}")
+
+            # Create client certificate using existing IDP certificate generation logic
+            # This reuses the existing certificate creation infrastructure
+            try:
+                # Use the existing IDP certificate creation process
+                # Create certificate using existing IDP certificate generation
+                session['idp_user'] = {
+                    'email': username,
+                    'provider': user_info.get('provider', 'microsoft'),
+                    'user_id': user_info.get('user_id', username)
+                }
+                cert_result = generate_idp_certificate()
+
+                if not cert_result or not cert_result.get('success'):
+                    raise Exception(f"Certificate creation failed: {cert_result.get('message', 'Unknown error')}")
+
+                certificate_info = cert_result['certificate']
+
+                # Update device record with certificate info
+                cursor.execute("""
+                    UPDATE mobile_devices
+                    SET certificate_serial = %s, certificate_valid_from = %s, certificate_valid_to = %s
+                    WHERE id = %s
+                """, (
+                    certificate_info.get('serial_number'),
+                    certificate_info.get('valid_from'),
+                    certificate_info.get('valid_to'),
+                    device_id
+                ))
+
+            except Exception as cert_error:
+                logger.error(f"Certificate creation failed for device {device_id}: {cert_error}")
+                # Mark device as failed
+                cursor.execute("""
+                    UPDATE mobile_devices SET status = 'failed', error_message = %s WHERE id = %s
+                """, (str(cert_error), device_id))
+                conn.commit()
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Certificate creation failed: {cert_error}'
+                }), 500
+
+            # Get WiFi configuration
+            cursor.execute("""
+                SELECT config_key, config_value
+                FROM system_config
+                WHERE config_key IN ('wifi_ssid', 'wifi_security_type', 'organization_name')
+            """)
+
+            config_rows = cursor.fetchall()
+            wifi_config = {row['config_key']: row['config_value'] for row in config_rows}
+            wifi_ssid = wifi_config.get('wifi_ssid', 'Corporate-WiFi')
+
+            # Generate download URLs
+            server_url = request.host_url.rstrip('/')
+            p12_download_url = f"{server_url}/api/mobile/download/p12/{device_id}"
+
+            # Generate mobile config URL for iOS
+            mobileconfig_download_url = None
+            if device_os.lower() == 'ios':
+                mobileconfig_download_url = f"{server_url}/api/mobile/download/mobileconfig/{device_id}"
+
+            # Commit transaction
+            conn.commit()
+
+            # Return success response
+            response_data = {
+                'success': True,
+                'wifiSSID': wifi_ssid,
+                'p12DownloadUrl': p12_download_url,
+                'certificateInfo': {
+                    'commonName': certificate_cn,
+                    'validFrom': certificate_info.get('valid_from', ''),
+                    'validTo': certificate_info.get('valid_to', ''),
+                }
+            }
+
+            if mobileconfig_download_url:
+                response_data['mobileconfigDownloadUrl'] = mobileconfig_download_url
+
+            logger.info(f"Device registration completed successfully for {username}")
+            response = jsonify(response_data)
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', '*')
+            response.headers.add('Access-Control-Allow-Methods', '*')
+            return response
+
+        except Exception as e:
+            logger.error(f"Database error during device registration: {str(e)}")
+            conn.rollback()
+            response = jsonify({'status': 'error', 'message': 'Device registration failed'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', '*')
+            response.headers.add('Access-Control-Allow-Methods', '*')
+            return response, 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error in mobile device registration: {str(e)}")
+        response = jsonify({
+            'status': 'error',
+            'message': 'Failed to register device'
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', '*')
+        return response, 500
+
+@app.route('/api/mobile/download/p12/<int:device_id>', methods=['GET'])
+def mobile_download_p12(device_id):
+    """Download P12 certificate for registered mobile device"""
+    # Verify mobile authentication
+    user_info = verify_mobile_token()
+    if not user_info:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        # Ensure database tables exist
+        ensure_mobile_devices_table()
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Get device info and verify ownership
+        cursor.execute("""
+            SELECT certificate_cn, idp_email FROM mobile_devices
+            WHERE id = %s AND idp_email = %s AND status = 'active'
+        """, (device_id, user_info.get('email')))
+
+        device = cursor.fetchone()
+        if not device:
+            return jsonify({'status': 'error', 'message': 'Device not found'}), 404
+
+        # Get certificate data from idp_certificates table
+        cursor.execute("""
+            SELECT certificate_pem, private_key_encrypted
+            FROM idp_certificates
+            WHERE certificate_cn = %s AND idp_email = %s AND status = 'active'
+            ORDER BY created_at DESC LIMIT 1
+        """, (device['certificate_cn'], device['username']))
+
+        cert_data = cursor.fetchone()
+        if not cert_data:
+            return jsonify({'status': 'error', 'message': 'Certificate not found'}), 404
+
+        # Generate P12 data using existing function
+        try:
+            # Use existing P12 generation logic
+            wifi_config = {'organization_name': 'CA Manager'}  # Basic config for P12 generation
+            ca_cert_pem = get_ca_certificate()
+
+            # This uses our fixed P12 generation function
+            p12_content = generate_eap_tls_mobileconfig(
+                wifi_config, ca_cert_pem,
+                cert_data['certificate_pem'], cert_data['private_key_encrypted']
+            )
+
+            # Extract just the P12 data from the mobile config
+            # The P12 data is base64 encoded in the mobileconfig XML
+            import re
+            p12_match = re.search(r'<data>\s*(.*?)\s*</data>', p12_content, re.DOTALL)
+            if p12_match:
+                p12_b64 = p12_match.group(1).strip().replace('\n', '').replace(' ', '')
+                p12_binary = base64.b64decode(p12_b64)
+
+                filename = f"{device['certificate_cn']}.p12"
+
+                return Response(
+                    p12_binary,
+                    mimetype='application/x-pkcs12',
+                    headers={
+                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Type': 'application/x-pkcs12'
+                    }
+                )
+            else:
+                raise Exception("Could not extract P12 data from mobile config")
+
+        except Exception as p12_error:
+            logger.error(f"P12 generation failed: {p12_error}")
+            return jsonify({'status': 'error', 'message': 'Failed to generate P12 certificate'}), 500
+
+    except Exception as e:
+        logger.error(f"Error downloading P12: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Download failed'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/mobile/download/mobileconfig/<int:device_id>', methods=['GET'])
+def mobile_download_mobileconfig(device_id):
+    """Download mobile configuration profile for registered iOS device"""
+    # Verify mobile authentication
+    user_info = verify_mobile_token()
+    if not user_info:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        # Ensure database tables exist
+        ensure_mobile_devices_table()
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Get device info and verify ownership
+        cursor.execute("""
+            SELECT certificate_cn, idp_email, device_os FROM mobile_devices
+            WHERE id = %s AND idp_email = %s AND status = 'active'
+        """, (device_id, user_info.get('email')))
+
+        device = cursor.fetchone()
+        if not device:
+            return jsonify({'status': 'error', 'message': 'Device not found'}), 404
+
+        if device['device_os'].lower() != 'ios':
+            return jsonify({'status': 'error', 'message': 'Mobile config only available for iOS devices'}), 400
+
+        # Get certificate data
+        cursor.execute("""
+            SELECT certificate_pem, private_key_encrypted
+            FROM idp_certificates
+            WHERE certificate_cn = %s AND idp_email = %s AND status = 'active'
+            ORDER BY created_at DESC LIMIT 1
+        """, (device['certificate_cn'], device['username']))
+
+        cert_data = cursor.fetchone()
+        if not cert_data:
+            return jsonify({'status': 'error', 'message': 'Certificate not found'}), 404
+
+        # Get WiFi configuration
+        cursor.execute("""
+            SELECT config_key, config_value
+            FROM system_config
+            WHERE config_key LIKE 'wifi_%' OR config_key IN ('organization_name', 'profile_description')
+        """)
+
+        config_rows = cursor.fetchall()
+        wifi_config = {row['config_key']: row['config_value'] for row in config_rows}
+
+        # Generate mobile configuration profile
+        ca_cert_pem = get_ca_certificate()
+
+        profile_content = generate_eap_tls_mobileconfig(
+            wifi_config, ca_cert_pem,
+            cert_data['certificate_pem'], cert_data['private_key_encrypted']
+        )
+
+        filename = f"wifi-{device['certificate_cn']}.mobileconfig"
+
+        return Response(
+            profile_content,
+            mimetype='application/x-apple-aspen-config',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/x-apple-aspen-config'
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error downloading mobile config: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Download failed'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 if __name__ == '__main__':
     # Ensure logs directory exists

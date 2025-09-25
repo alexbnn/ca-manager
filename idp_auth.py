@@ -293,3 +293,79 @@ class IDPAuthManager:
             return f(*args, **kwargs)
         
         return decorated_function
+
+def verify_oauth_token(oauth_token: str) -> Optional[Dict[str, Any]]:
+    """
+    Verify OAuth token from mobile client and return user information
+
+    Args:
+        oauth_token: OAuth access token from Google or Microsoft
+
+    Returns:
+        User information dict if valid, None if invalid
+    """
+    logger.info(f"Verifying OAuth token for mobile client")
+
+    # Try Google token verification first
+    try:
+        # Verify Google OAuth token
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token as google_id_token
+
+        # Create request object for verification
+        google_request = google_requests.Request()
+
+        # Get user info from Google API
+        import requests
+        google_userinfo_url = 'https://www.googleapis.com/oauth2/v2/userinfo'
+        headers = {'Authorization': f'Bearer {oauth_token}'}
+
+        response = requests.get(google_userinfo_url, headers=headers)
+        if response.status_code == 200:
+            user_info = response.json()
+            logger.info(f"Google OAuth token verified for user: {user_info.get('email')}")
+            return {
+                'provider': 'google',
+                'id': user_info.get('id'),
+                'email': user_info.get('email'),
+                'name': user_info.get('name'),
+                'given_name': user_info.get('given_name'),
+                'family_name': user_info.get('family_name'),
+                'picture': user_info.get('picture'),
+                'email_verified': user_info.get('verified_email', False),
+                'locale': user_info.get('locale'),
+                'hosted_domain': user_info.get('hd'),
+                'raw_attributes': user_info
+            }
+    except Exception as e:
+        logger.debug(f"Google token verification failed: {str(e)}")
+
+    # Try Microsoft token verification
+    try:
+        import requests
+        microsoft_userinfo_url = 'https://graph.microsoft.com/v1.0/me'
+        headers = {'Authorization': f'Bearer {oauth_token}'}
+
+        response = requests.get(microsoft_userinfo_url, headers=headers)
+        if response.status_code == 200:
+            user_info = response.json()
+            logger.info(f"Microsoft OAuth token verified for user: {user_info.get('userPrincipalName')}")
+            return {
+                'provider': 'microsoft',
+                'id': user_info.get('id'),
+                'email': user_info.get('userPrincipalName') or user_info.get('mail'),
+                'name': user_info.get('displayName'),
+                'given_name': user_info.get('givenName'),
+                'family_name': user_info.get('surname'),
+                'job_title': user_info.get('jobTitle'),
+                'department': user_info.get('department'),
+                'office_location': user_info.get('officeLocation'),
+                'mobile_phone': user_info.get('mobilePhone'),
+                'business_phones': user_info.get('businessPhones', []),
+                'raw_attributes': user_info
+            }
+    except Exception as e:
+        logger.debug(f"Microsoft token verification failed: {str(e)}")
+
+    logger.warning(f"OAuth token verification failed for all providers")
+    return None

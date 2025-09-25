@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ca-manager-mobile",
+    "name": "CA Manager",
     "slug": "ca-manager-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -48,7 +48,8 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-dev-client"
+      "expo-dev-client",
+      "expo-barcode-scanner"
     ],
     "experiments": {
       "typedRoutes": true

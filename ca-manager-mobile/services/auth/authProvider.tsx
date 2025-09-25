@@ -6,6 +6,7 @@ import type { ServerConfig } from '../../types/server'
 interface AuthContextType {
   user: AuthUser | null
   serverConfig: ServerConfig | null
+  accessToken: string | null
   isLoading: boolean
   isAuthenticated: boolean
   login: (serverConfig: ServerConfig) => Promise<void>
@@ -22,6 +23,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
@@ -49,20 +51,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const userInfo = await loadUserInfo(activeServerConfig.url)
           console.log('Auth check - loaded user:', userInfo?.email)
           setUser(userInfo)
+
+          // Get the valid access token
+          const validAccessToken = await authService.getValidAccessToken(activeServerConfig.url)
+          console.log('Auth check - access token available:', !!validAccessToken)
+          setAccessToken(validAccessToken)
         } else {
           setUser(null)
+          setAccessToken(null)
         }
       } else {
         console.log('Auth check - no server config found')
         setIsAuthenticated(false)
         setUser(null)
         setServerConfig(null)
+        setAccessToken(null)
       }
     } catch (error) {
       console.warn('Auth status check failed:', error)
       setIsAuthenticated(false)
       setUser(null)
       setServerConfig(null)
+      setAccessToken(null)
     } finally {
       setIsLoading(false)
     }
@@ -80,6 +90,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setServerConfig(config)
       setIsAuthenticated(true)
 
+      // Get the access token
+      const validAccessToken = await authService.getValidAccessToken(config.url)
+      setAccessToken(validAccessToken)
+
       // Save active server and user info to storage
       await saveActiveServerConfig(config)
       await saveUserInfo(config.url, authenticatedUser)
@@ -94,32 +108,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const logout = async () => {
+    console.log('AuthProvider logout function called')
     try {
       setIsLoading(true)
+      console.log('Starting logout process, serverConfig:', !!serverConfig)
 
       if (serverConfig) {
+        console.log('Calling authService.logout...')
         await authService.logout(serverConfig.url)
+        console.log('Clearing active server config...')
         await clearActiveServerConfig()
+        console.log('Clearing user info...')
         await clearUserInfo(serverConfig.url)
       }
 
+      console.log('Clearing auth state...')
       setUser(null)
       setServerConfig(null)
+      setAccessToken(null)
       setIsAuthenticated(false)
+      console.log('Logout completed successfully')
     } catch (error) {
       console.warn('Logout failed:', error)
       // Still clear local state even if server logout fails
       setUser(null)
       setServerConfig(null)
+      setAccessToken(null)
       setIsAuthenticated(false)
     } finally {
       setIsLoading(false)
+      console.log('Logout process finished')
     }
   }
 
   const value: AuthContextType = {
     user,
     serverConfig,
+    accessToken,
     isLoading,
     isAuthenticated,
     login,
