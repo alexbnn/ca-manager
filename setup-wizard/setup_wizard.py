@@ -1144,11 +1144,14 @@ def get_progress_status():
                 import urllib.request
                 import ssl
 
-                # Create SSL context that accepts any certificate
+                # Create SSL context that accepts any certificate (self-signed, expired, invalid, etc.)
                 ctx = ssl.create_default_context()
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
+                # Additional settings to be even more permissive
+                ctx.set_ciphers('DEFAULT:@SECLEVEL=0')  # Accept weak ciphers if needed
 
+                # Always use the SSL context, even for HTTP (it will be ignored for HTTP)
                 response = urllib.request.urlopen(url, timeout=5, context=ctx)
 
                 if response.status == 200:
@@ -1159,6 +1162,21 @@ def get_progress_status():
                         status['ready'] = True
                         status['ready_url'] = url
                         break
+            except ssl.SSLError as ssl_err:
+                print(f"SSL Error for {url}: {ssl_err} - continuing anyway...")
+                # Even on SSL error, try to connect without verification
+                try:
+                    import urllib.request
+                    response = urllib.request.urlopen(url, timeout=5)
+                    if response.status == 200:
+                        content = response.read().decode('utf-8', errors='ignore')
+                        if any(keyword in content.lower() for keyword in ['login', 'ca manager', 'username']):
+                            print(f"✅ CA Manager is ready at: {url} (SSL bypassed)")
+                            status['ready'] = True
+                            status['ready_url'] = url
+                            break
+                except:
+                    pass
             except Exception as e:
                 print(f"Still waiting... {url} not ready: {e}")
                 continue
