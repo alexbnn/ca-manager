@@ -92,15 +92,19 @@ class DeploymentMonitor:
         """Monitor Docker Compose deployment progress"""
         global deployment_status
         
-        # Core services required for basic functionality
-        services = [
-            'postgres',
-            'redis',
-            'web-interface',
-            'easyrsa-container'
-        ]
-        
-        # Initialize service status
+        # Dynamically detect running services instead of hardcoding
+        running_services = set()
+        containers = self.client.containers.list(all=True)
+
+        for container in containers:
+            if 'ca-manager-f-' in container.name and container.name.endswith('-1'):
+                service_name = container.name.replace('ca-manager-f-', '').replace('-1', '')
+                running_services.add(service_name)
+
+        services = list(running_services)
+        deployment_status['logs'].append(f"Detected {len(services)} services: {', '.join(services)}")
+
+        # Initialize service status for detected services
         for service in services:
             deployment_status['services'][service] = {
                 'status': 'pending',
