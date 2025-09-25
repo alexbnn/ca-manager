@@ -91,29 +91,10 @@ class DeploymentMonitor:
     def monitor_deployment(self):
         """Monitor Docker Compose deployment progress"""
         global deployment_status
-        
-        # Dynamically detect running services instead of hardcoding
-        running_services = set()
-        containers = self.client.containers.list(all=True)
 
-        for container in containers:
-            if 'ca-manager-f-' in container.name and container.name.endswith('-1'):
-                service_name = container.name.replace('ca-manager-f-', '').replace('-1', '')
-                running_services.add(service_name)
-
-        services = list(running_services)
-        deployment_status['logs'].append(f"Detected {len(services)} services: {', '.join(services)}")
-
-        # Initialize service status for detected services
-        for service in services:
-            deployment_status['services'][service] = {
-                'status': 'pending',
-                'health': 'unknown',
-                'logs': []
-            }
-        
         deployment_status['phase'] = 'building'
         deployment_status['progress'] = 10
+        deployment_status['logs'].append("Starting deployment monitoring...")
         
         try:
             # Monitor container status
@@ -123,6 +104,23 @@ class DeploymentMonitor:
                     break
 
                 containers = self.client.containers.list(all=True)
+
+                # Dynamically discover services on each iteration
+                current_services = set()
+                for container in containers:
+                    if 'ca-manager-f-' in container.name and container.name.endswith('-1'):
+                        service_name = container.name.replace('ca-manager-f-', '').replace('-1', '')
+                        current_services.add(service_name)
+
+                # Initialize any new services we discover
+                for service_name in current_services:
+                    if service_name not in deployment_status['services']:
+                        deployment_status['services'][service_name] = {
+                            'status': 'pending',
+                            'health': 'unknown',
+                            'logs': []
+                        }
+                        deployment_status['logs'].append(f"Discovered new service: {service_name}")
 
                 completed_services = 0
                 failed_services = []
@@ -155,8 +153,12 @@ class DeploymentMonitor:
                                         if health_status == 'unhealthy':
                                             failed_services.append((service_name, container.name))
                                             deployment_status['logs'].append(f"{service_name}: Health check failing")
+                                    else:
+                                        # No health check means it's considered healthy if running
+                                        deployment_status['services'][service_name]['health'] = 'healthy'
                                 except Exception as e:
                                     deployment_status['logs'].append(f"Error checking health for {service_name}: {e}")
+                                    deployment_status['services'][service_name]['health'] = 'healthy'  # Assume healthy if no health check
 
                             elif status in ['exited', 'dead', 'restarting']:
                                 failed_services.append((service_name, container.name))
@@ -169,16 +171,21 @@ class DeploymentMonitor:
                         deployment_status['logs'].append(f"Initiating recovery for failed service: {service_name}")
                         self.attempt_service_recovery(service_name, container_name)
                 
-                # Calculate progress
-                if len(services) > 0:
-                    progress = 10 + (completed_services / len(services)) * 80
+                # Calculate progress based on discovered services
+                total_services = len(current_services)
+                if total_services > 0:
+                    progress = 10 + (completed_services / total_services) * 80
                     deployment_status['progress'] = int(progress)
-                    
-                    if completed_services == len(services):
+                    deployment_status['current_task'] = f'Monitoring {completed_services}/{total_services} services running'
+
+                    if completed_services == total_services:
                         deployment_status['phase'] = 'completed'
                         deployment_status['progress'] = 100
                         deployment_status['current_task'] = 'Deployment successful!'
+                        deployment_status['logs'].append(f'All {total_services} services are running successfully')
                         break
+                else:
+                    deployment_status['current_task'] = 'Waiting for services to start...'
                 
                 time.sleep(1)  # 1-second polling as requested
                 
