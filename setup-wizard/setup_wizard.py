@@ -1027,13 +1027,13 @@ def progress_monitor():
             <div class="ready-message" id="ready-message">
                 <h3>🎉 CA Manager is Ready!</h3>
                 <p>Redirecting you to the application...</p>
-                <div class="redirect-counter" id="redirect-counter">3</div>
+                <div class="redirect-counter" id="redirect-counter">5</div>
             </div>
         </div>
 
         <script>
             let startTime = Date.now();
-            let redirectCounter = 3;
+            let redirectCounter = 5;
 
             function updateTimeElapsed() {
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
