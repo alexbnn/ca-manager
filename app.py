@@ -187,25 +187,26 @@ def get_db_connection():
 @retry_database_operation(operation_name="Database initialization")
 def initialize_database():
     """Initialize database with schema and default data if needed"""
-    logging.info("Checking database initialization...")
-    conn = get_db_connection()  # This will retry automatically
+    try:
+        logging.info("Checking database initialization...")
+        conn = get_db_connection()  # This will retry automatically
 
-    cursor = conn.cursor()
+        cursor = conn.cursor()
 
-    # Check if users table exists
-    cursor.execute("""
+        # Check if users table exists
+        cursor.execute("""
             SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
+                SELECT FROM information_schema.tables
+                WHERE table_schema = 'public'
                 AND table_name = 'users'
             );
         """)
-        
+
         table_exists = cursor.fetchone()['exists']
-        
+
         if not table_exists:
             logging.info("Database not initialized. Running initialization scripts...")
-            
+
             # Execute database schema files in order
             schema_files = [
                 '01-schema.sql',
@@ -220,21 +221,21 @@ def initialize_database():
                 '10-smtp-config.sql',
                 '11-vlan-policies.sql',
                 '12-enhanced-vlan-policies.sql'
-            ]
-            
-            for schema_file in schema_files:
-                try:
-                    with open(f'/app/database/{schema_file}', 'r') as f:
-                        schema_sql = f.read()
-                    cursor.execute(schema_sql)
-                    logging.info(f"Database schema file {schema_file} executed successfully")
-                except FileNotFoundError:
-                    logging.warning(f"Schema file {schema_file} not found, skipping")
-                    continue
-                except Exception as e:
-                    logging.error(f"Schema file {schema_file} execution failed: {e}")
-                    conn.rollback()
-                    return False
+        ]
+
+        for schema_file in schema_files:
+            try:
+                with open(f'/app/database/{schema_file}', 'r') as f:
+                    schema_sql = f.read()
+                cursor.execute(schema_sql)
+                logging.info(f"Database schema file {schema_file} executed successfully")
+            except FileNotFoundError:
+                logging.warning(f"Schema file {schema_file} not found, skipping")
+                continue
+            except Exception as e:
+                logging.error(f"Schema file {schema_file} execution failed: {e}")
+                conn.rollback()
+                return False
             
             conn.commit()
             logging.info("Database initialization completed successfully")
