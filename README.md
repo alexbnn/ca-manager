@@ -1,4 +1,4 @@
-# CA Manager v4.0.0 🛡️
+# CA Manager v7.0.1 🛡️
 
 **Modern PKI Certificate Authority Management System with SCEP Support**
 
