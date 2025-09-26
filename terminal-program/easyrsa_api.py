@@ -269,7 +269,11 @@ set_var EASYRSA_NO_PASS     1
 
 def run_easyrsa_command(args, input_text=None, custom_env=None):
     """Helper function to run EasyRSA commands"""
-    cmd = [EASYRSA_CMD] + args
+    # Ensure we have a vars file path
+    pki_vars_path = os.path.join(PKI_PATH, "vars")
+
+    # Use explicit --vars flag to bypass EasyRSA's conflict detection
+    cmd = [EASYRSA_CMD, '--batch', f'--vars={pki_vars_path}'] + args
 
     print(f"Running command: {' '.join(cmd)}")
     print(f"Working directory: {EASYRSA_PATH}")
@@ -278,7 +282,6 @@ def run_easyrsa_command(args, input_text=None, custom_env=None):
         print(f"Input text: {repr(input_text)}")
 
     # Ensure only one vars file exists - remove any conflicting ones
-    pki_vars_path = os.path.join(PKI_PATH, "vars")
     easyrsa_vars_path = os.path.join(EASYRSA_PATH, "vars")
     config_vars_path = "/app/config/vars"
 
@@ -847,9 +850,11 @@ extendedKeyUsage = serverAuth, clientAuth
             'EASYRSA_VARS_FILE': pki_vars_path
         })
 
-        # Generate request and key using EasyRSA (this will be properly tracked)
+        # Generate request and key using EasyRSA with explicit vars flag
         gen_req_result = subprocess.run([
             '/usr/share/easy-rsa/easyrsa',
+            '--batch',
+            f'--vars={pki_vars_path}',
             'gen-req', name, 'nopass'
         ], env=env, capture_output=True, text=True, cwd=PKI_PATH)
 
@@ -882,9 +887,11 @@ subjectAltName = DNS:{name}
             temp_ext_path = temp_ext.name
 
         try:
-            # Sign with EasyRSA using our custom extensions
+            # Sign with EasyRSA using our custom extensions with explicit vars flag
             sign_result = subprocess.run([
                 '/usr/share/easy-rsa/easyrsa',
+                '--batch',
+                f'--vars={pki_vars_path}',
                 'sign-req', 'server', name
             ], input='yes\n', env=env, capture_output=True, text=True, cwd=PKI_PATH)
 
